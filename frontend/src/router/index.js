@@ -1,0 +1,115 @@
+import { createRouter, createWebHistory } from 'vue-router'
+
+import { loadSessionUser, user } from '@/composables/session'
+import { getToken } from '@/services/auth'
+import AppLayout from '@/layouts/AppLayout.vue'
+import AdminAssignView from '@/views/AdminAssignView.vue'
+import AdminDashboardView from '@/views/AdminDashboardView.vue'
+import CreateTrainingView from '@/views/CreateTrainingView.vue'
+import EditTrainingView from '@/views/EditTrainingView.vue'
+import EmployeeAssignmentsView from '@/views/EmployeeAssignmentsView.vue'
+import HomeRedirectView from '@/views/HomeRedirectView.vue'
+import LoginView from '@/views/LoginView.vue'
+import TrainingSummaryView from '@/views/TrainingSummaryView.vue'
+
+const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: '/login',
+      name: 'login',
+      component: LoginView,
+      meta: { public: true, title: 'Sign in' },
+    },
+    {
+      path: '/',
+      component: AppLayout,
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          name: 'home',
+          component: HomeRedirectView,
+          meta: { title: 'Home' },
+        },
+        {
+          path: 'admin',
+          name: 'admin-dashboard',
+          component: AdminDashboardView,
+          meta: { title: 'Admin dashboard', adminOnly: true },
+        },
+        {
+          path: 'admin/trainings/new',
+          name: 'create-training',
+          component: CreateTrainingView,
+          meta: { title: 'Create training', adminOnly: true },
+        },
+        {
+          path: 'admin/trainings/:trainingId/edit',
+          name: 'edit-training',
+          component: EditTrainingView,
+          meta: { title: 'Edit training', adminOnly: true },
+        },
+        {
+          path: 'admin/trainings/:trainingId/summary',
+          name: 'training-summary',
+          component: TrainingSummaryView,
+          meta: { title: 'Training summary', adminOnly: true },
+        },
+        {
+          path: 'admin/assign',
+          name: 'admin-assign',
+          component: AdminAssignView,
+          meta: { title: 'Assign training', adminOnly: true },
+        },
+        {
+          path: 'assignments',
+          name: 'employee-assignments',
+          component: EmployeeAssignmentsView,
+          meta: { title: 'My assignments' },
+        },
+      ],
+    },
+    { path: '/:pathMatch(.*)*', name: 'not-found', redirect: { name: 'home' } },
+  ],
+})
+
+router.beforeEach(async (to) => {
+  const token = getToken()
+  const isPublic = to.meta.public === true
+  const needsAuth = to.matched.some((r) => r.meta.requiresAuth)
+
+  if (isPublic && to.name === 'login') {
+    if (token) {
+      await loadSessionUser()
+      if (user.value) {
+        return {
+          name: user.value.role === 'admin' ? 'admin-dashboard' : 'employee-assignments',
+        }
+      }
+    }
+    return true
+  }
+
+  if (needsAuth && !token) {
+    return { name: 'login', query: { redirect: to.fullPath } }
+  }
+
+  if (needsAuth && token) {
+    await loadSessionUser()
+    if (!user.value) {
+      return { name: 'login', query: { redirect: to.fullPath } }
+    }
+    if (to.meta.adminOnly && user.value.role !== 'admin') {
+      return { name: 'employee-assignments' }
+    }
+  }
+
+  return true
+})
+
+router.afterEach((to) => {
+  document.title = to.meta.title ? `${to.meta.title} · TeamOS` : 'TeamOS'
+})
+
+export default router

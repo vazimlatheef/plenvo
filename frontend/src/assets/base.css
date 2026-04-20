@@ -1,0 +1,73 @@
+:root {
+  --color-bg: #0f1210;
+  --color-bg-elevated: #171b18;
+  --color-surface: #1e2420;
+  --color-border: rgba(232, 228, 216, 0.12);
+  --color-text: #e8e4d8;
+  --color-text-muted: rgba(232, 228, 216, 0.58);
+  --color-accent: #c4a35a;
+  --color-accent-soft: rgba(196, 163, 90, 0.18);
+  --font-display: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+  --font-body: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --radius: 12px;
+  --shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 17px;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.5rem;
+}
+
+h1 {
+  font-size: 2.125rem;
+  letter-spacing: 0.01em;
+}
+
+h2 {
+  font-size: 1.45rem;
+}
+
+p {
+  margin: 0 0 1rem;
+  color: var(--color-text-muted);
+  font-weight: 300;
+}
