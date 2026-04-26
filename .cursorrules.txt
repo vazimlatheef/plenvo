@@ -1,4 +1,4 @@
-You are an expert software architect helping build TeamOS.
+You are an expert software architect helping build Plenvo.
 Stack: FastAPI (Python) backend + Vue3 frontend + PostgreSQL.
 Architecture: api/ routes → services/ business logic → models/ database.
 JWT auth. Role-based: admin, manager, employee.

@@ -1,6 +1,6 @@
 import { apiJson } from '@/api/client'
 
-const LAST_KEY = 'teamos_last_training'
+const LAST_KEY = 'Plenvo_last_training'
 
 /** Persist last created training for pickers before any assignments exist. */
 export function rememberLastTraining({ id, title }) {

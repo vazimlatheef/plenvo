@@ -2,7 +2,7 @@
   <header class="header">
     <div class="inner">
       <RouterLink :to="homeLink" class="brand">
-        <span class="mark">TeamOS</span>
+        <span class="mark">Plenvo</span>
         <span class="tagline">
           <span class="tag">Training</span>
           <span class="sub">See who’s done · Less chasing</span>

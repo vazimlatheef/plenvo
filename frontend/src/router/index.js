@@ -11,6 +11,7 @@ import EmployeeAssignmentsView from '@/views/EmployeeAssignmentsView.vue'
 import HomeRedirectView from '@/views/HomeRedirectView.vue'
 import LoginView from '@/views/LoginView.vue'
 import TrainingSummaryView from '@/views/TrainingSummaryView.vue'
+import AiTerminalView from '@/views/AiTerminalView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -63,6 +64,12 @@ const router = createRouter({
           meta: { title: 'Assign training', adminOnly: true },
         },
         {
+          path: 'admin/ai-terminal',
+          name: 'ai-terminal',
+          component: AiTerminalView,
+          meta: { title: 'AI Terminal', adminOnly: true },
+        },
+        {
           path: 'assignments',
           name: 'employee-assignments',
           component: EmployeeAssignmentsView,
@@ -109,7 +116,7 @@ router.beforeEach(async (to) => {
 })
 
 router.afterEach((to) => {
-  document.title = to.meta.title ? `${to.meta.title} · TeamOS` : 'TeamOS'
+  document.title = to.meta.title ? `${to.meta.title} · Plenvo` : 'Plenvo'
 })
 
 export default router

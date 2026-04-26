@@ -7,6 +7,7 @@ from app.api.auth import router as auth_router
 from app.api.users import router as users_router
 from app.api.v1.assignments import router as assignments_router
 from app.api.v1.trainings import router as trainings_router
+from app.api.v1.ai import router as ai_router
 from app.db.session import init_db
 
 
@@ -18,7 +19,7 @@ async def lifespan(_app: FastAPI):
         raise RuntimeError(
             "PostgreSQL connection failed. Fix DATABASE_URL: user, password, host, port, and database "
             "must match your server. URL-encode special characters in the password. "
-            "Example: postgresql+psycopg://postgres:YOUR_PASSWORD@127.0.0.1:5432/teamos"
+            "Example: postgresql+psycopg://postgres:YOUR_PASSWORD@127.0.0.1:5432/Plenvo"
         ) from e
     yield
 
@@ -28,3 +29,4 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(trainings_router)
 app.include_router(assignments_router)
+app.include_router(ai_router)

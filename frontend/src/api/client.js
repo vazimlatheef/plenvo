@@ -1,9 +1,5 @@
 import { ACCESS_TOKEN_KEY } from '@/constants'
 
-/**
- * API origin: set VITE_API_URL for production (e.g. https://api.example.com).
- * Leave unset in dev to use same-origin paths + Vite proxy (see vite.config.js).
- */
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
 function formatErrorDetail(data, res) {
@@ -14,10 +10,6 @@ function formatErrorDetail(data, res) {
   return res.statusText || 'Request failed'
 }
 
-/**
- * @param {string} path - e.g. "/auth/login"
- * @param {RequestInit & { skipAuth?: boolean }} options
- */
 export async function apiFetch(path, options = {}) {
   const { skipAuth = false, headers: initHeaders, ...rest } = options
   const headers = new Headers(initHeaders || {})
@@ -35,9 +27,6 @@ export async function apiFetch(path, options = {}) {
   return fetch(url, { ...rest, headers })
 }
 
-/**
- * JSON helper; throws Error with message when !res.ok
- */
 export async function apiJson(path, options = {}) {
   const res = await apiFetch(path, options)
   const text = await res.text()
