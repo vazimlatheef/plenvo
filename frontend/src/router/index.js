@@ -14,6 +14,8 @@ import TrainingSummaryView from '@/views/TrainingSummaryView.vue'
 import AiTerminalView from '@/views/AiTerminalView.vue'
 import LandingView from '@/views/LandingView.vue'
 import SignupView from '@/views/SignupView.vue'
+import AboutView from '@/views/AboutView.vue'
+import SecurityView from '@/views/SecurityView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -35,6 +37,18 @@ const router = createRouter({
       name: 'signup',
       component: SignupView,
       meta: { public: true, title: 'Start free trial' },
+    },
+    {
+      path: '/about',
+      name: 'about',
+      component: AboutView,
+      meta: { public: true, title: 'About' },
+    },
+    {
+      path: '/security',
+      name: 'security',
+      component: SecurityView,
+      meta: { public: true, title: 'Security' },
     },
     {
       path: '/app',
