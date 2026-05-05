@@ -179,27 +179,10 @@
           <span class="logo">Plenvo</span>
           <p>Built for managers who move fast.</p>
         </div>
-        <div class="footer-links-group">
-          <div class="footer-col">
-            <h5>Product</h5>
-            <RouterLink to="/signup">Start free trial</RouterLink>
-            <RouterLink to="/login">Sign in</RouterLink>
-          </div>
-          <div class="footer-col">
-            <h5>Company</h5>
-            <RouterLink to="/about">About</RouterLink>
-            <RouterLink to="/security">Security</RouterLink>
-          </div>
-          <div class="footer-col">
-            <h5>Legal</h5>
-            <RouterLink to="/privacy">Privacy</RouterLink>
-            <RouterLink to="/terms">Terms</RouterLink>
-          </div>
-          <div class="footer-col">
-            <h5>Support</h5>
-            <RouterLink to="/help">Help</RouterLink>
-            <a href="mailto:hi@plenvo.io">hi@plenvo.io</a>
-          </div>
+        <div class="footer-links">
+          <RouterLink to="/about">About</RouterLink>
+          <RouterLink to="/security">Security</RouterLink>
+          <a href="mailto:hi@plenvo.io">hi@plenvo.io</a>
         </div>
       </div>
       <div class="footer-bottom">
@@ -240,7 +223,6 @@ const securityItems = [
   { icon: '🔐', title: 'End-to-end encryption', desc: 'All data encrypted in transit and at rest.' },
   { icon: '🏢', title: 'Complete data isolation', desc: 'Your company data is never mixed with others. Guaranteed.' },
   { icon: '🇪🇺', title: 'GDPR compliant', desc: 'Built for European data regulations from day one.' },
-  { icon: '📋', title: 'SOC 2 in progress', desc: 'Enterprise compliance certification underway.' },
   { icon: '🔗', title: 'REST API', desc: 'Integrate with your existing company systems.' },
 ]
 
@@ -267,7 +249,7 @@ const plans = [
     name: 'Enterprise',
     price: 'Custom',
     members: 'Unlimited team members',
-    features: ['Everything in Growth', 'SSO (Google + Microsoft)', 'Dedicated support', 'SLA guarantee', 'Custom integrations'],
+    features: ['Everything in Growth', 'Dedicated support', 'SLA guarantee', 'Custom integrations'],
     cta: 'contact',
     note: null,
     featured: false,
@@ -584,19 +566,22 @@ onMounted(() => {
 
 /* FOOTER */
 .footer { border-top: 1px solid var(--color-border); padding: 3rem 1.5rem 2rem; }
-.footer-inner { max-width: 1160px; margin: 0 auto 2rem; display: grid; grid-template-columns: 1.5fr repeat(4, 1fr); gap: 2rem; }
+.footer-inner { 
+  max-width: 1160px; margin: 0 auto 2rem; 
+  display: flex; align-items: center; justify-content: space-between; 
+  gap: 2rem; flex-wrap: wrap; 
+}
 .footer-brand p { font-size: 0.82rem; color: var(--color-text-muted); margin: 0.35rem 0 0; }
-.footer-col { display: flex; flex-direction: column; gap: 0.6rem; }
-.footer-col h5 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--color-text-muted); margin: 0 0 0.25rem; font-weight: 600; }
-.footer-col a { font-size: 0.85rem; color: var(--color-text-muted); text-decoration: none; transition: color 0.2s; }
-.footer-col a:hover { color: var(--color-text); text-decoration: none; }
+.footer-links { display: flex; gap: 1.5rem; }
+.footer-links a { font-size: 0.85rem; color: var(--color-text-muted); text-decoration: none; transition: color 0.2s; }
+.footer-links a:hover { color: var(--color-text); text-decoration: none; }
 .footer-bottom { max-width: 1160px; margin: 0 auto; padding-top: 1.5rem; border-top: 1px solid var(--color-border); font-size: 0.78rem; color: var(--color-text-muted); }
 
 /* RESPONSIVE */
 @media (max-width: 900px) {
   .pricing-grid { grid-template-columns: 1fr; max-width: 440px; }
   .security-grid { grid-template-columns: 1fr; gap: 2.5rem; }
-  .footer-inner { grid-template-columns: 1fr 1fr; }
+  .footer-inner { flex-direction: column; align-items: flex-start; }
 }
 @media (max-width: 640px) {
   .hero { padding: 5rem 1rem 3rem; }
