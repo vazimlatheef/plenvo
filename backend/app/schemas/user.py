@@ -5,10 +5,12 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class UserCreate(BaseModel):
+    """Used by admin to create employees directly (old flow, kept for compatibility)."""
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     full_name: str = Field(min_length=1, max_length=200)
     role: Literal["admin", "employee"]
+    position: str | None = None
 
     @field_validator("email", mode="before")
     @classmethod
@@ -25,6 +27,9 @@ class UserPublic(BaseModel):
     email: str
     full_name: str
     role: str
+    position: str | None = None
+    company_name: str | None = None
+    organisation_id: int | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

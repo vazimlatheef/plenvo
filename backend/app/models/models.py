@@ -10,14 +10,44 @@ class Base(DeclarativeBase):
     pass
 
 
+class Organisation(Base):
+    """
+    Every company that signs up gets one Organisation.
+    All data (users, projects, tasks, trainings) is scoped to an org.
+    Company A can never see Company B's data — this is multi-tenancy.
+    """
+    __tablename__ = "organisations"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    slug: Mapped[str] = mapped_column(String(300), unique=True, index=True, nullable=False)
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=true())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    users: Mapped[list[User]] = relationship(back_populates="organisation")
+    projects: Mapped[list[Project]] = relationship(back_populates="organisation")
+    trainings: Mapped[list[Training]] = relationship(back_populates="organisation")
+    notes: Mapped[list[Note]] = relationship(back_populates="organisation")
+
+
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    organisation_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("organisations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
+    position: Mapped[str | None] = mapped_column(String(100), nullable=True)
     company_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     job_title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     linkedin_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
@@ -27,6 +57,7 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    organisation: Mapped[Organisation | None] = relationship(back_populates="users")
     trainings_created: Mapped[list[Training]] = relationship(
         back_populates="created_by", foreign_keys="Training.created_by_id"
     )
@@ -54,10 +85,12 @@ class Project(Base):
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    organisation_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="active")
-    # status: active | completed | archived
     deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
     manager_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -65,6 +98,7 @@ class Project(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    organisation: Mapped[Organisation] = relationship(back_populates="projects")
     manager: Mapped[User] = relationship(back_populates="projects_managed", foreign_keys=[manager_id])
     tasks: Mapped[list[Task]] = relationship(back_populates="project")
     notes: Mapped[list[Note]] = relationship(back_populates="project")
@@ -75,14 +109,14 @@ class Task(Base):
     __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    organisation_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pending")
-    # status: pending | in_progress | completed | cancelled
     priority: Mapped[str] = mapped_column(String(20), nullable=False, server_default="medium")
-    # priority: low | medium | high
     source: Mapped[str] = mapped_column(String(20), nullable=False, server_default="manual")
-    # source: manual | ai  — tracks whether AI terminal created this task
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     project_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
@@ -99,6 +133,7 @@ class Task(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    organisation: Mapped[Organisation] = relationship()
     project: Mapped[Project | None] = relationship(back_populates="tasks")
     assignee: Mapped[User | None] = relationship(back_populates="tasks_assigned", foreign_keys=[assignee_id])
     created_by: Mapped[User] = relationship(back_populates="tasks_created", foreign_keys=[created_by_id])
@@ -108,8 +143,10 @@ class Note(Base):
     __tablename__ = "notes"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    organisation_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     raw_text: Mapped[str] = mapped_column(Text, nullable=False)
-    # Stores the original pasted content (meeting minutes, updates, etc.)
     title: Mapped[str | None] = mapped_column(String(300), nullable=True)
     project_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
@@ -118,12 +155,12 @@ class Note(Base):
         BigInteger, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # null = not yet processed by AI; set when AI extraction runs
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    organisation: Mapped[Organisation] = relationship(back_populates="notes")
     project: Mapped[Project | None] = relationship(back_populates="notes")
     created_by: Mapped[User] = relationship(back_populates="notes_created", foreign_keys=[created_by_id])
 
@@ -132,6 +169,9 @@ class Training(Base):
     __tablename__ = "trainings"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    organisation_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     content_type: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -147,6 +187,7 @@ class Training(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    organisation: Mapped[Organisation] = relationship(back_populates="trainings")
     project: Mapped[Project | None] = relationship(back_populates="trainings")
     created_by: Mapped[User] = relationship(back_populates="trainings_created", foreign_keys=[created_by_id])
     assignments: Mapped[list[Assignment]] = relationship(back_populates="training")

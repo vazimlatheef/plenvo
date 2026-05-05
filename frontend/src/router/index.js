@@ -12,10 +12,18 @@ import HomeRedirectView from '@/views/HomeRedirectView.vue'
 import LoginView from '@/views/LoginView.vue'
 import TrainingSummaryView from '@/views/TrainingSummaryView.vue'
 import AiTerminalView from '@/views/AiTerminalView.vue'
+import LandingView from '@/views/LandingView.vue'
+import SignupView from '@/views/SignupView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    {
+      path: '/',
+      name: 'landing',
+      component: LandingView,
+      meta: { public: true, title: 'Plenvo — AI-powered team management' },
+    },
     {
       path: '/login',
       name: 'login',
@@ -23,7 +31,13 @@ const router = createRouter({
       meta: { public: true, title: 'Sign in' },
     },
     {
-      path: '/',
+      path: '/signup',
+      name: 'signup',
+      component: SignupView,
+      meta: { public: true, title: 'Start free trial' },
+    },
+    {
+      path: '/app',
       component: AppLayout,
       meta: { requiresAuth: true },
       children: [
@@ -77,7 +91,7 @@ const router = createRouter({
         },
       ],
     },
-    { path: '/:pathMatch(.*)*', name: 'not-found', redirect: { name: 'home' } },
+    { path: '/:pathMatch(.*)*', name: 'not-found', redirect: { name: 'landing' } },
   ],
 })
 
@@ -86,8 +100,8 @@ router.beforeEach(async (to) => {
   const isPublic = to.meta.public === true
   const needsAuth = to.matched.some((r) => r.meta.requiresAuth)
 
-  if (isPublic && to.name === 'login') {
-    if (token) {
+  if (isPublic && (to.name === 'login' || to.name === 'landing' || to.name === 'signup')) {
+    if (token && to.name !== 'landing') {
       await loadSessionUser()
       if (user.value) {
         return {

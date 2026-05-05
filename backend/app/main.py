@@ -9,7 +9,8 @@ from app.api.v1.assignments import router as assignments_router
 from app.api.v1.trainings import router as trainings_router
 from app.api.v1.ai import router as ai_router
 from app.db.session import init_db
-
+from app.api.v1.organisations import router as organisations_router
+app.include_router(organisations_router)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
