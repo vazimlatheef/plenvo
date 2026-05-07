@@ -16,6 +16,8 @@ import LandingView from '@/views/LandingView.vue'
 import SignupView from '@/views/SignupView.vue'
 import AboutView from '@/views/AboutView.vue'
 import SecurityView from '@/views/SecurityView.vue'
+import PrivacyView from '@/views/PrivacyView.vue'
+import TermsView from '@/views/TermsView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -50,6 +52,8 @@ const router = createRouter({
       component: SecurityView,
       meta: { public: true, title: 'Security' },
     },
+    { path: '/privacy', name: 'privacy', component: PrivacyView, meta: { public: true, title: 'Privacy Policy' } },
+    { path: '/terms', name: 'terms', component: TermsView, meta: { public: true, title: 'Terms of Service' } },
     {
       path: '/app',
       component: AppLayout,
