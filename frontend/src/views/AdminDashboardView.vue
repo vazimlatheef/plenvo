@@ -1,401 +1,556 @@
 <template>
-  <div>
-    <PageHeader
-      eyebrow="Overview"
-      title="Dashboard"
-      description="One place to publish training, assign it, and see who’s finished — before you scale to projects and wider team tracking."
-    />
-    <div class="grid">
-      <section class="card">
-        <h2>Next steps</h2>
-        <div class="links">
-          <RouterLink to="/admin/trainings/new">Create a training</RouterLink>
-          <RouterLink to="/admin/assign">Assign people</RouterLink>
-          <RouterLink to="/assignments">See all assignments</RouterLink>
-        </div>
-      </section>
-      <section class="card card-wide">
-        <h2>Your trainings</h2>
-        <p class="hint">Edit content or remove a training you no longer need. Deleting removes all assignments for that training.</p>
-        <p v-if="manageError" class="alert-error">{{ manageError }}</p>
-        <div v-if="!trainingsManage.length" class="muted small">No trainings yet — create one to get started.</div>
-        <div v-else class="table-scroll">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Title</th>
-                <th scope="col">Type</th>
-                <th scope="col" class="actions-col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="t in trainingsManage" :key="t.id">
-                <td>{{ t.title }}</td>
-                <td class="type">{{ formatTrainingType(t.content_type) }}</td>
-                <td class="actions-cell">
-                  <RouterLink
-                    class="link-action"
-                    :to="{ name: 'edit-training', params: { trainingId: String(t.id) } }"
-                  >
-                    Edit
-                  </RouterLink>
-                  <RouterLink
-                    class="link-action"
-                    :to="{
-                      name: 'training-summary',
-                      params: { trainingId: String(t.id) },
-                      query: { title: t.title },
-                    }"
-                  >
-                    Summary
-                  </RouterLink>
-                  <button type="button" class="link-danger" @click="deleteTraining(t)">Delete</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section class="card">
-        <h2>Completion summary</h2>
-        <p class="hint">Pick a training by name to see completion counts for your team.</p>
-        <div v-if="trainingOptions.length" class="row">
-          <label class="pick">
-            <span>Training</span>
-            <select v-model.number="summaryPickId" class="inp">
-              <option v-for="o in trainingOptions" :key="o.id" :value="o.id">
-                {{ o.title }}
-              </option>
-            </select>
-          </label>
-          <RouterLink
-            v-if="summaryPickId"
-            class="btn-link"
-            :to="{
-              name: 'training-summary',
-              params: { trainingId: summaryPickId },
-              query: summaryTitle ? { title: summaryTitle } : {},
-            }"
-          >
-            Open summary
-          </RouterLink>
-        </div>
-        <div v-else class="row">
-          <span class="muted small">No trainings yet — create one first, then refresh this page.</span>
-        </div>
-      </section>
-      <section class="card">
-        <h2>Add a team member</h2>
-        <p class="hint">They’ll use this email and password to sign in. Assign training by the same work email.</p>
-        <p v-if="userError" class="alert-error">{{ userError }}</p>
-        <p v-if="userOk" class="alert-success">{{ userOk }}</p>
-        <form class="mini-form" @submit.prevent="createUser">
-          <input v-model="newEmail" type="email" required placeholder="Work email" class="inp" :disabled="userBusy" />
-          <input v-model="newPassword" type="password" required placeholder="Password (min 8 characters)" minlength="8" class="inp" :disabled="userBusy" />
-          <input v-model="newName" type="text" required placeholder="Full name" class="inp" :disabled="userBusy" />
-          <button type="submit" class="btn" :disabled="userBusy">{{ userBusy ? 'Creating…' : 'Create account' }}</button>
-        </form>
-      </section>
+  <div class="dashboard">
+    <div class="dashboard-header">
+      <div>
+        <h1>Dashboard</h1>
+        <p class="subtitle">{{ greeting }}, {{ userName }}</p>
+      </div>
     </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      <router-link to="/app/projects" class="action-card">
+        <span class="action-icon">📋</span>
+        <span class="action-text">New Project</span>
+      </router-link>
+      <router-link to="/app/team" class="action-card">
+        <span class="action-icon">👥</span>
+        <span class="action-text">Invite Employee</span>
+      </router-link>
+      <router-link to="/app/admin/ai-terminal" class="action-card highlight">
+        <span class="action-icon">⚡</span>
+        <span class="action-text">AI Terminal</span>
+      </router-link>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.projects }}</div>
+          <div class="stat-label">Active Projects</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.tasks }}</div>
+          <div class="stat-label">Total Tasks</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">👨‍💼</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.employees }}</div>
+          <div class="stat-label">Team Members</div>
+        </div>
+      </div>
+      <div class="stat-card" :class="{ alert: stats.overdue > 0 }">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.overdue }}</div>
+          <div class="stat-label">Overdue Tasks</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Projects -->
+    <section class="section">
+      <div class="section-header">
+        <h2>Recent Projects</h2>
+        <router-link to="/app/projects" class="link-button">View all →</router-link>
+      </div>
+      <div v-if="loadingProjects" class="loading-state">Loading projects...</div>
+      <div v-else-if="recentProjects.length === 0" class="empty-state">
+        <p>No projects yet. <router-link to="/app/projects">Create your first project</router-link></p>
+      </div>
+      <div v-else class="projects-preview">
+        <div v-for="project in recentProjects" :key="project.id" class="project-preview-card">
+          <h3>{{ project.name }}</h3>
+          <p v-if="project.description" class="project-desc">{{ project.description }}</p>
+          <router-link :to="`/app/projects/${project.id}/tasks`" class="view-link">View tasks →</router-link>
+        </div>
+      </div>
+    </section>
+
+    <!-- Overdue Tasks -->
+    <section class="section" v-if="overdueTasks.length > 0">
+      <div class="section-header">
+        <h2>⚠️ Overdue Tasks</h2>
+        <span class="badge-alert">{{ overdueTasks.length }}</span>
+      </div>
+      <div class="tasks-list">
+        <div v-for="task in overdueTasks" :key="task.id" class="task-item overdue">
+          <div class="task-info">
+            <h4>{{ task.title }}</h4>
+            <div class="task-meta">
+              <span v-if="task.assigned_to" class="meta-text">👤 {{ getEmployeeName(task.assigned_to) }}</span>
+              <span class="meta-text">📅 Due {{ formatDate(task.deadline) }}</span>
+            </div>
+          </div>
+          <span class="priority-badge" :class="task.priority">{{ task.priority }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent Team Activity -->
+    <section class="section">
+      <div class="section-header">
+        <h2>Team</h2>
+        <router-link to="/app/team" class="link-button">Manage team →</router-link>
+      </div>
+      <div v-if="loadingTeam" class="loading-state">Loading team...</div>
+      <div v-else-if="recentEmployees.length === 0" class="empty-state">
+        <p>No team members yet. <router-link to="/app/team">Invite your first employee</router-link></p>
+      </div>
+      <div v-else class="team-preview">
+        <div v-for="emp in recentEmployees" :key="emp.id" class="team-member">
+          <div class="member-avatar">{{ getInitials(emp.name) }}</div>
+          <div class="member-info">
+            <div class="member-name">{{ emp.name }}</div>
+            <div class="member-position">{{ emp.position || 'Employee' }}</div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import axios from 'axios'
+import { getToken } from '@/services/auth'
+import { user } from '@/composables/session'
 
-import { apiJson } from '@/api/client'
-import PageHeader from '@/components/PageHeader.vue'
-import { fetchTrainingOptions } from '@/utils/trainingCatalog'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-const trainingOptions = ref([])
-const summaryPickId = ref(null)
-const summaryTitle = computed(() => {
-  const id = summaryPickId.value
-  const o = trainingOptions.value.find((x) => x.id === id)
-  return o?.title || ''
+const stats = ref({
+  projects: 0,
+  tasks: 0,
+  employees: 0,
+  overdue: 0,
 })
 
-const trainingsManage = ref([])
-const manageError = ref('')
+const recentProjects = ref([])
+const overdueTasks = ref([])
+const recentEmployees = ref([])
+const employees = ref([])
 
-async function loadTrainingsList() {
-  try {
-    const list = await apiJson('/api/v1/trainings')
-    trainingsManage.value = Array.isArray(list) ? list : []
-  } catch {
-    trainingsManage.value = []
-  }
-}
+const loadingProjects = ref(true)
+const loadingTeam = ref(true)
 
-function formatTrainingType(ct) {
-  if (ct === 'youtube') return 'YouTube'
-  if (ct === 'external_link') return 'Link'
-  if (ct === 'upload') return 'File upload'
-  return ct
-}
-
-async function deleteTraining(t) {
-  manageError.value = ''
-  const ok = window.confirm(`Delete “${t.title}”? This removes all assignments for this training.`)
-  if (!ok) return
-  try {
-    await apiJson(`/api/v1/trainings/${t.id}`, { method: 'DELETE' })
-    trainingOptions.value = await fetchTrainingOptions()
-    if (trainingOptions.value.length) {
-      summaryPickId.value = trainingOptions.value[0].id
-    } else {
-      summaryPickId.value = null
-    }
-    await loadTrainingsList()
-  } catch (e) {
-    manageError.value = e instanceof Error ? e.message : 'Could not delete'
-  }
-}
-
-onMounted(async () => {
-  trainingOptions.value = await fetchTrainingOptions()
-  if (trainingOptions.value.length) {
-    summaryPickId.value = trainingOptions.value[0].id
-  }
-  await loadTrainingsList()
+const userName = computed(() => user.value?.name || 'there')
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
 })
 
-const newEmail = ref('')
-const newPassword = ref('')
-const newName = ref('')
-const userBusy = ref(false)
-const userError = ref('')
-const userOk = ref('')
+async function fetchDashboardData() {
+  const token = getToken()
 
-async function createUser() {
-  userError.value = ''
-  userOk.value = ''
-  userBusy.value = true
   try {
-    const u = await apiJson('/users', {
-      method: 'POST',
-      body: JSON.stringify({
-        email: newEmail.value.trim(),
-        password: newPassword.value,
-        full_name: newName.value.trim(),
-        role: 'employee',
-      }),
+    // Fetch projects
+    const projectsRes = await axios.get(`${API_URL}/api/v1/projects`, {
+      headers: { Authorization: `Bearer ${token}` },
     })
-    userOk.value = `Added ${u.full_name} — they’ll sign in with ${u.email}. Use that email when you assign training.`
-    newPassword.value = ''
-  } catch (e) {
-    userError.value = e instanceof Error ? e.message : 'Failed'
+    const projects = projectsRes.data
+    stats.value.projects = projects.length
+    recentProjects.value = projects.slice(0, 3)
+  } catch (err) {
+    console.error('Failed to load projects:', err)
   } finally {
-    userBusy.value = false
+    loadingProjects.value = false
+  }
+
+  try {
+    // Fetch all tasks
+    const tasksRes = await axios.get(`${API_URL}/api/v1/tasks`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const tasks = tasksRes.data
+    stats.value.tasks = tasks.length
+
+    // Filter overdue tasks
+    const now = new Date()
+    overdueTasks.value = tasks
+      .filter(t => t.deadline && new Date(t.deadline) < now && t.status !== 'completed')
+      .slice(0, 5)
+    stats.value.overdue = overdueTasks.value.length
+  } catch (err) {
+    console.error('Failed to load tasks:', err)
+  }
+
+  try {
+    // Fetch employees
+    const employeesRes = await axios.get(`${API_URL}/api/users?role=employee`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    employees.value = employeesRes.data
+    stats.value.employees = employees.value.length
+    recentEmployees.value = employees.value.slice(0, 4)
+  } catch (err) {
+    console.error('Failed to load team:', err)
+  } finally {
+    loadingTeam.value = false
   }
 }
+
+function getEmployeeName(employeeId) {
+  const emp = employees.value.find(e => e.id === employeeId)
+  return emp ? emp.name : 'Unknown'
+}
+
+function getInitials(name) {
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+function formatDate(dateString) {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffTime = now - date
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+  
+  if (diffDays === 0) return 'today'
+  if (diffDays === 1) return 'yesterday'
+  return `${diffDays} days ago`
+}
+
+onMounted(() => {
+  fetchDashboardData()
+})
 </script>
 
 <style scoped>
-.grid {
+.dashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.dashboard-header {
+  margin-bottom: 2rem;
+}
+
+.dashboard-header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.subtitle {
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Quick Actions */
+.quick-actions {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  margin-bottom: 2rem;
 }
 
-.card-wide {
-  grid-column: 1 / -1;
-}
-
-.card {
+.action-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  padding: 1.25rem 1.35rem;
+  text-decoration: none;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
-.card h2 {
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  margin: 0 0 0.75rem;
+.action-card:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-decoration: none;
 }
 
-.links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+.action-card.highlight {
+  background: linear-gradient(135deg, rgba(196,163,90,0.15), rgba(196,163,90,0.05));
+  border-color: rgba(196,163,90,0.4);
+}
+
+.action-icon {
+  font-size: 1.5rem;
+}
+
+.action-text {
+  font-weight: 600;
   font-size: 0.9rem;
-}
-
-.hint {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  margin: 0 0 0.75rem;
-}
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: flex-end;
-}
-
-.pick {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  flex: 1;
-  min-width: 200px;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-text-muted);
-}
-
-.inp {
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-  padding: 0.5rem 0.65rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-elevated);
   color: var(--color-text);
 }
 
-.mini-form {
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.stat-card {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.stat-card.alert {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.stat-icon {
+  font-size: 2rem;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* Sections */
+.section {
+  margin-bottom: 2.5rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.section-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
 }
 
-.btn {
-  font-family: var(--font-body);
-  font-weight: 500;
-  padding: 0.55rem 0.85rem;
-  border: none;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--color-accent), #a6853a);
-  color: #0f1210;
-  cursor: pointer;
+.badge-alert {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 0.5rem;
+  background: #ef4444;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 12px;
 }
 
-.btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.btn-link {
-  display: inline-block;
-  font-size: 0.85rem;
-  font-weight: 500;
-  padding: 0.55rem 0.85rem;
-  border-radius: 8px;
-  background: var(--color-accent-soft);
+.link-button {
+  font-size: 0.9rem;
   color: var(--color-accent);
   text-decoration: none;
-  border: 1px solid var(--color-border);
-  align-self: center;
+  font-weight: 500;
+  transition: opacity 0.2s;
 }
 
-.btn-link:hover {
+.link-button:hover {
+  opacity: 0.8;
   text-decoration: none;
-  border-color: var(--color-accent);
 }
 
-.alert-error {
-  margin: 0 0 0.75rem;
-  padding: 0.5rem 0.65rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  color: #f0d0d0;
-  background: rgba(180, 60, 60, 0.2);
-  border: 1px solid rgba(180, 60, 60, 0.35);
-}
-
-.alert-success {
-  margin: 0 0 0.75rem;
-  padding: 0.5rem 0.65rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  color: #d8f0e4;
-  background: rgba(60, 140, 100, 0.2);
-  border: 1px solid rgba(60, 140, 100, 0.35);
-}
-
-.muted {
+.loading-state, .empty-state {
+  padding: 2rem;
+  text-align: center;
   color: var(--color-text-muted);
-}
-
-.small {
-  font-size: 0.85rem;
-}
-
-.table-scroll {
-  overflow-x: auto;
-  border-radius: var(--radius);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
   font-size: 0.9rem;
 }
 
-.data-table th,
-.data-table td {
-  padding: 0.6rem 0.75rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.data-table th {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-  font-weight: 500;
-  background: var(--color-bg-elevated);
-}
-
-.data-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.data-table .type {
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
-
-.actions-col {
-  width: 1%;
-}
-
-.actions-cell {
-  white-space: nowrap;
-}
-
-.link-action {
-  font-size: 0.85rem;
-  font-weight: 500;
-  margin-right: 0.75rem;
-  text-decoration: none;
+.empty-state a {
   color: var(--color-accent);
+  text-decoration: none;
 }
 
-.link-action:hover {
+.empty-state a:hover {
   text-decoration: underline;
 }
 
-.link-danger {
-  font-family: var(--font-body);
+/* Projects Preview */
+.projects-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.project-preview-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  transition: border-color 0.2s;
+}
+
+.project-preview-card:hover {
+  border-color: var(--color-accent);
+}
+
+.project-preview-card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: var(--color-text);
+}
+
+.project-desc {
   font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.view-link {
+  font-size: 0.85rem;
+  color: var(--color-accent);
+  text-decoration: none;
   font-weight: 500;
-  padding: 0;
-  border: none;
-  background: none;
-  color: #e8a0a0;
-  cursor: pointer;
+}
+
+.view-link:hover {
   text-decoration: underline;
 }
 
-.link-danger:hover {
-  color: #f0c0c0;
+/* Tasks List */
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.task-item.overdue {
+  border-left-color: #ef4444;
+}
+
+.task-info h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: var(--color-text);
+}
+
+.task-meta {
+  display: flex;
+  gap: 1rem;
+}
+
+.meta-text {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.priority-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+}
+
+.priority-badge.low {
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+.priority-badge.medium {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.priority-badge.high {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+/* Team Preview */
+.team-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.team-member {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.member-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: #0f1210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.member-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.member-position {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
 }
 </style>
