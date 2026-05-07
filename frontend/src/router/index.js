@@ -19,6 +19,8 @@ import SecurityView from '@/views/SecurityView.vue'
 import PrivacyView from '@/views/PrivacyView.vue'
 import TermsView from '@/views/TermsView.vue'
 import AdminProjectsView from '@/views/AdminProjectsView.vue'
+import AdminProjectTasksView from '@/views/AdminProjectTasksView.vue'
+
 
 
 const router = createRouter({
@@ -114,6 +116,12 @@ const router = createRouter({
           name: 'admin-projects',
           component: AdminProjectsView,
           meta: { title: 'Projects', adminOnly: true },
+        },
+        {
+          path: 'projects/:projectId/tasks',
+          name: 'project-tasks',
+          component: AdminProjectTasksView,
+          meta: { title: 'Project Tasks', adminOnly: true },
         },
       ],
     },
