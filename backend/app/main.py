@@ -10,6 +10,8 @@ from app.api.v1.trainings import router as trainings_router
 from app.api.v1.ai import router as ai_router
 from app.api.v1.organisations import router as organisations_router
 from app.db.session import init_db
+from app.api.v1.projects import router as projects_router
+from app.api.v1.tasks import router as tasks_router
 
 
 @asynccontextmanager
@@ -32,3 +34,5 @@ app.include_router(trainings_router)
 app.include_router(assignments_router)
 app.include_router(ai_router)
 app.include_router(organisations_router)
+app.include_router(projects_router)
+app.include_router(tasks_router)
