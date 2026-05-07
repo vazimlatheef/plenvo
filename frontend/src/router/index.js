@@ -18,6 +18,8 @@ import AboutView from '@/views/AboutView.vue'
 import SecurityView from '@/views/SecurityView.vue'
 import PrivacyView from '@/views/PrivacyView.vue'
 import TermsView from '@/views/TermsView.vue'
+import AdminProjectsView from '@/views/AdminProjectsView.vue'
+
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -106,6 +108,12 @@ const router = createRouter({
           name: 'employee-assignments',
           component: EmployeeAssignmentsView,
           meta: { title: 'My assignments' },
+        },
+        {
+          path: 'projects',
+          name: 'admin-projects',
+          component: AdminProjectsView,
+          meta: { title: 'Projects', adminOnly: true },
         },
       ],
     },
