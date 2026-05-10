@@ -229,7 +229,7 @@ const securityItems = [
 const plans = [
   {
     name: 'Starter',
-    price: '€19',
+    price: '£25',
     members: 'Up to 5 team members',
     features: ['Projects & tasks', 'AI Terminal', 'Training management', 'Team overview', 'Email support'],
     cta: 'trial',
@@ -238,7 +238,7 @@ const plans = [
   },
   {
     name: 'Growth',
-    price: '€39',
+    price: '£49',
     members: 'Up to 20 team members',
     features: ['Everything in Starter', 'Performance tracking', 'Employee reviews', 'Priority support', 'API access'],
     cta: 'trial',
