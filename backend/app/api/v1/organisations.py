@@ -23,7 +23,8 @@ from app.services.email import send_invite_email, generate_temp_password
 router = APIRouter(tags=["organisations"])
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
-STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID", "")  # your €19/mo price ID
+STRIPE_PRICE_ID_STARTER = os.getenv("STRIPE_PRICE_ID_STARTER", "")  # £25/mo
+STRIPE_PRICE_ID_GROWTH = os.getenv("STRIPE_PRICE_ID_GROWTH", "")   # £49/mo
 
 
 # ---------- Schemas ----------
@@ -34,9 +35,8 @@ class SignupRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     company_name: str = Field(min_length=1, max_length=300)
     position: str = Field(min_length=1, max_length=100)
-    # position examples: CEO, Manager, Team Lead, Director
+    plan: str = Field(default="growth")  # "starter" or "growth"
     stripe_payment_method_id: str
-    # Frontend collects card via Stripe.js, sends payment_method id
 
 
 class InviteRequest(BaseModel):
@@ -81,12 +81,26 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     Manager signs up → Organisation created → Stripe trial starts.
     Card is captured now but NOT charged for 30 days.
     """
+    # Select correct price ID based on plan
+    if payload.plan == "starter":
+        price_id = STRIPE_PRICE_ID_STARTER
+    elif payload.plan == "growth":
+        price_id = STRIPE_PRICE_ID_GROWTH
+    else:
+        raise HTTPException(status_code=400, detail="Invalid plan. Choose 'starter' or 'growth'.")
+    
+    if not price_id:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Pricing not configured for {payload.plan} plan. Contact hi@plenvo.io"
+        )
+
     # 1. Create Stripe customer + attach card
     try:
         customer = stripe.Customer.create(
             email=payload.email,
             name=payload.full_name,
-            metadata={"company": payload.company_name},
+            metadata={"company": payload.company_name, "plan": payload.plan},
         )
         stripe.PaymentMethod.attach(
             payload.stripe_payment_method_id,
@@ -99,7 +113,7 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         # Create subscription with 30-day trial
         subscription = stripe.Subscription.create(
             customer=customer.id,
-            items=[{"price": STRIPE_PRICE_ID}],
+            items=[{"price": price_id}],
             trial_period_days=30,
             payment_settings={"save_default_payment_method": "on_subscription"},
         )

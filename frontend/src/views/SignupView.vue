@@ -10,13 +10,42 @@
 
       <div v-if="!done" class="form">
         <div class="steps">
-          <span :class="['step', step >= 1 ? 'active' : '']">1 · Your details</span>
+          <span :class="['step', step >= 1 ? 'active' : '']">1 · Plan</span>
           <span class="step-sep">→</span>
-          <span :class="['step', step >= 2 ? 'active' : '']">2 · Payment</span>
+          <span :class="['step', step >= 2 ? 'active' : '']">2 · Details</span>
+          <span class="step-sep">→</span>
+          <span :class="['step', step >= 3 ? 'active' : '']">3 · Payment</span>
         </div>
 
-        <!-- Step 1 -->
+        <!-- Step 1: Plan Selection -->
         <template v-if="step === 1">
+          <div class="plan-selector">
+            <label 
+              v-for="plan in plans" 
+              :key="plan.id"
+              :class="['plan-option', { selected: form.plan === plan.id }]"
+              @click="form.plan = plan.id"
+            >
+              <input type="radio" :value="plan.id" v-model="form.plan" style="display: none" />
+              <div class="plan-header">
+                <span class="plan-name">{{ plan.name }}</span>
+                <span v-if="plan.popular" class="popular-badge">Most popular</span>
+              </div>
+              <div class="plan-price-row">
+                <span class="plan-price">{{ plan.price }}</span>
+                <span class="plan-period">/ month</span>
+              </div>
+              <div class="plan-members">{{ plan.members }}</div>
+              <div class="plan-check">✓</div>
+            </label>
+          </div>
+          <button class="btn" :disabled="!form.plan" @click="step = 2">
+            Continue →
+          </button>
+        </template>
+
+        <!-- Step 2: Your Details -->
+        <template v-if="step === 2">
           <label class="field">
             <span>Full name *</span>
             <input v-model="form.full_name" type="text" placeholder="Jane Smith" required :disabled="loading" />
@@ -48,13 +77,16 @@
               <option value="Other">Other</option>
             </select>
           </label>
-          <button class="btn" :disabled="!step1Valid" @click="goToStep2">
-            Continue to payment →
-          </button>
+          <div class="step2-actions">
+            <button class="btn-back" @click="step = 1" :disabled="loading">← Back</button>
+            <button class="btn" :disabled="!step2Valid" @click="goToStep3">
+              Continue to payment →
+            </button>
+          </div>
         </template>
 
-        <!-- Step 2 -->
-        <template v-if="step === 2">
+        <!-- Step 3: Payment -->
+        <template v-if="step === 3">
           <div class="trial-info">
             <span class="trial-icon">🎁</span>
             <div>
@@ -69,7 +101,7 @@
           </label>
 
           <div class="step2-actions">
-            <button class="btn-back" @click="step = 1" :disabled="loading">← Back</button>
+            <button class="btn-back" @click="step = 2" :disabled="loading">← Back</button>
             <button class="btn" :disabled="loading || !stripeReady" @click="onSubmit">
               {{ loading ? 'Starting trial…' : 'Start free trial →' }}
             </button>
@@ -106,12 +138,24 @@ const error = ref('')
 const done = ref(false)
 const stripeReady = ref(false)
 
-const form = ref({ full_name: '', email: '', password: '', company_name: '', position: '' })
+const plans = [
+  { id: 'starter', name: 'Starter', price: '£25', members: 'Up to 5 team members', popular: false },
+  { id: 'growth', name: 'Growth', price: '£49', members: 'Up to 20 team members', popular: true },
+]
+
+const form = ref({ 
+  plan: 'growth', // default to most popular
+  full_name: '', 
+  email: '', 
+  password: '', 
+  company_name: '', 
+  position: '' 
+})
 
 let stripe = null
 let cardElement = null
 
-const step1Valid = computed(() =>
+const step2Valid = computed(() =>
   form.value.full_name.trim() &&
   form.value.email.trim() &&
   form.value.password.length >= 8 &&
@@ -119,8 +163,8 @@ const step1Valid = computed(() =>
   form.value.position
 )
 
-async function goToStep2() {
-  step.value = 2
+async function goToStep3() {
+  step.value = 3
   await nextTick()
   await mountStripe()
 }
@@ -155,7 +199,11 @@ async function onSubmit() {
 
     await apiJson('/signup', {
       method: 'POST',
-      body: JSON.stringify({ ...form.value, stripe_payment_method_id: paymentMethod.id }),
+      body: JSON.stringify({ 
+        ...form.value, 
+        stripe_payment_method_id: paymentMethod.id,
+        plan: form.value.plan, // send selected plan to backend
+      }),
     })
 
     const me = await login(form.value.email, form.value.password)
@@ -193,12 +241,54 @@ async function onSubmit() {
 h1 { font-family: 'Instrument Serif', serif; font-size: 1.9rem; font-weight: 400; margin: 0 0 0.4rem; color: var(--color-text); }
 .lede { font-size: 0.875rem; color: var(--color-text-muted); margin: 0 0 1.5rem; line-height: 1.6; font-weight: 300; }
 
-.steps { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; font-size: 0.72rem; }
-.step { color: var(--color-text-muted); transition: color 0.2s; }
+.steps { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; font-size: 0.72rem; flex-wrap: wrap; }
+.step { color: var(--color-text-muted); transition: color 0.2s; white-space: nowrap; }
 .step.active { color: var(--color-accent); font-weight: 600; }
 .step-sep { color: var(--color-border); }
 
 .form { display: flex; flex-direction: column; gap: 1rem; }
+
+/* Plan Selector */
+.plan-selector { display: flex; flex-direction: column; gap: 0.75rem; }
+.plan-option {
+  position: relative;
+  display: flex; flex-direction: column; gap: 0.25rem;
+  padding: 1rem 1.25rem; border-radius: 8px;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface); cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.plan-option:hover { border-color: rgba(196,163,90,0.5); }
+.plan-option.selected { 
+  border-color: var(--color-accent); 
+  background: rgba(196,163,90,0.05);
+}
+.plan-header { display: flex; align-items: center; gap: 0.5rem; }
+.plan-name { font-size: 0.95rem; font-weight: 600; color: var(--color-text); }
+.popular-badge {
+  font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+  padding: 0.2rem 0.5rem; border-radius: 4px;
+  background: rgba(196,163,90,0.2); color: var(--color-accent);
+  letter-spacing: 0.05em;
+}
+.plan-price-row { display: flex; align-items: baseline; gap: 0.25rem; }
+.plan-price { font-family: 'Instrument Serif', serif; font-size: 1.75rem; color: var(--color-accent); line-height: 1; }
+.plan-period { font-size: 0.8rem; color: var(--color-text-muted); }
+.plan-members { font-size: 0.8rem; color: var(--color-text-muted); }
+.plan-check {
+  position: absolute; top: 1rem; right: 1rem;
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--color-border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; color: transparent;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.plan-option.selected .plan-check {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #0f1210;
+}
+
 .field { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--color-text-muted); }
 .field input, .field select {
   font-family: 'Inter', sans-serif; font-size: 0.95rem;
