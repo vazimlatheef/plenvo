@@ -18,6 +18,7 @@ from app.api.deps import get_current_admin_user, get_db
 from app.core.security import hash_password
 from app.models.models import Organisation, User
 from app.schemas.user import UserPublic
+from app.services.email import send_invite_email, generate_temp_password
 
 router = APIRouter(tags=["organisations"])
 
@@ -39,10 +40,9 @@ class SignupRequest(BaseModel):
 
 
 class InviteRequest(BaseModel):
-    full_name: str = Field(min_length=1, max_length=200)
+    name: str = Field(min_length=1, max_length=200)
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
-    position: str = Field(min_length=1, max_length=100)
+    position: str = Field(default=None, max_length=100)
 
 
 class SignupResponse(BaseModel):
@@ -159,21 +159,26 @@ def invite_employee(
 ):
     """
     Admin invites an employee to their organisation.
-    Employee inherits the same org — data isolation guaranteed.
+    Generates temporary password and sends email with credentials.
     """
     if not current_user.organisation_id:
         raise HTTPException(status_code=400, detail="Your account has no organisation.")
 
+    # Generate temporary password
+    temp_password = generate_temp_password()
+
+    # Create employee user
     user = User(
         organisation_id=current_user.organisation_id,
         email=payload.email.strip().lower(),
-        password_hash=hash_password(payload.password),
-        full_name=payload.full_name,
+        password_hash=hash_password(temp_password),
+        full_name=payload.name,
         role="employee",
         position=payload.position,
         company_name=current_user.company_name,
     )
     db.add(user)
+    
     try:
         db.commit()
     except IntegrityError:
@@ -184,4 +189,18 @@ def invite_employee(
         ) from None
 
     db.refresh(user)
+
+    # Send invite email with credentials
+    org = db.query(Organisation).filter_by(id=current_user.organisation_id).first()
+    email_sent = send_invite_email(
+        to_email=user.email,
+        employee_name=user.full_name,
+        temp_password=temp_password,
+        organisation_name=org.name if org else None,
+    )
+
+    if not email_sent:
+        print(f"⚠️ Warning: Failed to send invite email to {user.email}")
+        # Don't fail the request - user created successfully
+
     return user
