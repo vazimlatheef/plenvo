@@ -22,9 +22,15 @@ from app.services.email import send_invite_email, generate_temp_password
 
 router = APIRouter(tags=["organisations"])
 
+from dotenv import load_dotenv
+from pathlib import Path
+load_dotenv(Path(__file__).parent.parent.parent.parent / ".env") 
+
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
-STRIPE_PRICE_ID_STARTER = os.getenv("STRIPE_PRICE_ID_STARTER", "")  # £25/mo
-STRIPE_PRICE_ID_GROWTH = os.getenv("STRIPE_PRICE_ID_GROWTH", "")   # £49/mo
+print(f"DEBUG: Stripe key loaded = {stripe.api_key[:20]}...{stripe.api_key[-10:]}")
+STRIPE_PRICE_ID_PERSONAL = os.getenv("STRIPE_PRICE_ID_PERSONAL", "")  # £9.99/mo
+STRIPE_PRICE_ID_TEAM = os.getenv("STRIPE_PRICE_ID_TEAM", "")  # £25/mo
+STRIPE_PRICE_ID_ENTERPRISE = os.getenv("STRIPE_PRICE_ID_ENTERPRISE", "")   # £49/mo
 
 
 # ---------- Schemas ----------
@@ -35,7 +41,7 @@ class SignupRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     company_name: str = Field(min_length=1, max_length=300)
     position: str = Field(min_length=1, max_length=100)
-    plan: str = Field(default="growth")  # "starter" or "growth"
+    plan: str = Field(default="team")  # "personal", "team", or "enterprise"
     stripe_payment_method_id: str
 
 
@@ -81,22 +87,24 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     Manager signs up → Organisation created → Stripe trial starts.
     Card is captured now but NOT charged for 30 days.
     """
-    # Select correct price ID based on plan
-    if payload.plan == "starter":
-        price_id = STRIPE_PRICE_ID_STARTER
-    elif payload.plan == "growth":
-        price_id = STRIPE_PRICE_ID_GROWTH
-    else:
-        raise HTTPException(status_code=400, detail="Invalid plan. Choose 'starter' or 'growth'.")
-    
-    if not price_id:
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Pricing not configured for {payload.plan} plan. Contact hi@plenvo.io"
-        )
-
-    # 1. Create Stripe customer + attach card
     try:
+        # Select correct price ID based on plan
+        if payload.plan == "personal":
+            price_id = STRIPE_PRICE_ID_PERSONAL
+        elif payload.plan == "team":
+            price_id = STRIPE_PRICE_ID_TEAM
+        elif payload.plan == "enterprise":
+            price_id = STRIPE_PRICE_ID_ENTERPRISE
+        else:
+            raise HTTPException(status_code=400, detail="Invalid plan. Choose 'personal', 'team', or 'enterprise'.")
+        
+        if not price_id:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Pricing not configured for {payload.plan} plan. Contact hi@plenvo.io"
+            )
+
+        # 1. Create Stripe customer + attach card
         customer = stripe.Customer.create(
             email=payload.email,
             name=payload.full_name,
@@ -117,53 +125,56 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             trial_period_days=30,
             payment_settings={"save_default_payment_method": "on_subscription"},
         )
-    except stripe.StripeError as e:
-        raise HTTPException(status_code=402, detail=str(e)) from e
 
-    trial_ends_at = datetime.now(timezone.utc) + timedelta(days=30)
+        trial_ends_at = datetime.now(timezone.utc) + timedelta(days=30)
 
-    # 2. Create Organisation
-    slug = make_unique_slug(db, slugify(payload.company_name))
-    org = Organisation(
-        name=payload.company_name,
-        slug=slug,
-        stripe_customer_id=customer.id,
-        stripe_subscription_id=subscription.id,
-        trial_ends_at=trial_ends_at,
-    )
-    db.add(org)
-    db.flush()  # get org.id without committing
+        # 2. Create Organisation
+        slug = make_unique_slug(db, slugify(payload.company_name))
+        org = Organisation(
+            name=payload.company_name,
+            slug=slug,
+            stripe_customer_id=customer.id,
+            stripe_subscription_id=subscription.id,
+            trial_ends_at=trial_ends_at,
+        )
+        db.add(org)
+        db.flush()  # get org.id without committing
 
-    # 3. Create admin User
-    user = User(
-        organisation_id=org.id,
-        email=payload.email.strip().lower(),
-        password_hash=hash_password(payload.password),
-        full_name=payload.full_name,
-        role="admin",
-        position=payload.position,
-        company_name=payload.company_name,
-    )
-    db.add(user)
+        # 3. Create admin User
+        user = User(
+            organisation_id=org.id,
+            email=payload.email.strip().lower(),
+            password_hash=hash_password(payload.password),
+            full_name=payload.full_name,
+            role="admin",
+            position=payload.position,
+            company_name=payload.company_name,
+        )
+        db.add(user)
 
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An account with this email already exists.",
-        ) from None
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email already exists.",
+            ) from None
 
-    db.refresh(user)
+        db.refresh(user)
 
-    return SignupResponse(
-        user=UserPublic.model_validate(user),
-        organisation_name=org.name,
-        trial_ends_at=trial_ends_at,
-        message="Welcome to Plenvo! Your 30-day free trial has started.",
-    )
-
+        return SignupResponse(
+            user=UserPublic.model_validate(user),
+            organisation_name=org.name,
+            trial_ends_at=trial_ends_at,
+            message="Welcome to Plenvo! Your 30-day free trial has started.",
+        )
+        
+    except Exception as e:
+        print(f"SIGNUP ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 @router.post("/invite", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 def invite_employee(

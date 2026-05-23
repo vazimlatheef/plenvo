@@ -139,12 +139,13 @@ const done = ref(false)
 const stripeReady = ref(false)
 
 const plans = [
-  { id: 'starter', name: 'Starter', price: '£25', members: 'Up to 5 team members', popular: false },
-  { id: 'growth', name: 'Growth', price: '£49', members: 'Up to 20 team members', popular: true },
+  { id: 'personal', name: 'Personal', price: '£9.99', members: '1 member', popular: false },
+  { id: 'team', name: 'Team', price: '£25', members: 'Up to 5 members', popular: true },
+  { id: 'enterprise', name: 'Enterprise', price: '£49', members: '5+ members (unlimited)', popular: false },
 ]
 
 const form = ref({ 
-  plan: 'growth', // default to most popular
+  plan: 'team', // default to most popular
   full_name: '', 
   email: '', 
   password: '', 
@@ -170,7 +171,8 @@ async function goToStep3() {
 }
 
 async function mountStripe() {
-  const key = import.meta.env.VITE_STRIPE_PUBLIC_KEY
+  const key = 'pk_test_51SSQZd0ljmHmTqQV2BJ3sMOFcOqboysr0HRzZfXcZICoS31bJtRj12xx5pyrs3jHgF0ZMpR9wMpgzWkty7uCwYGU00a2L9mrWk'
+  console.log('Stripe key:', key)
   if (!key) { error.value = 'Payment not configured. Contact hi@plenvo.io'; return }
   stripe = await loadStripe(key)
   const elements = stripe.elements()
@@ -197,7 +199,7 @@ async function onSubmit() {
     })
     if (se) { error.value = se.message; loading.value = false; return }
 
-    await apiJson('/signup', {
+    await apiJson('/api/v1/signup', {
       method: 'POST',
       body: JSON.stringify({ 
         ...form.value, 
