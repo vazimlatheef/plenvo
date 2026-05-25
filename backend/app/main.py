@@ -44,7 +44,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
-app.include_router(users_router, prefix="/api/v1")
+app.include_router(users_router, prefix="/api/v1/users")
 app.include_router(trainings_router)
 app.include_router(assignments_router)
 app.include_router(ai_router)
