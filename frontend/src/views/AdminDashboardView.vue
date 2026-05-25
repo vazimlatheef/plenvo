@@ -185,7 +185,7 @@ async function fetchDashboardData() {
 
   try {
     // Fetch employees
-    const employeesRes = await axios.get(`${API_URL}/api/users?role=employee`, {
+    const employeesRes = await axios.get(`${API_URL}/api/v1/users?role=employee`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     employees.value = employeesRes.data
