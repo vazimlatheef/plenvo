@@ -1,22 +1,6 @@
 from contextlib import asynccontextmanager
-
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-app = FastAPI()
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://plenvo.io",
-        "https://www.plenvo.io",
-        "https://plenvo-two.vercel.app"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 from sqlalchemy.exc import OperationalError
 
 from app.api.auth import router as auth_router
@@ -25,9 +9,9 @@ from app.api.v1.assignments import router as assignments_router
 from app.api.v1.trainings import router as trainings_router
 from app.api.v1.ai import router as ai_router
 from app.api.v1.organisations import router as organisations_router
-from app.db.session import init_db
 from app.api.v1.projects import router as projects_router
 from app.api.v1.tasks import router as tasks_router
+from app.db.session import init_db
 
 
 @asynccontextmanager
@@ -44,6 +28,21 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "https://plenvo.io",
+        "https://www.plenvo.io",
+        "https://plenvo-two.vercel.app"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(trainings_router)
