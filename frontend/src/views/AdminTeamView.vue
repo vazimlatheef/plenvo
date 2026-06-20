@@ -116,7 +116,7 @@ async function fetchEmployees() {
     loading.value = true
     error.value = null
     const token = getToken()
-    const response = await axios.get(`${API_URL}/api/users?role=employee`, {
+    const response = await axios.get(`${API_URL}/api/v1/users?role=employee`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     employees.value = response.data
