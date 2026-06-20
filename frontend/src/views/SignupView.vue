@@ -74,6 +74,13 @@
               <option value="Project Manager">Project Manager</option>
               <option value="Manager">Manager</option>
               <option value="Team Lead">Team Lead</option>
+              <option value="Individual Contributor">Individual Contributor</option>
+              <option value="Freelancer">Freelancer</option>
+              <option value="Consultant">Consultant</option>
+              <option value="Engineer">Engineer</option>
+              <option value="Designer">Designer</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Sales">Sales</option>
               <option value="Other">Other</option>
             </select>
           </label>

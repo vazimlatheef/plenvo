@@ -22,12 +22,12 @@
         </div>
 
         <h1 class="hero-title" :class="{ visible: show.title }">
-          Your team. Your projects.<br />
+          Your work. Your projects.<br />
           <em class="accent">Total control.</em>
         </h1>
 
         <p class="hero-sub" :class="{ visible: show.sub }">
-          Tasks, training, performance and AI-assigned actions —<br class="br-desktop" /> one dashboard built for managers who move fast.
+          Tasks, projects, AI assistance and team management —<br class="br-desktop" /> one platform for professionals who move fast.
         </p>
 
         <ul class="bullets">
@@ -166,7 +166,7 @@
     <section class="final-cta" ref="ctaRef">
       <div class="cta-inner" :class="{ visible: show.finalCta }">
         <h2>Ready to take control?</h2>
-        <p>Join managers already running their teams on Plenvo.</p>
+        <p>Join professionals already running their work on Plenvo.</p>
         <RouterLink to="/signup" class="btn-primary large">Start free trial — no charge today →</RouterLink>
         <p class="cta-note">30 days free · Cancel anytime · GDPR compliant</p>
       </div>
@@ -177,7 +177,7 @@
       <div class="footer-inner">
         <div class="footer-brand">
           <span class="logo">Plenvo</span>
-          <p>Built for managers who move fast.</p>
+          <p>Built for professionals who move fast.</p>
         </div>
         <div class="footer-links">
           <RouterLink to="/about">About</RouterLink>
@@ -203,11 +203,11 @@ const pricingRef = ref(null)
 const ctaRef = ref(null)
 
 const bullets = [
-  'Projects & task management — assign, track, close',
-  'Team training — assign courses, track completion',
-  'Employee performance — reviews & improvement insights',
-  'AI Terminal — meeting notes to assigned tasks in seconds',
-   'Your data. Isolated. Encrypted. Always.'
+  'Projects & tasks — assign, track, close in seconds',
+  'AI Terminal — turn notes into tasks instantly',
+  'Works solo or with your entire team',
+  'Personal plan from £9.99 · Teams from £25',
+  'Your data. Isolated. Encrypted. Always.',
 ]
 
 const features = [
@@ -228,30 +228,30 @@ const securityItems = [
 
 const plans = [
   {
-    name: 'Starter',
-    price: '£25',
-    members: 'Up to 5 team members',
-    features: ['Projects & tasks', 'AI Terminal', 'Training management', 'Team overview', 'Email support'],
+    name: 'Personal',
+    price: '£9.99',
+    members: '1 member',
+    features: ['Projects & tasks', 'AI Terminal', 'Personal dashboard', 'Email support'],
     cta: 'trial',
     note: '30 days free · No charge today',
     featured: false,
   },
   {
-    name: 'Growth',
-    price: '£49',
-    members: 'Up to 20 team members',
-    features: ['Everything in Starter', 'Performance tracking', 'Employee reviews', 'Priority support', 'API access'],
+    name: 'Team',
+    price: '£25',
+    members: 'Up to 5 members',
+    features: ['Everything in Personal', 'Team overview', 'Training management', 'Priority support'],
     cta: 'trial',
     note: '30 days free · No charge today',
     featured: true,
   },
   {
     name: 'Enterprise',
-    price: 'Custom',
-    members: 'Unlimited team members',
-    features: ['Everything in Growth', 'Dedicated support', 'SLA guarantee', 'Custom integrations'],
-    cta: 'contact',
-    note: null,
+    price: '£49',
+    members: '5+ unlimited members',
+    features: ['Everything in Team', 'Performance tracking', 'Employee reviews', 'API access'],
+    cta: 'trial',
+    note: '30 days free · No charge today',
     featured: false,
   },
 ]
