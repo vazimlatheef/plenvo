@@ -57,8 +57,8 @@
     <!-- DEMO -->
     <section class="demo-section" id="demo" ref="demoRef">
       <div class="demo-inner" :class="{ visible: show.demo }">
-        <p class="section-eyebrow">AI Terminal</p>
-        <h2 class="demo-title">Paste notes. Get tasks.<br />In seconds.</h2>
+        <p class="section-eyebrow">AI-Powered Task Engine</p>
+        <h2 class="demo-title">From notes to action.<br />In seconds.</h2>
         <div class="demo-window">
           <div class="demo-bar">
             <span class="dot r"/><span class="dot a"/><span class="dot g"/>
@@ -67,15 +67,16 @@
           <div class="demo-body">
             <div class="demo-col">
               <p class="col-label">You paste</p>
-              <p class="demo-input">"John to finish Q3 report by Friday. Sarah — schedule the Acme call. Dev team fix login bug before Monday, urgent."</p>
+              <p class="demo-input">"Review Q3 report by Friday. Schedule Acme call. Fix login bug before Monday — urgent. Personal: update CV draft this week."</p>
             </div>
             <div class="demo-sep">→</div>
             <div class="demo-col">
               <p class="col-label">Plenvo creates</p>
               <div class="demo-tasks">
-                <div class="demo-task"><span class="p-dot high"/>Q3 report · John · Fri · <strong>High</strong></div>
+                <div class="demo-task"><span class="p-dot high"/>Q3 report · Friday · <strong>High</strong></div>
                 <div class="demo-task"><span class="p-dot med"/>Acme call · Sarah · <strong>Medium</strong></div>
-                <div class="demo-task"><span class="p-dot high"/>Login bug · Dev · Mon · <strong>High</strong></div>
+                <div class="demo-task"><span class="p-dot high"/>Login bug · Monday · <strong>High</strong></div>
+                <div class="demo-task"><span class="p-dot med"/>Update CV draft · Personal · <strong>Low</strong></div>
               </div>
             </div>
           </div>
@@ -88,7 +89,7 @@
       <div class="section-inner">
         <p class="section-eyebrow">What's inside</p>
         <h2 class="section-heading" :class="{ visible: show.features }">
-          One platform. Every tool<br />a manager needs.
+          One platform. Every tool<br />a professional needs.
         </h2>
         <div class="feature-grid">
           <div
@@ -212,7 +213,7 @@ const bullets = [
 
 const features = [
   { icon: '📋', title: 'Projects & Tasks', desc: 'Create projects, assign tasks, set deadlines. See what\'s overdue before it becomes a crisis.' },
-  { icon: '⚡', title: 'AI Terminal', desc: 'Paste meeting notes. Plenvo reads names, actions and deadlines — creates and assigns tasks instantly.' },
+  { icon: '⚡', title: 'AI-Powered Task Engine', desc: 'Paste meeting notes or personal todos. Plenvo reads names, actions and deadlines — creates and assigns tasks instantly.' },
   { icon: '🎓', title: 'Training Management', desc: 'Assign training to your team, track completion rates. Know who\'s done without asking.' },
   { icon: '👥', title: 'Team Overview', desc: 'Every team member\'s workload, tasks and progress — one view, zero spreadsheets.' },
   { icon: '📊', title: 'Performance & Reviews', desc: 'Track individual performance over time. Spot blockers early. Recognise top performers with data.' },
