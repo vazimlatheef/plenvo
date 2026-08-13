@@ -15,7 +15,7 @@
     <div v-else class="projects-grid">
       <div v-for="project in projects" :key="project.id" class="project-card">
         <div class="project-header">
-          <h3>{{ project.name }}</h3>
+          <h3>{{ project.title }}</h3>
           <span class="project-date">{{ formatDate(project.created_at) }}</span>
         </div>
         <p v-if="project.description" class="project-desc">{{ project.description }}</p>
@@ -34,10 +34,10 @@
         <h2>Create New Project</h2>
         <form @submit.prevent="createProject">
           <div class="form-group">
-            <label for="name">Project Name *</label>
+            <label for="title">Project name *</label>
             <input
-              id="name"
-              v-model="newProject.name"
+              id="title"
+              v-model="newProject.title"
               type="text"
               placeholder="e.g., Website Redesign"
               required
@@ -79,7 +79,7 @@ const loading = ref(true)
 const error = ref(null)
 
 const showCreateModal = ref(false)
-const newProject = ref({ name: '', description: '' })
+const newProject = ref({ title: '', description: '' })
 const creating = ref(false)
 const createError = ref(null)
 
@@ -100,7 +100,7 @@ async function fetchProjects() {
 }
 
 async function createProject() {
-  if (!newProject.value.name.trim()) return
+  if (!newProject.value.title.trim()) return
 
   try {
     creating.value = true
@@ -109,14 +109,14 @@ async function createProject() {
     const response = await axios.post(
       `${API_URL}/api/v1/projects`,
       {
-        name: newProject.value.name.trim(),
+        title: newProject.value.title.trim(),
         description: newProject.value.description.trim() || null,
       },
       { headers: { Authorization: `Bearer ${token}` } }
     )
     projects.value.unshift(response.data)
     showCreateModal.value = false
-    newProject.value = { name: '', description: '' }
+    newProject.value = { title: '', description: '' }
   } catch (err) {
     createError.value = err.response?.data?.detail || 'Failed to create project'
   } finally {

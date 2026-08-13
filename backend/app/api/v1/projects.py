@@ -1,4 +1,5 @@
 from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -9,25 +10,27 @@ from app.schemas.project import ProjectCreate, ProjectResponse
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
 
 
+def _require_org(user: User) -> int:
+    if user.organisation_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No organisation on account.")
+    return user.organisation_id
+
+
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(
     project_in: ProjectCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Create a new project (admin only).
-    """
     if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can create projects",
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can create projects")
 
+    org_id = _require_org(current_user)
     project = Project(
-        name=project_in.name,
-        description=project_in.description,
-        organisation_id=current_user.organisation_id,
+        title=project_in.title.strip(),
+        description=project_in.description.strip() if project_in.description else None,
+        organisation_id=org_id,
+        manager_id=current_user.id,
     )
     db.add(project)
     db.commit()
@@ -40,16 +43,13 @@ def list_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    List all projects in the current user's organisation.
-    """
-    projects = (
+    org_id = _require_org(current_user)
+    return (
         db.query(Project)
-        .filter(Project.organisation_id == current_user.organisation_id)
+        .filter(Project.organisation_id == org_id)
         .order_by(Project.created_at.desc())
         .all()
     )
-    return projects
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -58,24 +58,10 @@ def get_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Get a specific project by ID (must belong to user's organisation).
-    """
+    org_id = _require_org(current_user)
     project = db.query(Project).filter(Project.id == project_id).first()
-    
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
-    
-    # Organisation isolation check
-    if project.organisation_id != current_user.organisation_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied",
-        )
-    
+    if not project or project.organisation_id != org_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return project
 
 
@@ -85,30 +71,14 @@ def delete_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Delete a project (admin only, must belong to user's organisation).
-    """
     if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can delete projects",
-        )
-    
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can delete projects")
+
+    org_id = _require_org(current_user)
     project = db.query(Project).filter(Project.id == project_id).first()
-    
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
-    
-    # Organisation isolation check
-    if project.organisation_id != current_user.organisation_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied",
-        )
-    
+    if not project or project.organisation_id != org_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
     db.delete(project)
     db.commit()
     return None

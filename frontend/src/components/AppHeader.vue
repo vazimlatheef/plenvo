@@ -30,19 +30,19 @@ import { logoutAndRedirect, user } from '@/composables/session'
 
 const router = useRouter()
 
-const homeLink = computed(() => (user.value?.role === 'admin' ? '/app/dashboard' : '/assignments'))
+const homeLink = computed(() => (user.value?.role === 'admin' ? '/app/admin' : '/app/assignments'))
 
 const navLinks = computed(() => {
   if (!user.value) return []
   if (user.value.role === 'admin') {
     return [
-      { to: '/app/dashboard', label: 'Dashboard' },
+      { to: '/app/admin', label: 'Dashboard' },
       { to: '/app/projects', label: 'Projects' },
       { to: '/app/team', label: 'Team' },
       { to: '/app/admin/ai-terminal', label: 'AI Terminal' },
     ]
   }
-  return [{ to: '/assignments', label: 'My assignments' }]
+  return [{ to: '/app/assignments', label: 'My assignments' }]
 })
 
 function onLogout() {

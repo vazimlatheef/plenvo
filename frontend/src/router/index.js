@@ -21,6 +21,7 @@ import TermsView from '@/views/TermsView.vue'
 import AdminProjectsView from '@/views/AdminProjectsView.vue'
 import AdminProjectTasksView from '@/views/AdminProjectTasksView.vue'
 import AdminTeamView from '@/views/AdminTeamView.vue'
+import TrainingView from '@/views/TrainingView.vue'
 
 
 
@@ -44,7 +45,7 @@ const router = createRouter({
       path: '/signup',
       name: 'signup',
       component: SignupView,
-      meta: { public: true, title: 'Start free trial' },
+      meta: { public: true, title: 'Start for free' },
     },
     {
       path: '/about',
@@ -60,6 +61,12 @@ const router = createRouter({
     },
     { path: '/privacy', name: 'privacy', component: PrivacyView, meta: { public: true, title: 'Privacy Policy' } },
     { path: '/terms', name: 'terms', component: TermsView, meta: { public: true, title: 'Terms of Service' } },
+    {
+      path: '/training/:token',
+      name: 'training-magic-link',
+      component: TrainingView,
+      meta: { public: true, title: 'Your training' },
+    },
     {
       path: '/app',
       component: AppLayout,
@@ -142,7 +149,7 @@ router.beforeEach(async (to) => {
   const isPublic = to.meta.public === true
   const needsAuth = to.matched.some((r) => r.meta.requiresAuth)
 
-  if (isPublic && (to.name === 'login' || to.name === 'landing' || to.name === 'signup')) {
+  if (isPublic && (to.name === 'login' || to.name === 'landing' || to.name === 'signup' || to.name === 'training-magic-link')) {
     if (token && to.name !== 'landing') {
       await loadSessionUser()
       if (user.value) {

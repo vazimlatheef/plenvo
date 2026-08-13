@@ -11,11 +11,6 @@ class Base(DeclarativeBase):
 
 
 class Organisation(Base):
-    """
-    Every company that signs up gets one Organisation.
-    All data (users, projects, tasks, trainings) is scoped to an org.
-    Company A can never see Company B's data — this is multi-tenancy.
-    """
     __tablename__ = "organisations"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -45,12 +40,18 @@ class User(Base):
     )
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     position: Mapped[str | None] = mapped_column(String(100), nullable=True)
     company_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     job_title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     linkedin_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    phone_country: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    phone_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    team_size: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    timezone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=true())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
@@ -79,6 +80,10 @@ class User(Base):
     notes_created: Mapped[list[Note]] = relationship(
         back_populates="created_by", foreign_keys="Note.created_by_id"
     )
+
+    @property
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}".strip()
 
 
 class Project(Base):
@@ -205,6 +210,7 @@ class Assignment(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="not_started")
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    manager_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
@@ -213,3 +219,19 @@ class Assignment(Base):
     training: Mapped[Training] = relationship(back_populates="assignments")
     assignee: Mapped[User] = relationship(back_populates="assignments_as_assignee", foreign_keys=[assignee_user_id])
     assigned_by: Mapped[User] = relationship(back_populates="assignments_as_assigner", foreign_keys=[assigned_by_id])
+    tokens: Mapped[list[TrainingToken]] = relationship(back_populates="assignment")
+
+
+class TrainingToken(Base):
+    __tablename__ = "training_tokens"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    assignment_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("assignments.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    assignment: Mapped[Assignment] = relationship(back_populates="tokens")

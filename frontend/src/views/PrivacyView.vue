@@ -6,7 +6,7 @@
         <div class="nav-links">
           <RouterLink to="/about" class="nav-link">About</RouterLink>
           <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
-          <RouterLink to="/signup" class="nav-cta">Start free trial</RouterLink>
+          <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
         </div>
       </div>
     </nav>

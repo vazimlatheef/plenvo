@@ -21,8 +21,18 @@ def _validate_training_content(t: Training) -> None:
             )
 
 
-def create_training(db: Session, payload: TrainingCreate, *, created_by_id: int) -> Training:
+def create_training(
+    db: Session,
+    payload: TrainingCreate,
+    *,
+    created_by_id: int,
+    organisation_id: int,
+) -> Training:
+    if organisation_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No organisation on account.")
+
     training = Training(
+        organisation_id=organisation_id,
         title=payload.title.strip(),
         description=payload.description.strip() if payload.description else None,
         content_type=payload.content_type,
@@ -37,15 +47,21 @@ def create_training(db: Session, payload: TrainingCreate, *, created_by_id: int)
     return training
 
 
-def get_training_by_id(db: Session, training_id: int) -> Training:
+def get_training_by_id(db: Session, training_id: int, *, organisation_id: int) -> Training:
     t = db.get(Training, training_id)
-    if t is None:
+    if t is None or t.organisation_id != organisation_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Training not found")
     return t
 
 
-def update_training(db: Session, training_id: int, payload: TrainingUpdate) -> Training:
-    t = get_training_by_id(db, training_id)
+def update_training(
+    db: Session,
+    training_id: int,
+    payload: TrainingUpdate,
+    *,
+    organisation_id: int,
+) -> Training:
+    t = get_training_by_id(db, training_id, organisation_id=organisation_id)
     data = payload.model_dump(exclude_unset=True)
 
     if "title" in data and data["title"] is not None:
@@ -68,16 +84,14 @@ def update_training(db: Session, training_id: int, payload: TrainingUpdate) -> T
     return t
 
 
-def delete_training(db: Session, training_id: int) -> None:
-    t = get_training_by_id(db, training_id)
+def delete_training(db: Session, training_id: int, *, organisation_id: int) -> None:
+    t = get_training_by_id(db, training_id, organisation_id=organisation_id)
     db.delete(t)
     db.commit()
 
 
-def get_training_assignment_summary(db: Session, training_id: int) -> TrainingSummary:
-    t = db.get(Training, training_id)
-    if t is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Training not found")
+def get_training_assignment_summary(db: Session, training_id: int, *, organisation_id: int) -> TrainingSummary:
+    t = get_training_by_id(db, training_id, organisation_id=organisation_id)
 
     total_assigned = db.scalar(
         select(func.count()).select_from(Assignment).where(Assignment.training_id == training_id)
@@ -98,7 +112,7 @@ def get_training_assignment_summary(db: Session, training_id: int) -> TrainingSu
             .where(Assignment.training_id == training_id)
         ).all()
     )
-    assign_rows.sort(key=lambda a: (a.assignee.full_name.lower(), a.assignee.email.lower()))
+    assign_rows.sort(key=lambda a: (a.assignee.first_name.lower(), a.assignee.last_name.lower()))
     detail_rows = [
         TrainingAssignmentRow(
             assignee_full_name=a.assignee.full_name,
@@ -121,5 +135,13 @@ def get_training_assignment_summary(db: Session, training_id: int) -> TrainingSu
     )
 
 
-def list_trainings(db: Session) -> list[Training]:
-    return list(db.scalars(select(Training).order_by(Training.created_at.desc())).all())
+def list_trainings(db: Session, *, organisation_id: int) -> list[Training]:
+    if organisation_id is None:
+        return []
+    return list(
+        db.scalars(
+            select(Training)
+            .where(Training.organisation_id == organisation_id)
+            .order_by(Training.created_at.desc())
+        ).all()
+    )

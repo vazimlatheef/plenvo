@@ -11,9 +11,16 @@ from app.schemas.assignment import (
     AssignmentProgressResponse,
     AssignmentProgressUpdate,
 )
+from app.schemas.training_token import (
+    TrainingTokenPublicResponse,
+    TrainingTokenStatusResponse,
+    TrainingTokenStatusUpdate,
+)
 from app.services.assignment_service import (
     create_assignments,
+    get_training_by_token,
     list_assignments_for_user,
+    update_assignment_by_token,
     update_assignment_progress,
 )
 
@@ -61,14 +68,12 @@ def create_assignment_batch(
         training_id=payload.training_id,
         assignee_emails=[str(e) for e in payload.assignee_emails],
         assigned_by_id=current_user.id,
+        organisation_id=current_user.organisation_id,
     )
     return AssignmentBatchResponse(created=len(items), items=items)
 
 
-@router.patch(
-    "/assignments/{assignment_id}/progress",
-    response_model=AssignmentProgressResponse,
-)
+@router.patch("/assignments/{assignment_id}/progress", response_model=AssignmentProgressResponse)
 def update_assignment_progress_endpoint(
     assignment_id: int,
     payload: AssignmentProgressUpdate,
@@ -87,4 +92,43 @@ def update_assignment_progress_endpoint(
         status=assignment.status,
         started_at=assignment.started_at,
         completed_at=assignment.completed_at,
+    )
+
+
+@router.get("/training/token/{token}", response_model=TrainingTokenPublicResponse)
+def get_training_token_public(token: str, db: Session = Depends(get_db)) -> TrainingTokenPublicResponse:
+    token_row, assignment = get_training_by_token(db, token)
+    training = assignment.training
+    assignee = assignment.assignee
+    assigned_by = assignment.assigned_by
+    return TrainingTokenPublicResponse(
+        assignment_id=assignment.id,
+        status=assignment.status,
+        training_title=training.title,
+        training_description=training.description,
+        content_type=training.content_type,
+        youtube_video_id=training.youtube_video_id,
+        external_url=training.external_url,
+        assignee_first_name=assignee.first_name,
+        assignee_last_name=assignee.last_name,
+        assignee_email=assignee.email,
+        assigned_by_full_name=assigned_by.full_name,
+        started_at=assignment.started_at,
+        completed_at=assignment.completed_at,
+        token_expires_at=token_row.expires_at,
+    )
+
+
+@router.patch("/training/token/{token}/status", response_model=TrainingTokenStatusResponse)
+def update_training_token_status(
+    token: str,
+    payload: TrainingTokenStatusUpdate,
+    db: Session = Depends(get_db),
+) -> TrainingTokenStatusResponse:
+    assignment = update_assignment_by_token(db, token, payload.status)
+    return TrainingTokenStatusResponse(
+        status=assignment.status,
+        started_at=assignment.started_at,
+        completed_at=assignment.completed_at,
+        message="Progress saved." if payload.status != "completed" else "Training marked complete.",
     )

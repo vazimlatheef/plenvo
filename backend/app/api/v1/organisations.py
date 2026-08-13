@@ -4,11 +4,13 @@ POST /signup  → creates Organisation + admin User + Stripe customer + starts 3
 POST /invite  → admin invites employees to their org
 """
 
-import re
 import os
+import re
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import stripe
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.exc import IntegrityError
@@ -18,37 +20,39 @@ from app.api.deps import get_current_admin_user, get_db
 from app.core.security import hash_password
 from app.models.models import Organisation, User
 from app.schemas.user import UserPublic
-from app.services.email import send_invite_email, generate_temp_password
+from app.services.email import generate_temp_password, send_invite_email
 
 router = APIRouter(tags=["organisations"])
 
-from dotenv import load_dotenv
-from pathlib import Path
-load_dotenv(Path(__file__).parent.parent.parent.parent / ".env") 
+load_dotenv(Path(__file__).parent.parent.parent.parent / ".env")
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
-print(f"DEBUG: Stripe key loaded = {stripe.api_key[:20]}...{stripe.api_key[-10:]}")
-STRIPE_PRICE_ID_PERSONAL = os.getenv("STRIPE_PRICE_ID_PERSONAL", "")  # £9.99/mo
-STRIPE_PRICE_ID_TEAM = os.getenv("STRIPE_PRICE_ID_TEAM", "")  # £25/mo
-STRIPE_PRICE_ID_ENTERPRISE = os.getenv("STRIPE_PRICE_ID_ENTERPRISE", "")   # £49/mo
+STRIPE_PRICE_ID_PERSONAL = os.getenv("STRIPE_PRICE_ID_PERSONAL", "")
+STRIPE_PRICE_ID_TEAM = os.getenv("STRIPE_PRICE_ID_TEAM", "")
+STRIPE_PRICE_ID_ENTERPRISE = os.getenv("STRIPE_PRICE_ID_ENTERPRISE", "")
 
-
-# ---------- Schemas ----------
 
 class SignupRequest(BaseModel):
-    full_name: str = Field(min_length=1, max_length=200)
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     company_name: str = Field(min_length=1, max_length=300)
     position: str = Field(min_length=1, max_length=100)
-    plan: str = Field(default="team")  # "personal", "team", or "enterprise"
+    phone_country: str | None = Field(default=None, max_length=8)
+    phone_number: str | None = Field(default=None, max_length=32)
+    country: str | None = Field(default=None, max_length=8)
+    team_size: str | None = Field(default=None, max_length=20)
+    timezone: str | None = Field(default=None, max_length=64)
+    linkedin_url: str | None = Field(default=None, max_length=2048)
+    plan: str = Field(default="team")
     stripe_payment_method_id: str
 
 
 class InviteRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     email: EmailStr
-    position: str = Field(default=None, max_length=100)
+    position: str | None = Field(default=None, max_length=100)
 
 
 class SignupResponse(BaseModel):
@@ -58,10 +62,7 @@ class SignupResponse(BaseModel):
     message: str
 
 
-# ---------- Helpers ----------
-
 def slugify(name: str) -> str:
-    """Convert 'Acme Corp' → 'acme-corp'"""
     slug = name.lower().strip()
     slug = re.sub(r"[^\w\s-]", "", slug)
     slug = re.sub(r"[\s_]+", "-", slug)
@@ -70,7 +71,6 @@ def slugify(name: str) -> str:
 
 
 def make_unique_slug(db: Session, base_slug: str) -> str:
-    """Append number if slug taken: acme-corp-2, acme-corp-3..."""
     slug = base_slug
     counter = 2
     while db.query(Organisation).filter_by(slug=slug).first():
@@ -79,16 +79,18 @@ def make_unique_slug(db: Session, base_slug: str) -> str:
     return slug
 
 
-# ---------- Routes ----------
+def _split_name(name: str) -> tuple[str, str]:
+    parts = name.strip().split(None, 1)
+    if not parts:
+        return "Team", "Member"
+    if len(parts) == 1:
+        return parts[0], ""
+    return parts[0], parts[1]
+
 
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
-    """
-    Manager signs up → Organisation created → Stripe trial starts.
-    Card is captured now but NOT charged for 30 days.
-    """
     try:
-        # Select correct price ID based on plan
         if payload.plan == "personal":
             price_id = STRIPE_PRICE_ID_PERSONAL
         elif payload.plan == "team":
@@ -97,28 +99,24 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             price_id = STRIPE_PRICE_ID_ENTERPRISE
         else:
             raise HTTPException(status_code=400, detail="Invalid plan. Choose 'personal', 'team', or 'enterprise'.")
-        
+
         if not price_id:
             raise HTTPException(
-                status_code=500, 
-                detail=f"Pricing not configured for {payload.plan} plan. Contact hi@plenvo.io"
+                status_code=500,
+                detail=f"Pricing not configured for {payload.plan} plan. Contact hi@plenvo.io",
             )
 
-        # 1. Create Stripe customer + attach card
+        full_name = f"{payload.first_name} {payload.last_name}".strip()
         customer = stripe.Customer.create(
             email=payload.email,
-            name=payload.full_name,
+            name=full_name,
             metadata={"company": payload.company_name, "plan": payload.plan},
         )
-        stripe.PaymentMethod.attach(
-            payload.stripe_payment_method_id,
-            customer=customer.id,
-        )
+        stripe.PaymentMethod.attach(payload.stripe_payment_method_id, customer=customer.id)
         stripe.Customer.modify(
             customer.id,
             invoice_settings={"default_payment_method": payload.stripe_payment_method_id},
         )
-        # Create subscription with 30-day trial
         subscription = stripe.Subscription.create(
             customer=customer.id,
             items=[{"price": price_id}],
@@ -127,8 +125,6 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         )
 
         trial_ends_at = datetime.now(timezone.utc) + timedelta(days=30)
-
-        # 2. Create Organisation
         slug = make_unique_slug(db, slugify(payload.company_name))
         org = Organisation(
             name=payload.company_name,
@@ -138,17 +134,24 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             trial_ends_at=trial_ends_at,
         )
         db.add(org)
-        db.flush()  # get org.id without committing
+        db.flush()
 
-        # 3. Create admin User
         user = User(
             organisation_id=org.id,
-            email=payload.email.strip().lower(),
+            email=str(payload.email).strip().lower(),
             password_hash=hash_password(payload.password),
-            full_name=payload.full_name,
+            first_name=payload.first_name.strip(),
+            last_name=payload.last_name.strip(),
             role="admin",
             position=payload.position,
+            job_title=payload.position,
             company_name=payload.company_name,
+            phone_country=payload.phone_country,
+            phone_number=payload.phone_number,
+            country=payload.country,
+            team_size=payload.team_size,
+            timezone=payload.timezone,
+            linkedin_url=payload.linkedin_url,
         )
         db.add(user)
 
@@ -162,19 +165,18 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             ) from None
 
         db.refresh(user)
-
         return SignupResponse(
             user=UserPublic.model_validate(user),
             organisation_name=org.name,
             trial_ends_at=trial_ends_at,
             message="Welcome to Plenvo! Your 30-day free trial has started.",
         )
-        
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"SIGNUP ERROR: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
+        raise HTTPException(status_code=500, detail="Signup failed. Please try again.") from e
+
 
 @router.post("/invite", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 def invite_employee(
@@ -182,28 +184,24 @@ def invite_employee(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
 ):
-    """
-    Admin invites an employee to their organisation.
-    Generates temporary password and sends email with credentials.
-    """
     if not current_user.organisation_id:
         raise HTTPException(status_code=400, detail="Your account has no organisation.")
 
-    # Generate temporary password
+    first_name, last_name = _split_name(payload.name)
     temp_password = generate_temp_password()
 
-    # Create employee user
     user = User(
         organisation_id=current_user.organisation_id,
-        email=payload.email.strip().lower(),
+        email=str(payload.email).strip().lower(),
         password_hash=hash_password(temp_password),
-        full_name=payload.name,
+        first_name=first_name,
+        last_name=last_name,
         role="employee",
         position=payload.position,
         company_name=current_user.company_name,
     )
     db.add(user)
-    
+
     try:
         db.commit()
     except IntegrityError:
@@ -214,8 +212,6 @@ def invite_employee(
         ) from None
 
     db.refresh(user)
-
-    # Send invite email with credentials
     org = db.query(Organisation).filter_by(id=current_user.organisation_id).first()
     email_sent = send_invite_email(
         to_email=user.email,
@@ -223,9 +219,7 @@ def invite_employee(
         temp_password=temp_password,
         organisation_name=org.name if org else None,
     )
-
     if not email_sent:
         print(f"⚠️ Warning: Failed to send invite email to {user.email}")
-        # Don't fail the request - user created successfully
 
     return user

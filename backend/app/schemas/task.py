@@ -1,16 +1,17 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
-from pydantic import BaseModel
+
+from pydantic import BaseModel, ConfigDict
 
 
 class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
-    status: Optional[str] = "pending"  # pending, in_progress, completed
-    priority: Optional[str] = "medium"  # low, medium, high
-    deadline: Optional[datetime] = None
+    status: Optional[str] = "pending"
+    priority: Optional[str] = "medium"
+    due_date: Optional[date] = None
     project_id: Optional[int] = None
-    assigned_to: Optional[int] = None
+    assignee_id: Optional[int] = None
 
 
 class TaskUpdate(BaseModel):
@@ -18,21 +19,20 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     status: Optional[str] = None
     priority: Optional[str] = None
-    deadline: Optional[datetime] = None
-    assigned_to: Optional[int] = None
+    due_date: Optional[date] = None
+    assignee_id: Optional[int] = None
 
 
 class TaskResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     title: str
     description: Optional[str]
     status: str
     priority: str
-    deadline: Optional[datetime]
+    due_date: Optional[date]
     project_id: Optional[int]
-    assigned_to: Optional[int]
+    assignee_id: Optional[int]
     organisation_id: int
     created_at: datetime
-
-    class Config:
-        from_attributes = True

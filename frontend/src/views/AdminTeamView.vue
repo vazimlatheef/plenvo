@@ -15,9 +15,9 @@
     <div v-else class="employees-grid">
       <div v-for="emp in employees" :key="emp.id" class="employee-card">
         <div class="emp-header">
-          <div class="emp-avatar">{{ getInitials(emp.name) }}</div>
+          <div class="emp-avatar">{{ getInitials(emp.full_name) }}</div>
           <div class="emp-info">
-            <h3>{{ emp.name }}</h3>
+            <h3>{{ emp.full_name }}</h3>
             <p class="emp-position">{{ emp.position || 'Employee' }}</p>
           </div>
         </div>
@@ -136,7 +136,7 @@ async function inviteEmployee() {
     inviteSuccess.value = null
     const token = getToken()
     const response = await axios.post(
-      `${API_URL}/api/v1/organisations/invite`,
+      `${API_URL}/api/v1/invite`,
       {
         name: invite.value.name.trim(),
         email: invite.value.email.trim().toLowerCase(),

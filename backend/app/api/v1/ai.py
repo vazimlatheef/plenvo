@@ -1,12 +1,10 @@
 """
 AI Terminal endpoint — parses meeting notes / updates into structured tasks.
-POST /api/v1/ai/parse-note   → returns extracted tasks (preview, not saved)
-POST /api/v1/ai/confirm-tasks → saves confirmed tasks to DB
 """
 
 import json
 import os
-from datetime import datetime
+from datetime import date, datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,8 +20,6 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = "claude-sonnet-4-20250514"
 
 
-# ---------- Schemas ----------
-
 class ParseNoteRequest(BaseModel):
     raw_text: str
     project_id: int | None = None
@@ -33,9 +29,9 @@ class ParseNoteRequest(BaseModel):
 class ExtractedTask(BaseModel):
     title: str
     description: str | None = None
-    assignee_name: str | None = None   # free text — manager matches to user later
-    due_date: str | None = None        # ISO date string e.g. "2026-05-01"
-    priority: str = "medium"           # low | medium | high
+    assignee_name: str | None = None
+    due_date: str | None = None
+    priority: str = "medium"
 
 
 class ParseNoteResponse(BaseModel):
@@ -45,14 +41,20 @@ class ParseNoteResponse(BaseModel):
 
 class ConfirmTasksRequest(BaseModel):
     note_id: int
-    tasks: list[dict]   # each task: {title, description, assignee_id, due_date, priority, project_id}
+    tasks: list[dict]
 
 
-# ---------- Helpers ----------
+def _parse_due_date(value) -> date | None:
+    if not value:
+        return None
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        return date.fromisoformat(value[:10])
+    return None
+
 
 async def call_claude(raw_text: str) -> list[ExtractedTask]:
-    """Send note text to Claude, get structured tasks back."""
-
     system_prompt = """You are an AI assistant for Plenvo, a management platform.
 Your job is to extract actionable tasks from meeting notes or team updates.
 
@@ -62,13 +64,7 @@ Each task object must have:
 - description (string or null, extra context)
 - assignee_name (string or null, person's name if mentioned)
 - due_date (string ISO format YYYY-MM-DD or null)
-- priority (string: "low", "medium", or "high" — infer from urgency language)
-
-Example output:
-[
-  {"title": "Prepare Q3 report", "description": null, "assignee_name": "John", "due_date": "2026-05-02", "priority": "high"},
-  {"title": "Schedule client call", "description": "With Acme Corp", "assignee_name": "Sarah", "due_date": null, "priority": "medium"}
-]"""
+- priority (string: "low", "medium", or "high" — infer from urgency language)"""
 
     payload = {
         "model": CLAUDE_MODEL,
@@ -94,7 +90,6 @@ Example output:
     data = response.json()
     raw_json = data["content"][0]["text"].strip()
 
-    # Strip markdown fences if Claude wraps in ```json
     if raw_json.startswith("```"):
         raw_json = raw_json.split("```")[1]
         if raw_json.startswith("json"):
@@ -107,23 +102,19 @@ Example output:
         raise HTTPException(status_code=500, detail="Failed to parse AI response. Try again.")
 
 
-# ---------- Routes ----------
-
 @router.post("/parse-note", response_model=ParseNoteResponse)
 async def parse_note(
     body: ParseNoteRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Step 1: Manager pastes notes → AI extracts tasks → returns preview.
-    Note is saved to DB so manager can confirm later.
-    """
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured.")
+    if current_user.organisation_id is None:
+        raise HTTPException(status_code=400, detail="No organisation on account.")
 
-    # Save the raw note
     note = Note(
+        organisation_id=current_user.organisation_id,
         raw_text=body.raw_text,
         title=body.title,
         project_id=body.project_id,
@@ -133,9 +124,7 @@ async def parse_note(
     db.commit()
     db.refresh(note)
 
-    # Call Claude
     extracted_tasks = await call_claude(body.raw_text)
-
     return ParseNoteResponse(note_id=note.id, extracted_tasks=extracted_tasks)
 
 
@@ -145,31 +134,30 @@ def confirm_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Step 2: Manager reviews extracted tasks, edits if needed, confirms.
-    Tasks are saved to DB with source='ai'.
-    """
-    # Mark note as processed
+    if current_user.organisation_id is None:
+        raise HTTPException(status_code=400, detail="No organisation on account.")
+
     note = db.get(Note, body.note_id)
-    if not note:
+    if not note or note.organisation_id != current_user.organisation_id:
         raise HTTPException(status_code=404, detail="Note not found.")
-    note.processed_at = datetime.utcnow()
+
+    note.processed_at = datetime.now(timezone.utc)
 
     created_tasks = []
     for t in body.tasks:
         task = Task(
             title=t["title"],
             description=t.get("description"),
-            assignee_id=t.get("assignee_id"),       # manager maps name → user id in frontend
-            due_date=t.get("due_date"),
+            assignee_id=t.get("assignee_id"),
+            due_date=_parse_due_date(t.get("due_date")),
             priority=t.get("priority", "medium"),
             project_id=t.get("project_id"),
             source="ai",
+            organisation_id=current_user.organisation_id,
             created_by_id=current_user.id,
         )
         db.add(task)
         created_tasks.append(task)
 
     db.commit()
-
     return {"created": len(created_tasks), "message": f"{len(created_tasks)} tasks created successfully."}

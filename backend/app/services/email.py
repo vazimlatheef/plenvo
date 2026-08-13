@@ -154,3 +154,88 @@ Plenvo · Built for managers who move fast
     except Exception as e:
         print(f"✗ Email error: {str(e)}")
         return False
+
+
+def send_training_magic_link_email(
+    to_email: str,
+    employee_name: str,
+    training_title: str,
+    assigned_by_name: str,
+    magic_url: str,
+) -> bool:
+    """Send employee a magic link to complete assigned training without logging in."""
+    if not MAILERLITE_API_KEY:
+        print("ERROR: MAILERLITE_API_KEY not set")
+        return False
+
+    subject = f"Training assigned: {training_title}"
+    html_content = f"""
+    <p>Hi {employee_name},</p>
+    <p><strong>{assigned_by_name}</strong> assigned you training: <strong>{training_title}</strong>.</p>
+    <p><a href="{magic_url}">Open your training →</a></p>
+    <p>This link expires in 7 days.</p>
+    """
+    plain_text = (
+        f"Hi {employee_name},\n\n"
+        f"{assigned_by_name} assigned you training: {training_title}.\n\n"
+        f"Open your training: {magic_url}\n\n"
+        f"This link expires in 7 days."
+    )
+
+    return _send_email(to_email, employee_name, subject, plain_text, html_content)
+
+
+def send_manager_training_complete_email(
+    to_email: str,
+    manager_name: str,
+    employee_name: str,
+    training_title: str,
+) -> bool:
+    """Notify manager when an employee completes training via magic link."""
+    if not MAILERLITE_API_KEY:
+        print("ERROR: MAILERLITE_API_KEY not set")
+        return False
+
+    subject = f"{employee_name} completed: {training_title}"
+    html_content = f"""
+    <p>Hi {manager_name},</p>
+    <p><strong>{employee_name}</strong> has completed <strong>{training_title}</strong>.</p>
+    <p>View progress in your <a href="https://plenvo.io/app/admin">Plenvo dashboard</a>.</p>
+    """
+    plain_text = (
+        f"Hi {manager_name},\n\n"
+        f"{employee_name} has completed {training_title}.\n\n"
+        f"View progress: https://plenvo.io/app/admin"
+    )
+
+    return _send_email(to_email, manager_name, subject, plain_text, html_content)
+
+
+def _send_email(to_email: str, name: str, subject: str, plain_text: str, html_content: str) -> bool:
+    headers = {
+        "Authorization": f"Bearer {MAILERLITE_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    payload = {
+        "from": {"email": FROM_EMAIL, "name": FROM_NAME},
+        "to": [{"email": to_email, "name": name}],
+        "subject": subject,
+        "text": plain_text,
+        "html": html_content,
+    }
+    try:
+        response = requests.post(
+            f"{MAILERLITE_API_URL}/emails",
+            headers=headers,
+            json=payload,
+            timeout=10,
+        )
+        if response.status_code == 202:
+            print(f"✓ Email sent to {to_email}")
+            return True
+        print(f"✗ Failed to send email: {response.status_code} - {response.text}")
+        return False
+    except Exception as e:
+        print(f"✗ Email error: {str(e)}")
+        return False

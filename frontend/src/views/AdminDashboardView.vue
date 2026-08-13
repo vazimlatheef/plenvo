@@ -67,7 +67,7 @@
       </div>
       <div v-else class="projects-preview">
         <div v-for="project in recentProjects" :key="project.id" class="project-preview-card">
-          <h3>{{ project.name }}</h3>
+          <h3>{{ project.title }}</h3>
           <p v-if="project.description" class="project-desc">{{ project.description }}</p>
           <router-link :to="`/app/projects/${project.id}/tasks`" class="view-link">View tasks →</router-link>
         </div>
@@ -85,8 +85,8 @@
           <div class="task-info">
             <h4>{{ task.title }}</h4>
             <div class="task-meta">
-              <span v-if="task.assigned_to" class="meta-text">👤 {{ getEmployeeName(task.assigned_to) }}</span>
-              <span class="meta-text">📅 Due {{ formatDate(task.deadline) }}</span>
+              <span v-if="task.assignee_id" class="meta-text">👤 {{ getEmployeeName(task.assignee_id) }}</span>
+              <span class="meta-text">📅 Due {{ formatDate(task.due_date) }}</span>
             </div>
           </div>
           <span class="priority-badge" :class="task.priority">{{ task.priority }}</span>
@@ -106,9 +106,9 @@
       </div>
       <div v-else class="team-preview">
         <div v-for="emp in recentEmployees" :key="emp.id" class="team-member">
-          <div class="member-avatar">{{ getInitials(emp.name) }}</div>
+          <div class="member-avatar">{{ getInitials(emp.full_name) }}</div>
           <div class="member-info">
-            <div class="member-name">{{ emp.name }}</div>
+            <div class="member-name">{{ emp.full_name }}</div>
             <div class="member-position">{{ emp.position || 'Employee' }}</div>
           </div>
         </div>
@@ -140,7 +140,7 @@ const employees = ref([])
 const loadingProjects = ref(true)
 const loadingTeam = ref(true)
 
-const userName = computed(() => user.value?.name || 'there')
+const userName = computed(() => user.value?.full_name || 'there')
 const greeting = computed(() => {
   const hour = new Date().getHours()
   if (hour < 12) return 'Good morning'
@@ -176,7 +176,7 @@ async function fetchDashboardData() {
     // Filter overdue tasks
     const now = new Date()
     overdueTasks.value = tasks
-      .filter(t => t.deadline && new Date(t.deadline) < now && t.status !== 'completed')
+      .filter((t) => t.due_date && new Date(t.due_date) < now && t.status !== 'completed')
       .slice(0, 5)
     stats.value.overdue = overdueTasks.value.length
   } catch (err) {
@@ -200,7 +200,7 @@ async function fetchDashboardData() {
 
 function getEmployeeName(employeeId) {
   const emp = employees.value.find(e => e.id === employeeId)
-  return emp ? emp.name : 'Unknown'
+  return emp ? emp.full_name : 'Unknown'
 }
 
 function getInitials(name) {
