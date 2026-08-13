@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/.env — always relative to this package, not the shell cwd
@@ -17,6 +18,32 @@ class Settings(BaseSettings):
     secret_key: str
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def validate_database_url(cls, v: object) -> str:
+        if v is None:
+            raise RuntimeError(
+                "DATABASE_URL is None; DATABASE_URL must be set in the environment."
+            )
+        if not isinstance(v, str) or not v.strip():
+            raise RuntimeError(
+                "DATABASE_URL is empty; DATABASE_URL must be set in the environment."
+            )
+        # SQLAlchemy dialect+driver: "postgresql+psycopg://" is psycopg3; "postgresql+psycopg2://"
+        # is the older psycopg2 package. Plain "postgresql://" uses SQLAlchemy's default driver.
+        allowed_prefixes = (
+            "postgresql://",
+            "postgresql+psycopg://",
+            "postgresql+psycopg2://",
+        )
+        if not v.startswith(allowed_prefixes):
+            raise RuntimeError(
+                'DATABASE_URL does not start with "postgresql://", '
+                '"postgresql+psycopg://", or "postgresql+psycopg2://"; '
+                "DATABASE_URL must be set in the environment."
+            )
+        return v
 
 
 settings = Settings()
