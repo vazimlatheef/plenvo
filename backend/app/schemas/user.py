@@ -53,6 +53,7 @@ class UserPublic(BaseModel):
     timezone: str | None = None
     organisation_id: int | None = None
     is_active: bool
+    is_verified: bool = False
     created_at: datetime
     updated_at: datetime
 

@@ -14,6 +14,7 @@ import TrainingSummaryView from '@/views/TrainingSummaryView.vue'
 import AiTerminalView from '@/views/AiTerminalView.vue'
 import LandingView from '@/views/LandingView.vue'
 import SignupView from '@/views/SignupView.vue'
+import VerifyEmail from '@/views/VerifyEmail.vue'
 import AboutView from '@/views/AboutView.vue'
 import SecurityView from '@/views/SecurityView.vue'
 import PrivacyView from '@/views/PrivacyView.vue'
@@ -47,6 +48,12 @@ const router = createRouter({
       name: 'signup',
       component: SignupView,
       meta: { public: true, title: 'Start for free' },
+    },
+    {
+      path: '/verify-email',
+      name: 'verify-email',
+      component: VerifyEmail,
+      meta: { public: true, title: 'Verify email' },
     },
     {
       path: '/about',

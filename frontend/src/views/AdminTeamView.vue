@@ -35,11 +35,23 @@
     </div>
 
     <!-- Invite Employee Modal -->
-    <div v-if="showInviteModal" class="modal-overlay" @click.self="showInviteModal = false">
+    <div v-if="showInviteModal" class="modal-overlay" @click.self="cancelInvite">
       <div class="modal">
         <h2>Invite Employee</h2>
-        <p class="modal-desc">Send an invitation to add a new team member. They'll receive login credentials via email.</p>
+        <p class="modal-desc">
+          Send an invitation to add a new team member. They'll receive login credentials via email.
+        </p>
         <form @submit.prevent="inviteEmployee">
+          <div v-if="needsTeamSize" class="form-group">
+            <label>How big is your team? *</label>
+            <p class="field-hint">We ask this once, the first time you invite someone.</p>
+            <div class="radio-row">
+              <label v-for="opt in teamSizeOptions" :key="opt.value" class="radio-opt">
+                <input v-model="invite.team_size" type="radio" :value="opt.value" required />
+                {{ opt.label }}
+              </label>
+            </div>
+          </div>
           <div class="form-group">
             <label for="name">Full Name *</label>
             <input
@@ -84,7 +96,7 @@
           <div v-if="inviteSuccess" class="success-msg">{{ inviteSuccess }}</div>
           <div class="modal-actions">
             <button type="button" @click="cancelInvite" class="btn-outline">Cancel</button>
-            <button type="submit" :disabled="inviting" class="btn-primary">
+            <button type="submit" :disabled="inviting || (needsTeamSize && !invite.team_size)" class="btn-primary">
               {{ inviting ? 'Sending...' : 'Send Invitation' }}
             </button>
           </div>
@@ -95,21 +107,31 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import axios from 'axios'
 import { getToken } from '@/services/auth'
+import { user } from '@/composables/session'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+const teamSizeOptions = [
+  { value: '1', label: 'Just me' },
+  { value: '2-5', label: '2–5' },
+  { value: '6-20', label: '6–20' },
+  { value: '20+', label: '20+' },
+]
 
 const employees = ref([])
 const loading = ref(true)
 const error = ref(null)
 
 const showInviteModal = ref(false)
-const invite = ref({ name: '', email: '', position: '' })
+const invite = ref({ name: '', email: '', position: '', team_size: '' })
 const inviting = ref(false)
 const inviteError = ref(null)
 const inviteSuccess = ref(null)
+
+const needsTeamSize = computed(() => !user.value?.team_size)
 
 async function fetchEmployees() {
   try {
@@ -129,31 +151,33 @@ async function fetchEmployees() {
 
 async function inviteEmployee() {
   if (!invite.value.name.trim() || !invite.value.email.trim()) return
+  if (needsTeamSize.value && !invite.value.team_size) return
 
   try {
     inviting.value = true
     inviteError.value = null
     inviteSuccess.value = null
     const token = getToken()
-    const response = await axios.post(
-      `${API_URL}/api/v1/invite`,
-      {
-        name: invite.value.name.trim(),
-        email: invite.value.email.trim().toLowerCase(),
-        position: invite.value.position.trim() || null,
-      },
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-    
-    // Add new employee to list
+    const body = {
+      name: invite.value.name.trim(),
+      email: invite.value.email.trim().toLowerCase(),
+      position: invite.value.position.trim() || null,
+    }
+    if (needsTeamSize.value) {
+      body.team_size = invite.value.team_size
+    }
+    const response = await axios.post(`${API_URL}/api/v1/invite`, body, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
     employees.value.unshift(response.data)
+    if (needsTeamSize.value && user.value) {
+      user.value = { ...user.value, team_size: invite.value.team_size }
+    }
     inviteSuccess.value = `Invitation sent to ${invite.value.email}!`
-    
-    // Clear form after 2 seconds
+
     setTimeout(() => {
-      showInviteModal.value = false
-      invite.value = { name: '', email: '', position: '' }
-      inviteSuccess.value = null
+      cancelInvite()
     }, 2000)
   } catch (err) {
     inviteError.value = err.response?.data?.detail || 'Failed to send invitation'
@@ -164,7 +188,7 @@ async function inviteEmployee() {
 
 function cancelInvite() {
   showInviteModal.value = false
-  invite.value = { name: '', email: '', position: '' }
+  invite.value = { name: '', email: '', position: '', team_size: '' }
   inviteError.value = null
   inviteSuccess.value = null
 }
@@ -172,7 +196,7 @@ function cancelInvite() {
 function getInitials(name) {
   return name
     .split(' ')
-    .map(n => n[0])
+    .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2)
@@ -372,6 +396,26 @@ onMounted(() => {
   font-size: 0.9rem;
   font-weight: 500;
   margin-bottom: 0.5rem;
+  color: var(--color-text);
+}
+
+.field-hint {
+  margin: -0.25rem 0 0.65rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.radio-opt {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
   color: var(--color-text);
 }
 
