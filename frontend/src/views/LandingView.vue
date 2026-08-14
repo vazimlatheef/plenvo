@@ -38,7 +38,7 @@
 
         <div class="badge" :class="{ visible: show.badge }">
 
-          Your life. Organised. Free for 30 days.
+          Your life. Organised. Free for 14 days.
 
         </div>
 
@@ -88,7 +88,7 @@
 
         <div class="trust-bar" :class="{ visible: show.trust }">
 
-          <span>✓ No charge for 30 days</span>
+          <span>✓ No charge for 14 days · No card required</span>
 
           <span class="sep">·</span>
 
@@ -356,7 +356,7 @@
 
       <div class="cta-inner" :class="{ visible: show.finalCta }">
 
-        <h2>Start today. Free for 30 days.</h2>
+        <h2>Start today. Free for 14 days.</h2>
 
         <p>
 
@@ -480,7 +480,7 @@ const bullets = computed(() => [
 
   '✓ AI that reads context, not just keywords',
 
-  `✓ From ${symbol.value}${prices.value.personal}/mo · Free for 30 days · No card friction`,
+  `✓ From ${symbol.value}${prices.value.personal}/mo · Free for 14 days · No card required`,
 
   '✓ Your data. Private. Encrypted. Always yours.',
 
@@ -594,7 +594,7 @@ const displayPlans = computed(() => [
 
     cta: 'trial',
 
-    note: '30 days free · No charge today',
+    note: '14 days free · No card required',
 
     featured: false,
 
@@ -626,7 +626,7 @@ const displayPlans = computed(() => [
 
     cta: 'trial',
 
-    note: '30 days free · No charge today',
+    note: '14 days free · No card required',
 
     featured: true,
 
@@ -658,7 +658,7 @@ const displayPlans = computed(() => [
 
     cta: 'trial',
 
-    note: '30 days free · No charge today',
+    note: '14 days free · No card required',
 
     featured: false,
 

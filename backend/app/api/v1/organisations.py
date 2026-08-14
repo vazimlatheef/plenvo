@@ -1,16 +1,14 @@
 """
 Organisation signup flow.
-POST /signup  → creates Organisation + admin User + Stripe customer + starts 30-day trial
+POST /signup  → creates Organisation + admin User on a free 14-day trial (no card required)
 POST /invite  → admin invites employees to their org
+
+Card collection / Stripe subscription happens later on explicit upgrade to a paid plan.
 """
 
-import os
 import re
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
-import stripe
-from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.exc import IntegrityError
@@ -24,12 +22,8 @@ from app.services.email import generate_temp_password, send_invite_email
 
 router = APIRouter(tags=["organisations"])
 
-load_dotenv(Path(__file__).parent.parent.parent.parent / ".env")
-
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
-STRIPE_PRICE_ID_PERSONAL = os.getenv("STRIPE_PRICE_ID_PERSONAL", "")
-STRIPE_PRICE_ID_TEAM = os.getenv("STRIPE_PRICE_ID_TEAM", "")
-STRIPE_PRICE_ID_ENTERPRISE = os.getenv("STRIPE_PRICE_ID_ENTERPRISE", "")
+TRIAL_DAYS = 14
+VALID_PLANS = frozenset({"personal", "team", "enterprise"})
 
 
 class SignupRequest(BaseModel):
@@ -45,8 +39,8 @@ class SignupRequest(BaseModel):
     team_size: str | None = Field(default=None, max_length=20)
     timezone: str | None = Field(default=None, max_length=64)
     linkedin_url: str | None = Field(default=None, max_length=2048)
+    # Selected plan preference for later upgrade; signup itself is free/trial.
     plan: str = Field(default="team")
-    stripe_payment_method_id: str
 
 
 class InviteRequest(BaseModel):
@@ -91,46 +85,20 @@ def _split_name(name: str) -> tuple[str, str]:
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     try:
-        if payload.plan == "personal":
-            price_id = STRIPE_PRICE_ID_PERSONAL
-        elif payload.plan == "team":
-            price_id = STRIPE_PRICE_ID_TEAM
-        elif payload.plan == "enterprise":
-            price_id = STRIPE_PRICE_ID_ENTERPRISE
-        else:
-            raise HTTPException(status_code=400, detail="Invalid plan. Choose 'personal', 'team', or 'enterprise'.")
-
-        if not price_id:
+        if payload.plan not in VALID_PLANS:
             raise HTTPException(
-                status_code=500,
-                detail=f"Pricing not configured for {payload.plan} plan. Contact hi@plenvo.io",
+                status_code=400,
+                detail="Invalid plan. Choose 'personal', 'team', or 'enterprise'.",
             )
 
-        full_name = f"{payload.first_name} {payload.last_name}".strip()
-        customer = stripe.Customer.create(
-            email=payload.email,
-            name=full_name,
-            metadata={"company": payload.company_name, "plan": payload.plan},
-        )
-        stripe.PaymentMethod.attach(payload.stripe_payment_method_id, customer=customer.id)
-        stripe.Customer.modify(
-            customer.id,
-            invoice_settings={"default_payment_method": payload.stripe_payment_method_id},
-        )
-        subscription = stripe.Subscription.create(
-            customer=customer.id,
-            items=[{"price": price_id}],
-            trial_period_days=30,
-            payment_settings={"save_default_payment_method": "on_subscription"},
-        )
-
-        trial_ends_at = datetime.now(timezone.utc) + timedelta(days=30)
+        trial_ends_at = datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)
         slug = make_unique_slug(db, slugify(payload.company_name))
         org = Organisation(
             name=payload.company_name,
             slug=slug,
-            stripe_customer_id=customer.id,
-            stripe_subscription_id=subscription.id,
+            # Free/trial tier: no Stripe customer or payment method until explicit upgrade.
+            stripe_customer_id=None,
+            stripe_subscription_id=None,
             trial_ends_at=trial_ends_at,
         )
         db.add(org)
@@ -169,7 +137,7 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             user=UserPublic.model_validate(user),
             organisation_name=org.name,
             trial_ends_at=trial_ends_at,
-            message="Welcome to Plenvo! Your 30-day free trial has started.",
+            message=f"Welcome to Plenvo! Your {TRIAL_DAYS}-day free trial has started.",
         )
     except HTTPException:
         raise

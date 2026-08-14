@@ -38,7 +38,7 @@
 
         <div class="cta-block">
           <h2>Ready to take control?</h2>
-          <p>Start your 30-day free trial. No charge today.</p>
+          <p>Start your 14-day free trial. No credit card required.</p>
           <RouterLink to="/signup" class="btn-primary">Start for free →</RouterLink>
         </div>
       </div>

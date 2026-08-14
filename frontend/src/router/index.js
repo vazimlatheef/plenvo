@@ -21,6 +21,7 @@ import TermsView from '@/views/TermsView.vue'
 import AdminProjectsView from '@/views/AdminProjectsView.vue'
 import AdminProjectTasksView from '@/views/AdminProjectTasksView.vue'
 import AdminTeamView from '@/views/AdminTeamView.vue'
+import MyTasks from '@/views/MyTasks.vue'
 import TrainingView from '@/views/TrainingView.vue'
 
 
@@ -119,6 +120,12 @@ const router = createRouter({
           name: 'employee-assignments',
           component: EmployeeAssignmentsView,
           meta: { title: 'My assignments' },
+        },
+        {
+          path: 'tasks',
+          name: 'my-tasks',
+          component: MyTasks,
+          meta: { title: 'My tasks' },
         },
         {
           path: 'projects',

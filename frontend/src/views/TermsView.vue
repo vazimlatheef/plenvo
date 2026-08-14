@@ -38,10 +38,10 @@
 
         <section class="section">
           <h2>Free trial</h2>
-          <p>New accounts get a 30-day free trial:</p>
+          <p>New accounts get a 14-day free trial:</p>
           <ul>
-            <li>We require a payment method upfront, but <strong>you won't be charged</strong> during the trial</li>
-            <li>Your first charge occurs on day 31 unless you cancel</li>
+            <li><strong>No credit card required</strong> to start — you can explore Plenvo without adding payment details</li>
+            <li>Card collection happens only if you explicitly upgrade to a paid plan</li>
             <li>Cancel anytime during the trial — no charge, no questions asked</li>
             <li>One trial per organisation</li>
           </ul>
