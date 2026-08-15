@@ -10,5 +10,8 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def init_db() -> None:
-    Base.metadata.drop_all(bind=engine)
+    """Create missing tables only. Never drops or resets existing data.
+
+    Schema changes go through Alembic migrations under backend/alembic/.
+    """
     Base.metadata.create_all(bind=engine)

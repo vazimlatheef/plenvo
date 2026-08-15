@@ -1,0 +1,19 @@
+# Alembic migrations for Plenvo
+
+## Commands (run from `backend/`)
+
+```bash
+# Apply migrations
+python -m alembic upgrade head
+
+# Autogenerate a new migration after model changes
+python -m alembic revision --autogenerate -m "describe_change"
+
+# Mark DB as up-to-date without running (existing synced DBs)
+python -m alembic stamp head
+```
+
+Database URL comes from `Settings.database_url` (`.env` / environment), not from `alembic.ini`.
+
+App startup (`init_db`) only runs non-destructive `create_all` for missing tables.
+Do **not** use `drop_all` for schema changes — add Alembic migrations instead.

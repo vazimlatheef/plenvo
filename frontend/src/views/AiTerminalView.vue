@@ -67,7 +67,7 @@
             </div>
             <div class="field">
               <label>Due Date</label>
-              <input type="date" v-model="task.due_date" />
+              <DatePicker v-model="task.due_date" />
             </div>
             <div class="field">
               <label>Priority</label>
@@ -107,6 +107,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { apiJson } from '@/api/client'
+import DatePicker from '@/components/DatePicker.vue'
 
 const step = ref('input')
 const loading = ref(false)

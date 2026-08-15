@@ -80,7 +80,7 @@
           </label>
           <label>
             Due date
-            <input v-model="newTask.due_date" type="date" :disabled="creating" />
+            <DatePicker v-model="newTask.due_date" :disabled="creating" />
           </label>
           <label>
             Status
@@ -108,6 +108,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { apiJson } from '@/api/client'
+import DatePicker from '@/components/DatePicker.vue'
 import {
   STATUS_GROUPS,
   STATUS_OPTIONS,
