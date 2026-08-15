@@ -22,7 +22,7 @@
             aria-haspopup="menu"
             @click="menuOpen = !menuOpen"
           >
-            <span class="who">{{ user.full_name || user.email }}</span>
+            <span class="who">{{ user.first_name || user.email }}</span>
             <span class="chev" aria-hidden="true">▾</span>
           </button>
           <div v-if="menuOpen" class="user-dropdown" role="menu">

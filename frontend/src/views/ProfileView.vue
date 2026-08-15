@@ -13,8 +13,25 @@
         <p class="section-lede">Your account identity on Plenvo.</p>
         <div class="field-stack">
           <label>
-            Name
-            <input :value="displayName" type="text" readonly class="input-readonly" />
+            First name
+            <input
+              v-model="form.first_name"
+              type="text"
+              required
+              maxlength="100"
+              :disabled="saving"
+              placeholder="First name"
+            />
+          </label>
+          <label>
+            Last name
+            <input
+              v-model="form.last_name"
+              type="text"
+              maxlength="100"
+              :disabled="saving"
+              placeholder="Last name"
+            />
           </label>
           <label>
             Email
@@ -123,10 +140,6 @@ const errors = reactive({
   linkedin_url: '',
 })
 
-const displayName = computed(() =>
-  `${form.first_name || ''} ${form.last_name || ''}`.trim() || form.email,
-)
-
 const hasClientErrors = computed(() => !!(errors.phone || errors.linkedin_url))
 
 function applyUser(u) {
@@ -183,6 +196,8 @@ async function saveProfile() {
     const updated = await apiJson('/api/v1/users/me', {
       method: 'PATCH',
       body: JSON.stringify({
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim() || '',
         job_title: form.job_title.trim() || null,
         company_name: form.company_name.trim() || null,
         phone: form.phone.trim() || null,

@@ -1,83 +1,46 @@
 <template>
   <div class="dashboard">
     <div class="dashboard-header">
-      <div>
-        <h1>Dashboard</h1>
-        <p class="subtitle">{{ greeting }}, {{ userName }}</p>
-      </div>
+      <h1>Dashboard</h1>
+      <p class="subtitle">{{ greeting }}, {{ userName }}</p>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="quick-actions">
-      <router-link to="/app/projects" class="action-card">
-        <span class="action-icon">📋</span>
-        <span class="action-text">New Project</span>
-      </router-link>
-      <router-link to="/app/team" class="action-card">
-        <span class="action-icon">👥</span>
-        <span class="action-text">Add Team Member</span>
-      </router-link>
-      <router-link to="/app/admin/ai-terminal" class="action-card highlight">
-        <span class="action-icon">⚡</span>
-        <span class="action-text">AI Terminal</span>
-      </router-link>
-    </div>
-
-    <!-- Stats Grid -->
     <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon">📊</div>
-        <div class="stat-content">
-          <div class="stat-value">{{ stats.projects }}</div>
-          <div class="stat-label">Active Projects</div>
+      <div v-for="stat in statCards" :key="stat.label" class="stat-card" :class="{ alert: stat.alert }">
+        <div class="stat-icon" :class="{ 'stat-icon--alert': stat.alert }">
+          <component :is="stat.icon" :size="20" :stroke-width="1.75" />
         </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">✅</div>
         <div class="stat-content">
-          <div class="stat-value">{{ stats.tasks }}</div>
-          <div class="stat-label">Total Tasks</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">👨‍💼</div>
-        <div class="stat-content">
-          <div class="stat-value">{{ stats.employees }}</div>
-          <div class="stat-label">Team Members</div>
-        </div>
-      </div>
-      <div class="stat-card" :class="{ alert: stats.overdue > 0 }">
-        <div class="stat-icon">⚠️</div>
-        <div class="stat-content">
-          <div class="stat-value">{{ stats.overdue }}</div>
-          <div class="stat-label">Overdue Tasks</div>
+          <div class="stat-value">{{ stat.value }}</div>
+          <div class="stat-label">{{ stat.label }}</div>
         </div>
       </div>
     </div>
 
-    <!-- Recent Projects -->
     <section class="section">
       <div class="section-header">
         <h2>Recent Projects</h2>
-        <router-link to="/app/projects" class="link-button">View all →</router-link>
+        <RouterLink to="/app/projects" class="link-button">View all →</RouterLink>
       </div>
-      <div v-if="loadingProjects" class="loading-state">Loading projects...</div>
+      <div v-if="loadingProjects" class="loading-state">Loading projects…</div>
       <div v-else-if="recentProjects.length === 0" class="empty-state">
-        <p>No projects yet. <router-link to="/app/projects">Create your first project</router-link></p>
+        <p>No projects yet. <RouterLink to="/app/projects">Create your first project</RouterLink></p>
       </div>
       <div v-else class="projects-preview">
         <div v-for="project in recentProjects" :key="project.id" class="project-preview-card">
           <h3>{{ project.title }}</h3>
           <p v-if="project.description" class="project-desc">{{ project.description }}</p>
-          <router-link :to="`/app/projects/${project.id}/tasks`" class="view-link">View tasks →</router-link>
+          <RouterLink :to="`/app/projects/${project.id}/tasks`" class="view-link">View tasks →</RouterLink>
         </div>
       </div>
     </section>
 
-    <!-- Overdue Tasks -->
-    <section class="section" v-if="overdueTasks.length > 0">
+    <section v-if="overdueTasks.length > 0" class="section">
       <div class="section-header">
-        <h2>⚠️ Overdue Tasks</h2>
+        <h2>
+          <AlertTriangle class="section-icon section-icon--alert" :size="18" :stroke-width="1.75" />
+          Overdue Tasks
+        </h2>
         <span class="badge-alert">{{ overdueTasks.length }}</span>
       </div>
       <div class="tasks-list">
@@ -85,8 +48,14 @@
           <div class="task-info">
             <h4>{{ task.title }}</h4>
             <div class="task-meta">
-              <span v-if="task.assignee_id || task.assignee_contact_id" class="meta-text">👤 {{ assigneeLabel(task) }}</span>
-              <span class="meta-text">📅 Due {{ formatDate(task.due_date) }}</span>
+              <span v-if="task.assignee_id || task.assignee_contact_id" class="meta-text">
+                <UserRound :size="13" :stroke-width="1.75" />
+                {{ assigneeLabel(task) }}
+              </span>
+              <span class="meta-text">
+                <Calendar :size="13" :stroke-width="1.75" />
+                Due {{ formatDate(task.due_date) }}
+              </span>
             </div>
           </div>
           <div class="task-side">
@@ -98,7 +67,7 @@
               :disabled="busyTaskId === task.id"
               @click="goEditTask(task)"
             >
-              ✎
+              <Pencil :size="15" :stroke-width="1.75" />
             </button>
             <button
               type="button"
@@ -108,30 +77,32 @@
               :disabled="busyTaskId === task.id"
               @click="deleteOverdueTask(task)"
             >
-              ⌫
+              <Trash2 :size="15" :stroke-width="1.75" />
             </button>
-            <span class="priority-badge" :class="task.priority">{{ task.priority }}</span>
+            <span class="priority-badge" :class="task.priority">
+              <component :is="priorityIcon(task.priority)" :size="12" :stroke-width="2" />
+              {{ task.priority }}
+            </span>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Recent Team Activity -->
     <section class="section">
       <div class="section-header">
         <h2>Team</h2>
-        <router-link to="/app/team" class="link-button">Manage team →</router-link>
+        <RouterLink to="/app/team" class="link-button">Manage team →</RouterLink>
       </div>
-      <div v-if="loadingTeam" class="loading-state">Loading team...</div>
+      <div v-if="loadingTeam" class="loading-state">Loading team…</div>
       <div v-else-if="recentEmployees.length === 0" class="empty-state">
-        <p>No team members yet. <router-link to="/app/team">Add your first team member</router-link></p>
+        <p>No team members yet. <RouterLink to="/app/team">Add your first team member</RouterLink></p>
       </div>
       <div v-else class="team-preview">
         <div v-for="emp in recentEmployees" :key="emp.key" class="team-member">
           <div class="member-avatar">{{ getInitials(emp.full_name) }}</div>
           <div class="member-info">
             <div class="member-name">{{ emp.full_name }}</div>
-            <div class="member-position">{{ emp.position || 'Member' }}</div>
+            <div class="member-meta">{{ emp.role }}{{ emp.company ? ` · ${emp.company}` : '' }}</div>
           </div>
         </div>
       </div>
@@ -140,12 +111,26 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  Calendar,
+  CheckSquare,
+  FolderKanban,
+  Minus,
+  Pencil,
+  Trash2,
+  UserRound,
+  Users,
+} from '@lucide/vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+
 import { apiJson } from '@/api/client'
 import { getToken } from '@/services/auth'
 import { user } from '@/composables/session'
+import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const router = useRouter()
@@ -167,7 +152,7 @@ const contacts = ref([])
 const loadingProjects = ref(true)
 const loadingTeam = ref(true)
 
-const userName = computed(() => user.value?.full_name || 'there')
+const userName = computed(() => user.value?.first_name || 'there')
 const greeting = computed(() => {
   const hour = new Date().getHours()
   if (hour < 12) return 'Good morning'
@@ -175,11 +160,23 @@ const greeting = computed(() => {
   return 'Good evening'
 })
 
+const statCards = computed(() => [
+  { label: 'Active Projects', value: stats.value.projects, icon: FolderKanban, alert: false },
+  { label: 'Total Tasks', value: stats.value.tasks, icon: CheckSquare, alert: false },
+  { label: 'Team Members', value: stats.value.employees, icon: Users, alert: false },
+  { label: 'Overdue Tasks', value: stats.value.overdue, icon: AlertTriangle, alert: stats.value.overdue > 0 },
+])
+
+function priorityIcon(priority) {
+  if (priority === 'high') return ArrowUp
+  if (priority === 'low') return ArrowDown
+  return Minus
+}
+
 async function fetchDashboardData() {
   const token = getToken()
 
   try {
-    // Fetch projects
     const projectsRes = await axios.get(`${API_URL}/api/v1/projects`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -193,14 +190,11 @@ async function fetchDashboardData() {
   }
 
   try {
-    // Fetch all tasks
     const tasksRes = await axios.get(`${API_URL}/api/v1/tasks`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     const tasks = tasksRes.data
     stats.value.tasks = tasks.length
-
-    // Filter overdue tasks
     const now = new Date()
     overdueTasks.value = tasks
       .filter((t) => t.due_date && new Date(t.due_date) < now && t.status !== 'completed')
@@ -215,9 +209,11 @@ async function fetchDashboardData() {
       axios.get(`${API_URL}/api/v1/users?role=employee`, {
         headers: { Authorization: `Bearer ${token}` },
       }),
-      axios.get(`${API_URL}/api/v1/contacts`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => ({ data: [] })),
+      axios
+        .get(`${API_URL}/api/v1/contacts`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .catch(() => ({ data: [] })),
     ])
     employees.value = employeesRes.data
     contacts.value = Array.isArray(contactsRes.data) ? contactsRes.data : []
@@ -226,14 +222,16 @@ async function fetchDashboardData() {
       ...contacts.value.map((c) => ({
         key: `c-${c.id}`,
         full_name: c.name,
-        position: c.role || 'Member',
+        role: c.role || 'Member',
+        company: c.company || '',
       })),
       ...employees.value
         .filter((e) => !contactEmails.has((e.email || '').toLowerCase()))
         .map((e) => ({
           key: `u-${e.id}`,
           full_name: e.full_name,
-          position: e.position || 'Employee',
+          role: e.job_title || e.position || 'Employee',
+          company: e.company_name || '',
         })),
     ]
     stats.value.employees = preview.length
@@ -281,9 +279,9 @@ async function deleteOverdueTask(task) {
 }
 
 function getInitials(name) {
-  return name
+  return (name || '')
     .split(' ')
-    .map(n => n[0])
+    .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2)
@@ -293,33 +291,28 @@ function formatDate(dateString) {
   if (!dateString) return ''
   const date = new Date(dateString)
   const now = new Date()
-  const diffTime = now - date
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-  
+  const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24))
   if (diffDays === 0) return 'today'
   if (diffDays === 1) return 'yesterday'
   return `${diffDays} days ago`
 }
 
-onMounted(() => {
-  fetchDashboardData()
-})
+onMounted(fetchDashboardData)
 </script>
 
 <style scoped>
 .dashboard {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+  max-width: 100%;
 }
 
 .dashboard-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
 }
 
 .dashboard-header h1 {
+  font-family: var(--font-display);
   font-size: 2rem;
-  font-weight: 600;
+  font-weight: 400;
   margin: 0 0 0.25rem;
 }
 
@@ -329,111 +322,91 @@ onMounted(() => {
   margin: 0;
 }
 
-/* Quick Actions */
-.quick-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.action-card {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  text-decoration: none;
-  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
-}
-
-.action-card:hover {
-  border-color: var(--color-accent);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  text-decoration: none;
-}
-
-.action-card.highlight {
-  background: linear-gradient(135deg, rgba(196,163,90,0.15), rgba(196,163,90,0.05));
-  border-color: rgba(196,163,90,0.4);
-}
-
-.action-icon {
-  font-size: 1.5rem;
-}
-
-.action-text {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--color-text);
-}
-
-/* Stats Grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2.5rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 2.25rem;
 }
 
 .stat-card {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1.25rem;
+  gap: 0.9rem;
+  padding: 1.1rem 1.15rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
+  transition: border-color 0.18s, background 0.18s, transform 0.18s;
+}
+
+.stat-card:hover {
+  border-color: rgba(196, 163, 90, 0.45);
+  background: rgba(30, 36, 32, 0.95);
+  transform: translateY(-1px);
 }
 
 .stat-card.alert {
-  border-color: #ef4444;
-  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.06);
 }
 
 .stat-icon {
-  font-size: 2rem;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: rgba(196, 163, 90, 0.12);
+  color: var(--color-accent);
 }
 
-.stat-content {
-  flex: 1;
+.stat-icon--alert {
+  background: rgba(248, 113, 113, 0.14);
+  color: var(--color-danger);
 }
 
 .stat-value {
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: 1.9rem;
+  font-weight: 600;
   color: var(--color-text);
   line-height: 1;
-  margin-bottom: 0.25rem;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.3rem;
 }
 
 .stat-label {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: var(--color-text-muted);
+  letter-spacing: 0.02em;
 }
 
-/* Sections */
 .section {
-  margin-bottom: 2.5rem;
+  margin-bottom: 2.25rem;
 }
 
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
+  gap: 0.75rem;
 }
 
 .section-header h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 400;
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
+}
+
+.section-icon--alert {
+  color: var(--color-danger);
 }
 
 .badge-alert {
@@ -443,72 +416,68 @@ onMounted(() => {
   min-width: 24px;
   height: 24px;
   padding: 0 0.5rem;
-  background: #ef4444;
-  color: white;
+  background: rgba(248, 113, 113, 0.9);
+  color: #0f1210;
   font-size: 0.75rem;
   font-weight: 700;
   border-radius: 12px;
 }
 
 .link-button {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--color-accent);
   text-decoration: none;
   font-weight: 500;
-  transition: opacity 0.2s;
 }
 
 .link-button:hover {
-  opacity: 0.8;
   text-decoration: none;
+  filter: brightness(1.1);
 }
 
-.loading-state, .empty-state {
-  padding: 2rem;
+.loading-state,
+.empty-state {
+  padding: 1.5rem;
   text-align: center;
   color: var(--color-text-muted);
   font-size: 0.9rem;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
 }
 
 .empty-state a {
   color: var(--color-accent);
-  text-decoration: none;
 }
 
-.empty-state a:hover {
-  text-decoration: underline;
-}
-
-/* Projects Preview */
 .projects-preview {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.85rem;
 }
 
 .project-preview-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  padding: 1.25rem;
-  transition: border-color 0.2s;
+  padding: 1.1rem 1.15rem;
+  transition: border-color 0.18s;
 }
 
 .project-preview-card:hover {
-  border-color: var(--color-accent);
+  border-color: rgba(196, 163, 90, 0.45);
 }
 
 .project-preview-card h3 {
-  font-size: 1rem;
+  font-family: var(--font-body);
+  font-size: 0.98rem;
   font-weight: 600;
-  margin: 0 0 0.5rem;
-  color: var(--color-text);
+  margin: 0 0 0.4rem;
 }
 
 .project-desc {
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   color: var(--color-text-muted);
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.7rem;
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -517,21 +486,16 @@ onMounted(() => {
 }
 
 .view-link {
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   color: var(--color-accent);
   text-decoration: none;
   font-weight: 500;
 }
 
-.view-link:hover {
-  text-decoration: underline;
-}
-
-/* Tasks List */
 .tasks-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.55rem;
 }
 
 .task-item {
@@ -539,7 +503,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 1rem;
+  padding: 0.8rem 0.95rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-left: 3px solid var(--color-border);
@@ -547,76 +511,82 @@ onMounted(() => {
 }
 
 .task-item.overdue {
-  border-left-color: #ef4444;
+  border-left-color: var(--color-danger);
 }
 
 .task-side {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
   flex-shrink: 0;
 }
 
 .task-info h4 {
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 600;
-  margin: 0 0 0.5rem;
-  color: var(--color-text);
+  margin: 0 0 0.35rem;
 }
 
 .task-meta {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .meta-text {
-  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
   color: var(--color-text-muted);
 }
 
 .priority-badge {
-  font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
-  padding: 0.25rem 0.6rem;
+  letter-spacing: 0.04em;
+  padding: 0.28rem 0.5rem;
   border-radius: 4px;
 }
 
 .priority-badge.low {
-  background: rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.18);
   color: #94a3b8;
 }
 
 .priority-badge.medium {
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
+  background: rgba(196, 163, 90, 0.18);
+  color: var(--color-accent);
 }
 
 .priority-badge.high {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  background: rgba(248, 113, 113, 0.16);
+  color: var(--color-danger);
 }
 
-/* Team Preview */
 .team-preview {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
 }
 
 .team-member {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 1rem;
+  padding: 0.85rem 0.95rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
 }
 
 .member-avatar {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: var(--color-accent);
   color: #0f1210;
@@ -624,18 +594,41 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   flex-shrink: 0;
+}
+
+.member-info {
+  min-width: 0;
 }
 
 .member-name {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.member-position {
-  font-size: 0.8rem;
+.member-meta {
+  font-size: 0.78rem;
   color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 0.12rem;
+}
+
+@media (max-width: 960px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
