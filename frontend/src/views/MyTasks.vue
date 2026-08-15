@@ -27,12 +27,20 @@
             <span
               class="avatar"
               :class="`avatar-tone-${avatarTone(assigneeSeed(task))}`"
-              :title="assigneeName(task.assignee_id)"
+              :title="assigneeName(task)"
             >
-              {{ getInitials(assigneeName(task.assignee_id)) }}
+              {{ getInitials(assigneeName(task)) }}
             </span>
             <div class="dense-row__meta">
-              <span class="dense-row__title">{{ task.title }}</span>
+              <button
+                v-if="canManageTasks"
+                type="button"
+                class="dense-row__title"
+                @click="openEdit(task)"
+              >
+                {{ task.title }}
+              </button>
+              <span v-else class="dense-row__title">{{ task.title }}</span>
               <span v-if="projectLabel(task.project_id)" class="project-tag">
                 {{ projectLabel(task.project_id) }}
               </span>
@@ -40,6 +48,30 @@
             <span class="dense-row__due">
               {{ task.due_date ? formatShortDate(task.due_date) : '—' }}
             </span>
+            <div class="dense-row__actions">
+              <template v-if="canManageTasks">
+                <button
+                  type="button"
+                  class="row-icon-btn"
+                  title="Edit task"
+                  aria-label="Edit task"
+                  :disabled="busyId === task.id"
+                  @click="openEdit(task)"
+                >
+                  ✎
+                </button>
+                <button
+                  type="button"
+                  class="row-icon-btn row-icon-btn--danger"
+                  title="Delete task"
+                  aria-label="Delete task"
+                  :disabled="busyId === task.id"
+                  @click="confirmDelete(task)"
+                >
+                  ⌫
+                </button>
+              </template>
+            </div>
             <select
               class="status-pill"
               :data-s="task.status"
@@ -56,6 +88,47 @@
         <p v-else class="muted-line" style="margin: 0.35rem 0 0; font-size: 0.85rem">None</p>
       </section>
     </div>
+
+    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+      <div class="modal-panel">
+        <button type="button" class="modal-close" aria-label="Close" @click="closeModal">×</button>
+        <h2>Edit task</h2>
+        <form class="field-stack" @submit.prevent="saveTask">
+          <label>
+            Title *
+            <input v-model="form.title" type="text" required maxlength="200" :disabled="saving" />
+          </label>
+          <label>
+            Assignee
+            <select v-model="form.assignee_key" :disabled="saving">
+              <option :value="null">Unassigned</option>
+              <option v-for="opt in assigneeOptions" :key="opt.key" :value="opt.key">
+                {{ assigneeOptionLabel(opt) }}
+              </option>
+            </select>
+          </label>
+          <label>
+            Due date
+            <DatePicker v-model="form.due_date" :disabled="saving" />
+          </label>
+          <label>
+            Status
+            <select v-model="form.status" :disabled="saving">
+              <option v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </label>
+          <p v-if="formError" class="error-line">{{ formError }}</p>
+          <div class="modal-actions">
+            <button type="button" class="btn-outline" :disabled="saving" @click="closeModal">Cancel</button>
+            <button type="submit" class="btn-primary" :disabled="saving || !form.title.trim()">
+              {{ saving ? 'Saving…' : 'Save changes' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -63,7 +136,15 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { apiJson } from '@/api/client'
+import DatePicker from '@/components/DatePicker.vue'
 import { user } from '@/composables/session'
+import {
+  assigneeOptionLabel,
+  buildAssigneeOptions,
+  parseAssigneeKey,
+  resolveAssigneeName,
+  taskAssigneeKey,
+} from '@/utils/assignee'
 import {
   STATUS_GROUPS,
   STATUS_OPTIONS,
@@ -77,9 +158,25 @@ const error = ref('')
 const tasks = ref([])
 const projectsById = ref({})
 const usersById = ref({})
+const contactsById = ref({})
+const team = ref([])
+const contacts = ref([])
 const busyId = ref(null)
 const flashId = ref(null)
 let flashTimer = null
+
+const showModal = ref(false)
+const editingTaskId = ref(null)
+const saving = ref(false)
+const formError = ref('')
+const form = ref({
+  title: '',
+  assignee_key: null,
+  due_date: '',
+  status: 'pending',
+})
+
+const canManageTasks = computed(() => user.value?.role === 'admin')
 
 const statusGroups = computed(() =>
   STATUS_GROUPS.map((group) => ({
@@ -88,19 +185,29 @@ const statusGroups = computed(() =>
   })),
 )
 
+const assigneeOptions = computed(() =>
+  buildAssigneeOptions({
+    users: team.value,
+    contacts: contacts.value,
+    currentUser: user.value,
+  }),
+)
+
 function projectLabel(projectId) {
   if (!projectId) return ''
   return projectsById.value[projectId]?.title || `Project #${projectId}`
 }
 
-function assigneeName(assigneeId) {
-  if (!assigneeId) return user.value?.full_name || user.value?.email || 'You'
-  const u = usersById.value[assigneeId]
-  return u?.full_name || u?.email || `User #${assigneeId}`
+function assigneeName(task) {
+  return resolveAssigneeName(task, {
+    usersById: usersById.value,
+    contactsById: contactsById.value,
+    fallback: user.value?.full_name || user.value?.email || 'You',
+  })
 }
 
 function assigneeSeed(task) {
-  return task.assignee_id || user.value?.id || task.title
+  return task.assignee_id || task.assignee_contact_id || user.value?.id || task.title
 }
 
 function triggerFlash(taskId) {
@@ -109,6 +216,26 @@ function triggerFlash(taskId) {
   flashTimer = setTimeout(() => {
     flashId.value = null
   }, 700)
+}
+
+function openEdit(task) {
+  if (!canManageTasks.value) return
+  editingTaskId.value = task.id
+  form.value = {
+    title: task.title || '',
+    assignee_key: taskAssigneeKey(task),
+    due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
+    status: task.status || 'pending',
+  }
+  formError.value = ''
+  showModal.value = true
+}
+
+function closeModal() {
+  showModal.value = false
+  editingTaskId.value = null
+  form.value = { title: '', assignee_key: null, due_date: '', status: 'pending' }
+  formError.value = ''
 }
 
 async function loadTasks() {
@@ -121,18 +248,24 @@ async function loadTasks() {
   try {
     loading.value = true
     error.value = ''
-    const [taskList, projectList, users] = await Promise.all([
+    const [taskList, projectList, users, contactList] = await Promise.all([
       apiJson(`/api/v1/tasks?assignee_id=${user.value.id}`),
       apiJson('/api/v1/projects').catch(() => []),
       apiJson('/api/v1/users').catch(() => []),
+      apiJson('/api/v1/contacts').catch(() => []),
     ])
     tasks.value = Array.isArray(taskList) ? taskList : []
     const pMap = {}
     for (const p of Array.isArray(projectList) ? projectList : []) pMap[p.id] = p
     projectsById.value = pMap
+    team.value = Array.isArray(users) ? users : []
+    contacts.value = Array.isArray(contactList) ? contactList : []
     const uMap = {}
-    for (const u of Array.isArray(users) ? users : []) uMap[u.id] = u
+    for (const u of team.value) uMap[u.id] = u
     usersById.value = uMap
+    const cMap = {}
+    for (const c of contacts.value) cMap[c.id] = c
+    contactsById.value = cMap
   } catch (err) {
     console.error('[MyTasks] load failed', err)
     error.value = err.message || 'Failed to load tasks'
@@ -162,6 +295,65 @@ async function onStatusChange(task, event) {
     task.status = previous
     event.target.value = previous
     error.value = err.message || 'Failed to update status'
+  } finally {
+    busyId.value = null
+  }
+}
+
+async function saveTask() {
+  if (!form.value.title.trim() || !editingTaskId.value) return
+
+  saving.value = true
+  formError.value = ''
+  try {
+    const { assignee_id, assignee_contact_id } = parseAssigneeKey(form.value.assignee_key)
+    const body = {
+      title: form.value.title.trim(),
+      status: form.value.status || 'pending',
+      due_date: form.value.due_date || null,
+    }
+    if (!assignee_id && !assignee_contact_id) {
+      body.clear_assignee = true
+    } else {
+      body.assignee_id = assignee_id
+      body.assignee_contact_id = assignee_contact_id
+    }
+
+    const updated = await apiJson(`/api/v1/tasks/${editingTaskId.value}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+    const idx = tasks.value.findIndex((t) => t.id === editingTaskId.value)
+    if (idx !== -1) {
+      // If reassigned away from current user, drop from My Tasks list.
+      if (updated.assignee_id !== user.value?.id) {
+        tasks.value = tasks.value.filter((t) => t.id !== updated.id)
+      } else {
+        tasks.value[idx] = { ...tasks.value[idx], ...updated }
+        triggerFlash(updated.id)
+      }
+    }
+    closeModal()
+  } catch (err) {
+    console.error('[MyTasks] save failed', err)
+    formError.value = err.message || 'Failed to save task'
+  } finally {
+    saving.value = false
+  }
+}
+
+async function confirmDelete(task) {
+  if (!canManageTasks.value) return
+  if (!window.confirm('Delete this task?')) return
+
+  busyId.value = task.id
+  error.value = ''
+  try {
+    await apiJson(`/api/v1/tasks/${task.id}`, { method: 'DELETE' })
+    tasks.value = tasks.value.filter((t) => t.id !== task.id)
+  } catch (err) {
+    console.error('[MyTasks] delete failed', err)
+    error.value = err.message || 'Failed to delete task'
   } finally {
     busyId.value = null
   }

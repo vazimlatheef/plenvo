@@ -6,7 +6,7 @@
         <h1>{{ project?.title || 'Project tasks' }}</h1>
         <p v-if="project?.description" class="app-lede">{{ project.description }}</p>
       </div>
-      <button type="button" class="btn-primary" @click="showCreate = true">+ New task</button>
+      <button type="button" class="btn-primary" @click="openCreate">+ New task</button>
     </div>
 
     <p v-if="loading" class="muted-line">Loading tasks…</p>
@@ -14,7 +14,7 @@
 
     <div v-else-if="!tasks.length" class="empty-panel">
       <p>No tasks yet — create the first one</p>
-      <button type="button" class="btn-primary" @click="showCreate = true">Create task</button>
+      <button type="button" class="btn-primary" @click="openCreate">Create task</button>
     </div>
 
     <div v-else>
@@ -38,12 +38,36 @@
               {{ getInitials(assigneeName(task)) }}
             </span>
             <div class="dense-row__meta">
-              <span class="dense-row__title">{{ task.title }}</span>
+              <button type="button" class="dense-row__title" @click="openEdit(task)">
+                {{ task.title }}
+              </button>
               <span v-if="project?.title" class="project-tag">{{ project.title }}</span>
             </div>
             <span class="dense-row__due">
               {{ task.due_date ? formatShortDate(task.due_date) : '—' }}
             </span>
+            <div class="dense-row__actions">
+              <button
+                type="button"
+                class="row-icon-btn"
+                title="Edit task"
+                aria-label="Edit task"
+                :disabled="busyId === task.id"
+                @click="openEdit(task)"
+              >
+                ✎
+              </button>
+              <button
+                type="button"
+                class="row-icon-btn row-icon-btn--danger"
+                title="Delete task"
+                aria-label="Delete task"
+                :disabled="busyId === task.id"
+                @click="confirmDelete(task)"
+              >
+                ⌫
+              </button>
+            </div>
             <select
               class="status-pill"
               :data-s="task.status"
@@ -61,18 +85,18 @@
       </section>
     </div>
 
-    <div v-if="showCreate" class="modal-overlay" @click.self="closeCreate">
+    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-panel">
-        <button type="button" class="modal-close" aria-label="Close" @click="closeCreate">×</button>
-        <h2>New task</h2>
-        <form class="field-stack" @submit.prevent="createTask">
+        <button type="button" class="modal-close" aria-label="Close" @click="closeModal">×</button>
+        <h2>{{ editingTaskId ? 'Edit task' : 'New task' }}</h2>
+        <form class="field-stack" @submit.prevent="saveTask">
           <label>
             Title *
-            <input v-model="newTask.title" type="text" required maxlength="200" :disabled="creating" />
+            <input v-model="form.title" type="text" required maxlength="200" :disabled="saving" />
           </label>
           <label>
             Assignee
-            <select v-model="newTask.assignee_key" :disabled="creating">
+            <select v-model="form.assignee_key" :disabled="saving">
               <option :value="null">Unassigned</option>
               <option v-for="opt in assigneeOptions" :key="opt.key" :value="opt.key">
                 {{ assigneeOptionLabel(opt) }}
@@ -81,21 +105,21 @@
           </label>
           <label>
             Due date
-            <DatePicker v-model="newTask.due_date" :disabled="creating" />
+            <DatePicker v-model="form.due_date" :disabled="saving" />
           </label>
           <label>
             Status
-            <select v-model="newTask.status" :disabled="creating">
+            <select v-model="form.status" :disabled="saving">
               <option v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
                 {{ opt.label }}
               </option>
             </select>
           </label>
-          <p v-if="createError" class="error-line">{{ createError }}</p>
+          <p v-if="formError" class="error-line">{{ formError }}</p>
           <div class="modal-actions">
-            <button type="button" class="btn-outline" :disabled="creating" @click="closeCreate">Cancel</button>
-            <button type="submit" class="btn-primary" :disabled="creating || !newTask.title.trim()">
-              {{ creating ? 'Creating…' : 'Create task' }}
+            <button type="button" class="btn-outline" :disabled="saving" @click="closeModal">Cancel</button>
+            <button type="submit" class="btn-primary" :disabled="saving || !form.title.trim()">
+              {{ saving ? 'Saving…' : editingTaskId ? 'Save changes' : 'Create task' }}
             </button>
           </div>
         </form>
@@ -116,6 +140,7 @@ import {
   buildAssigneeOptions,
   parseAssigneeKey,
   resolveAssigneeName,
+  taskAssigneeKey,
 } from '@/utils/assignee'
 import {
   STATUS_GROUPS,
@@ -139,10 +164,11 @@ const busyId = ref(null)
 const flashId = ref(null)
 let flashTimer = null
 
-const showCreate = ref(false)
-const creating = ref(false)
-const createError = ref('')
-const newTask = ref({
+const showModal = ref(false)
+const editingTaskId = ref(null)
+const saving = ref(false)
+const formError = ref('')
+const form = ref({
   title: '',
   assignee_key: null,
   due_date: '',
@@ -188,14 +214,32 @@ function triggerFlash(taskId) {
   }, 700)
 }
 
-function resetCreateForm() {
-  newTask.value = { title: '', assignee_key: null, due_date: '', status: 'pending' }
-  createError.value = ''
+function resetForm() {
+  form.value = { title: '', assignee_key: null, due_date: '', status: 'pending' }
+  formError.value = ''
+  editingTaskId.value = null
 }
 
-function closeCreate() {
-  showCreate.value = false
-  resetCreateForm()
+function openCreate() {
+  resetForm()
+  showModal.value = true
+}
+
+function openEdit(task) {
+  editingTaskId.value = task.id
+  form.value = {
+    title: task.title || '',
+    assignee_key: taskAssigneeKey(task),
+    due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
+    status: task.status || 'pending',
+  }
+  formError.value = ''
+  showModal.value = true
+}
+
+function closeModal() {
+  showModal.value = false
+  resetForm()
 }
 
 async function loadPage() {
@@ -269,31 +313,72 @@ async function onStatusChange(task, event) {
   }
 }
 
-async function createTask() {
-  if (!newTask.value.title.trim() || !projectId.value) return
+function buildAssigneePayload() {
+  const { assignee_id, assignee_contact_id } = parseAssigneeKey(form.value.assignee_key)
+  if (!assignee_id && !assignee_contact_id) {
+    return { clear_assignee: true }
+  }
+  return { assignee_id, assignee_contact_id }
+}
 
-  creating.value = true
-  createError.value = ''
+async function saveTask() {
+  if (!form.value.title.trim()) return
+
+  saving.value = true
+  formError.value = ''
   try {
-    const { assignee_id, assignee_contact_id } = parseAssigneeKey(newTask.value.assignee_key)
-    const created = await apiJson('/api/v1/tasks', {
-      method: 'POST',
-      body: JSON.stringify({
-        title: newTask.value.title.trim(),
-        project_id: projectId.value,
-        status: newTask.value.status || 'pending',
-        assignee_id,
-        assignee_contact_id,
-        due_date: newTask.value.due_date || null,
-      }),
-    })
-    tasks.value = [created, ...tasks.value]
-    closeCreate()
+    const assigneePayload = buildAssigneePayload()
+    if (editingTaskId.value) {
+      const updated = await apiJson(`/api/v1/tasks/${editingTaskId.value}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title: form.value.title.trim(),
+          status: form.value.status || 'pending',
+          due_date: form.value.due_date || null,
+          ...assigneePayload,
+        }),
+      })
+      const idx = tasks.value.findIndex((t) => t.id === editingTaskId.value)
+      if (idx !== -1) tasks.value[idx] = { ...tasks.value[idx], ...updated }
+      triggerFlash(updated.id)
+    } else {
+      if (!projectId.value) return
+      const { clear_assignee, ...assignees } = assigneePayload
+      const created = await apiJson('/api/v1/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: form.value.title.trim(),
+          project_id: projectId.value,
+          status: form.value.status || 'pending',
+          due_date: form.value.due_date || null,
+          assignee_id: assignees.assignee_id ?? null,
+          assignee_contact_id: assignees.assignee_contact_id ?? null,
+        }),
+      })
+      tasks.value = [created, ...tasks.value]
+    }
+    closeModal()
   } catch (err) {
-    console.error('[AdminProjectTasks] create task failed', err)
-    createError.value = err.message || 'Failed to create task'
+    console.error('[AdminProjectTasks] save task failed', err)
+    formError.value = err.message || 'Failed to save task'
   } finally {
-    creating.value = false
+    saving.value = false
+  }
+}
+
+async function confirmDelete(task) {
+  if (!window.confirm('Delete this task?')) return
+
+  busyId.value = task.id
+  error.value = ''
+  try {
+    await apiJson(`/api/v1/tasks/${task.id}`, { method: 'DELETE' })
+    tasks.value = tasks.value.filter((t) => t.id !== task.id)
+  } catch (err) {
+    console.error('[AdminProjectTasks] delete failed', err)
+    error.value = err.message || 'Failed to delete task'
+  } finally {
+    busyId.value = null
   }
 }
 

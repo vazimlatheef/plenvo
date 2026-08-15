@@ -269,7 +269,7 @@ select.status-pill {
 
 .dense-row {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto auto;
+  grid-template-columns: 28px minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 0.65rem 0.75rem;
   min-height: 48px;
@@ -292,6 +292,23 @@ select.status-pill {
   text-overflow: ellipsis;
 }
 
+button.dense-row__title {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+button.dense-row__title:hover {
+  color: var(--color-accent);
+}
+
 .dense-row__due {
   font-size: 0.78rem;
   color: var(--color-text-muted);
@@ -303,6 +320,56 @@ select.status-pill {
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
+}
+
+.dense-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+.dense-row:hover .dense-row__actions,
+.dense-row:focus-within .dense-row__actions {
+  opacity: 1;
+}
+
+.row-icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.row-icon-btn:hover:not(:disabled) {
+  color: var(--color-text);
+  background: rgba(232, 228, 216, 0.08);
+}
+
+.row-icon-btn--danger:hover:not(:disabled) {
+  color: var(--color-danger);
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.row-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (hover: none) {
+  .dense-row__actions {
+    opacity: 1;
+  }
 }
 
 .empty-panel {
@@ -432,7 +499,7 @@ select.status-pill {
 
 @media (max-width: 640px) {
   .dense-row {
-    grid-template-columns: 28px minmax(0, 1fr) auto;
+    grid-template-columns: 28px minmax(0, 1fr) auto auto;
   }
 
   .dense-row__due {

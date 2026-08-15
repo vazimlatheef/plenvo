@@ -30,6 +30,7 @@ export async function apiFetch(path, options = {}) {
 
 export async function apiJson(path, options = {}) {
   const res = await apiFetch(path, options)
+  if (res.status === 204) return null
   const text = await res.text()
   let data = null
   try {

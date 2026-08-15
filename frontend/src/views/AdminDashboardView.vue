@@ -89,7 +89,29 @@
               <span class="meta-text">📅 Due {{ formatDate(task.due_date) }}</span>
             </div>
           </div>
-          <span class="priority-badge" :class="task.priority">{{ task.priority }}</span>
+          <div class="task-side">
+            <button
+              type="button"
+              class="row-icon-btn"
+              title="Edit task"
+              aria-label="Edit task"
+              :disabled="busyTaskId === task.id"
+              @click="goEditTask(task)"
+            >
+              ✎
+            </button>
+            <button
+              type="button"
+              class="row-icon-btn row-icon-btn--danger"
+              title="Delete task"
+              aria-label="Delete task"
+              :disabled="busyTaskId === task.id"
+              @click="deleteOverdueTask(task)"
+            >
+              ⌫
+            </button>
+            <span class="priority-badge" :class="task.priority">{{ task.priority }}</span>
+          </div>
         </div>
       </div>
     </section>
@@ -119,11 +141,15 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
+import { apiJson } from '@/api/client'
 import { getToken } from '@/services/auth'
 import { user } from '@/composables/session'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const router = useRouter()
+const busyTaskId = ref(null)
 
 const stats = ref({
   projects: 0,
@@ -229,6 +255,29 @@ function assigneeLabel(task) {
     return c ? c.name : 'Contact'
   }
   return 'Unassigned'
+}
+
+function goEditTask(task) {
+  if (task.project_id) {
+    router.push(`/app/projects/${task.project_id}/tasks`)
+    return
+  }
+  router.push('/app/tasks')
+}
+
+async function deleteOverdueTask(task) {
+  if (!window.confirm('Delete this task?')) return
+  busyTaskId.value = task.id
+  try {
+    await apiJson(`/api/v1/tasks/${task.id}`, { method: 'DELETE' })
+    overdueTasks.value = overdueTasks.value.filter((t) => t.id !== task.id)
+    stats.value.overdue = overdueTasks.value.length
+    stats.value.tasks = Math.max(0, (stats.value.tasks || 1) - 1)
+  } catch (err) {
+    console.error('Failed to delete task:', err)
+  } finally {
+    busyTaskId.value = null
+  }
 }
 
 function getInitials(name) {
@@ -489,6 +538,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
   padding: 1rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -498,6 +548,13 @@ onMounted(() => {
 
 .task-item.overdue {
   border-left-color: #ef4444;
+}
+
+.task-side {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
 }
 
 .task-info h4 {

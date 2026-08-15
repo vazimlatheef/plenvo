@@ -130,28 +130,29 @@ def update_task(
             if task_in.status == "completed":
                 task.completed_at = datetime.now(timezone.utc)
     else:
-        if task_in.title is not None:
-            task.title = task_in.title
-        if task_in.description is not None:
-            task.description = task_in.description
-        if task_in.status is not None:
-            task.status = task_in.status
-            if task_in.status == "completed":
+        data = task_in.model_dump(exclude_unset=True)
+        if "title" in data and data["title"] is not None:
+            task.title = data["title"]
+        if "description" in data:
+            task.description = data["description"]
+        if "status" in data and data["status"] is not None:
+            task.status = data["status"]
+            if data["status"] == "completed":
                 task.completed_at = datetime.now(timezone.utc)
-        if task_in.priority is not None:
-            task.priority = task_in.priority
-        if task_in.due_date is not None:
-            task.due_date = task_in.due_date
-        if task_in.clear_assignee:
+        if "priority" in data and data["priority"] is not None:
+            task.priority = data["priority"]
+        if "due_date" in data:
+            task.due_date = data["due_date"]
+        if data.get("clear_assignee"):
             task.assignee_id = None
             task.assignee_contact_id = None
-        elif task_in.assignee_contact_id is not None:
-            contact = _validate_contact_assignee(db, org_id, task_in.assignee_contact_id)
+        elif "assignee_contact_id" in data and data["assignee_contact_id"] is not None:
+            contact = _validate_contact_assignee(db, org_id, data["assignee_contact_id"])
             task.assignee_contact_id = contact.id
             task.assignee_id = contact.user_id
-        elif task_in.assignee_id is not None:
-            _validate_user_assignee(db, org_id, task_in.assignee_id)
-            task.assignee_id = task_in.assignee_id
+        elif "assignee_id" in data and data["assignee_id"] is not None:
+            _validate_user_assignee(db, org_id, data["assignee_id"])
+            task.assignee_id = data["assignee_id"]
             task.assignee_contact_id = None
 
     db.commit()
@@ -165,13 +166,13 @@ def delete_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can delete tasks")
-
     org_id = _require_org(current_user)
     task = db.query(Task).filter(Task.id == task_id).first()
+    # Org membership: never delete tasks outside the caller's organisation.
     if not task or task.organisation_id != org_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can delete tasks")
 
     db.delete(task)
     db.commit()
