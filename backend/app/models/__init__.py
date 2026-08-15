@@ -1,6 +1,7 @@
 from app.models.models import (
     Assignment,
     Base,
+    Contact,
     Note,
     Organisation,
     Project,
@@ -13,6 +14,7 @@ from app.models.models import (
 __all__ = [
     "Assignment",
     "Base",
+    "Contact",
     "Note",
     "Organisation",
     "Project",

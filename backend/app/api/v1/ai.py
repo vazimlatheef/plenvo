@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
-from app.models.models import Note, Task, User
+from app.models.models import Contact, Note, Task, User
 
 router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
 
@@ -145,10 +145,21 @@ def confirm_tasks(
 
     created_tasks = []
     for t in body.tasks:
+        assignee_id = t.get("assignee_id")
+        assignee_contact_id = t.get("assignee_contact_id")
+        if assignee_id and assignee_contact_id:
+            raise HTTPException(status_code=400, detail="Provide either assignee_id or assignee_contact_id, not both.")
+        if assignee_contact_id:
+            contact = db.get(Contact, assignee_contact_id)
+            if not contact or contact.organisation_id != current_user.organisation_id:
+                raise HTTPException(status_code=404, detail="Contact not found.")
+            if contact.user_id:
+                assignee_id = contact.user_id
         task = Task(
             title=t["title"],
             description=t.get("description"),
-            assignee_id=t.get("assignee_id"),
+            assignee_id=assignee_id,
+            assignee_contact_id=assignee_contact_id,
             due_date=_parse_due_date(t.get("due_date")),
             priority=t.get("priority", "medium"),
             project_id=t.get("project_id"),

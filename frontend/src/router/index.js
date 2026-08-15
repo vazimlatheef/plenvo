@@ -10,6 +10,8 @@ import EditTrainingView from '@/views/EditTrainingView.vue'
 import EmployeeAssignmentsView from '@/views/EmployeeAssignmentsView.vue'
 import HomeRedirectView from '@/views/HomeRedirectView.vue'
 import LoginView from '@/views/LoginView.vue'
+import ForgotPasswordView from '@/views/ForgotPasswordView.vue'
+import ResetPasswordView from '@/views/ResetPasswordView.vue'
 import TrainingSummaryView from '@/views/TrainingSummaryView.vue'
 import AiTerminalView from '@/views/AiTerminalView.vue'
 import LandingView from '@/views/LandingView.vue'
@@ -42,6 +44,18 @@ const router = createRouter({
       name: 'login',
       component: LoginView,
       meta: { public: true, title: 'Sign in' },
+    },
+    {
+      path: '/forgot-password',
+      name: 'forgot-password',
+      component: ForgotPasswordView,
+      meta: { public: true, title: 'Forgot password' },
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: ResetPasswordView,
+      meta: { public: true, title: 'Reset password' },
     },
     {
       path: '/signup',

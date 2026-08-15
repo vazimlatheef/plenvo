@@ -33,9 +33,9 @@
             <span
               class="avatar"
               :class="`avatar-tone-${avatarTone(assigneeSeed(task))}`"
-              :title="assigneeName(task.assignee_id)"
+              :title="assigneeName(task)"
             >
-              {{ getInitials(assigneeName(task.assignee_id)) }}
+              {{ getInitials(assigneeName(task)) }}
             </span>
             <div class="dense-row__meta">
               <span class="dense-row__title">{{ task.title }}</span>
@@ -63,6 +63,7 @@
 
     <div v-if="showCreate" class="modal-overlay" @click.self="closeCreate">
       <div class="modal-panel">
+        <button type="button" class="modal-close" aria-label="Close" @click="closeCreate">×</button>
         <h2>New task</h2>
         <form class="field-stack" @submit.prevent="createTask">
           <label>
@@ -71,10 +72,10 @@
           </label>
           <label>
             Assignee
-            <select v-model="newTask.assignee_id" :disabled="creating">
+            <select v-model="newTask.assignee_key" :disabled="creating">
               <option :value="null">Unassigned</option>
-              <option v-for="u in team" :key="u.id" :value="u.id">
-                {{ u.full_name || u.email }}
+              <option v-for="opt in assigneeOptions" :key="opt.key" :value="opt.key">
+                {{ assigneeOptionLabel(opt) }}
               </option>
             </select>
           </label>
@@ -109,6 +110,13 @@ import { useRoute } from 'vue-router'
 
 import { apiJson } from '@/api/client'
 import DatePicker from '@/components/DatePicker.vue'
+import { user } from '@/composables/session'
+import {
+  assigneeOptionLabel,
+  buildAssigneeOptions,
+  parseAssigneeKey,
+  resolveAssigneeName,
+} from '@/utils/assignee'
 import {
   STATUS_GROUPS,
   STATUS_OPTIONS,
@@ -122,7 +130,9 @@ const route = useRoute()
 const project = ref(null)
 const tasks = ref([])
 const team = ref([])
+const contacts = ref([])
 const usersById = ref({})
+const contactsById = ref({})
 const loading = ref(true)
 const error = ref('')
 const busyId = ref(null)
@@ -134,7 +144,7 @@ const creating = ref(false)
 const createError = ref('')
 const newTask = ref({
   title: '',
-  assignee_id: null,
+  assignee_key: null,
   due_date: '',
   status: 'pending',
 })
@@ -151,14 +161,23 @@ const statusGroups = computed(() =>
   })),
 )
 
-function assigneeName(assigneeId) {
-  if (!assigneeId) return 'Unassigned'
-  const u = usersById.value[assigneeId]
-  return u?.full_name || u?.email || `User #${assigneeId}`
+const assigneeOptions = computed(() =>
+  buildAssigneeOptions({
+    users: team.value,
+    contacts: contacts.value,
+    currentUser: user.value,
+  }),
+)
+
+function assigneeName(task) {
+  return resolveAssigneeName(task, {
+    usersById: usersById.value,
+    contactsById: contactsById.value,
+  })
 }
 
 function assigneeSeed(task) {
-  return task.assignee_id || task.title
+  return task.assignee_id || task.assignee_contact_id || task.title
 }
 
 function triggerFlash(taskId) {
@@ -170,7 +189,7 @@ function triggerFlash(taskId) {
 }
 
 function resetCreateForm() {
-  newTask.value = { title: '', assignee_id: null, due_date: '', status: 'pending' }
+  newTask.value = { title: '', assignee_key: null, due_date: '', status: 'pending' }
   createError.value = ''
 }
 
@@ -190,11 +209,15 @@ async function loadPage() {
   loading.value = true
   error.value = ''
   try {
-    const [proj, taskList, users] = await Promise.all([
+    const [proj, taskList, users, contactList] = await Promise.all([
       apiJson(`/api/v1/projects/${projectId.value}`),
       apiJson(`/api/v1/tasks?project_id=${projectId.value}`),
       apiJson('/api/v1/users').catch((err) => {
         console.error('[AdminProjectTasks] failed to load users', err)
+        return []
+      }),
+      apiJson('/api/v1/contacts').catch((err) => {
+        console.error('[AdminProjectTasks] failed to load contacts', err)
         return []
       }),
     ])
@@ -202,9 +225,14 @@ async function loadPage() {
     project.value = proj
     tasks.value = Array.isArray(taskList) ? taskList : []
     team.value = Array.isArray(users) ? users : []
+    contacts.value = Array.isArray(contactList) ? contactList : []
     const map = {}
     for (const u of team.value) map[u.id] = u
+    if (user.value?.id != null) map[user.value.id] = map[user.value.id] || user.value
     usersById.value = map
+    const cmap = {}
+    for (const c of contacts.value) cmap[c.id] = c
+    contactsById.value = cmap
   } catch (err) {
     console.error('[AdminProjectTasks] load failed', err)
     error.value = err.message || 'Failed to load project tasks'
@@ -247,13 +275,15 @@ async function createTask() {
   creating.value = true
   createError.value = ''
   try {
+    const { assignee_id, assignee_contact_id } = parseAssigneeKey(newTask.value.assignee_key)
     const created = await apiJson('/api/v1/tasks', {
       method: 'POST',
       body: JSON.stringify({
         title: newTask.value.title.trim(),
         project_id: projectId.value,
         status: newTask.value.status || 'pending',
-        assignee_id: newTask.value.assignee_id ? Number(newTask.value.assignee_id) : null,
+        assignee_id,
+        assignee_contact_id,
         due_date: newTask.value.due_date || null,
       }),
     })

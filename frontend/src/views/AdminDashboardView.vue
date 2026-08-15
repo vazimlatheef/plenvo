@@ -85,7 +85,7 @@
           <div class="task-info">
             <h4>{{ task.title }}</h4>
             <div class="task-meta">
-              <span v-if="task.assignee_id" class="meta-text">👤 {{ getEmployeeName(task.assignee_id) }}</span>
+              <span v-if="task.assignee_id || task.assignee_contact_id" class="meta-text">👤 {{ assigneeLabel(task) }}</span>
               <span class="meta-text">📅 Due {{ formatDate(task.due_date) }}</span>
             </div>
           </div>
@@ -102,14 +102,14 @@
       </div>
       <div v-if="loadingTeam" class="loading-state">Loading team...</div>
       <div v-else-if="recentEmployees.length === 0" class="empty-state">
-        <p>No team members yet. <router-link to="/app/team">Invite your first employee</router-link></p>
+        <p>No team members yet. <router-link to="/app/team">Add your first member</router-link></p>
       </div>
       <div v-else class="team-preview">
-        <div v-for="emp in recentEmployees" :key="emp.id" class="team-member">
+        <div v-for="emp in recentEmployees" :key="emp.key" class="team-member">
           <div class="member-avatar">{{ getInitials(emp.full_name) }}</div>
           <div class="member-info">
             <div class="member-name">{{ emp.full_name }}</div>
-            <div class="member-position">{{ emp.position || 'Employee' }}</div>
+            <div class="member-position">{{ emp.position || 'Member' }}</div>
           </div>
         </div>
       </div>
@@ -136,6 +136,7 @@ const recentProjects = ref([])
 const overdueTasks = ref([])
 const recentEmployees = ref([])
 const employees = ref([])
+const contacts = ref([])
 
 const loadingProjects = ref(true)
 const loadingTeam = ref(true)
@@ -184,13 +185,33 @@ async function fetchDashboardData() {
   }
 
   try {
-    // Fetch employees
-    const employeesRes = await axios.get(`${API_URL}/api/v1/users?role=employee`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const [employeesRes, contactsRes] = await Promise.all([
+      axios.get(`${API_URL}/api/v1/users?role=employee`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      axios.get(`${API_URL}/api/v1/contacts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => ({ data: [] })),
+    ])
     employees.value = employeesRes.data
-    stats.value.employees = employees.value.length
-    recentEmployees.value = employees.value.slice(0, 4)
+    contacts.value = Array.isArray(contactsRes.data) ? contactsRes.data : []
+    const contactEmails = new Set(contacts.value.map((c) => (c.email || '').toLowerCase()))
+    const preview = [
+      ...contacts.value.map((c) => ({
+        key: `c-${c.id}`,
+        full_name: c.name,
+        position: c.role || 'Member',
+      })),
+      ...employees.value
+        .filter((e) => !contactEmails.has((e.email || '').toLowerCase()))
+        .map((e) => ({
+          key: `u-${e.id}`,
+          full_name: e.full_name,
+          position: e.position || 'Employee',
+        })),
+    ]
+    stats.value.employees = preview.length
+    recentEmployees.value = preview.slice(0, 4)
   } catch (err) {
     console.error('Failed to load team:', err)
   } finally {
@@ -198,9 +219,16 @@ async function fetchDashboardData() {
   }
 }
 
-function getEmployeeName(employeeId) {
-  const emp = employees.value.find(e => e.id === employeeId)
-  return emp ? emp.full_name : 'Unknown'
+function assigneeLabel(task) {
+  if (task.assignee_id) {
+    const emp = employees.value.find((e) => e.id === task.assignee_id)
+    return emp ? emp.full_name : 'Unknown'
+  }
+  if (task.assignee_contact_id) {
+    const c = contacts.value.find((x) => x.id === task.assignee_contact_id)
+    return c ? c.name : 'Contact'
+  }
+  return 'Unassigned'
 }
 
 function getInitials(name) {

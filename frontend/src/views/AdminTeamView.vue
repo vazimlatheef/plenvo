@@ -2,72 +2,98 @@
   <div class="app-page">
     <div class="app-page-header">
       <h1>Team</h1>
-      <button type="button" class="btn-primary" @click="showInviteModal = true">+ Invite</button>
+      <button type="button" class="btn-primary" @click="openAddModal">+ Add member</button>
     </div>
 
     <p v-if="loading" class="muted-line">Loading team…</p>
     <p v-else-if="error" class="error-line">{{ error }}</p>
 
-    <div v-else-if="employees.length === 0" class="empty-panel">
-      <p>No team members yet — invite the first one</p>
-      <button type="button" class="btn-primary" @click="showInviteModal = true">Invite employee</button>
+    <div v-else-if="rows.length === 0" class="empty-panel">
+      <p>No team members yet — add someone with name and email (no account needed)</p>
+      <button type="button" class="btn-primary" @click="openAddModal">Add member</button>
     </div>
 
     <ul v-else class="dense-list">
-      <li v-for="emp in employees" :key="emp.id" class="dense-row team-row">
+      <li v-for="row in rows" :key="row.key" class="dense-row team-row">
         <span
           class="avatar avatar--lg"
-          :class="`avatar-tone-${avatarTone(emp.id || emp.email)}`"
+          :class="`avatar-tone-${avatarTone(row.seed)}`"
         >
-          {{ getInitials(emp.full_name || emp.email) }}
+          {{ getInitials(row.name) }}
         </span>
         <div class="dense-row__meta team-meta">
-          <span class="dense-row__title">{{ emp.full_name }}</span>
-          <span class="team-sub">{{ emp.position || 'Employee' }} · {{ emp.email }}</span>
+          <span class="dense-row__title">{{ row.name }}</span>
+          <span class="team-sub">{{ row.role }} · {{ row.email }}</span>
         </div>
-        <span class="dense-row__due">Joined {{ formatDate(emp.created_at) }}</span>
+        <div class="team-actions">
+          <span v-if="row.hasAccount" class="team-badge">On Plenvo</span>
+          <template v-else-if="row.contactId">
+            <button
+              type="button"
+              class="btn-outline btn-sm"
+              :disabled="invitingId === row.contactId"
+              @click="inviteContact(row)"
+            >
+              {{ invitingId === row.contactId ? 'Sending…' : 'Invite to Plenvo' }}
+            </button>
+          </template>
+          <span class="dense-row__due">{{ row.meta }}</span>
+        </div>
       </li>
     </ul>
 
-    <div v-if="showInviteModal" class="modal-overlay" @click.self="cancelInvite">
+    <p v-if="actionError" class="error-line">{{ actionError }}</p>
+    <p v-if="actionSuccess" class="success-line">{{ actionSuccess }}</p>
+
+    <div v-if="showAddModal" class="modal-overlay" @click.self="cancelAdd">
       <div class="modal-panel">
-        <h2>Invite employee</h2>
+        <button type="button" class="modal-close" aria-label="Close" @click="cancelAdd">×</button>
+        <h2>Add team member</h2>
         <p class="app-lede" style="margin-bottom: 1rem">
-          They'll receive login credentials by email.
+          Name and email only — no Plenvo account required. You can invite them later.
         </p>
-        <form class="field-stack" @submit.prevent="inviteEmployee">
-          <div v-if="needsTeamSize" class="team-size-block">
-            <span class="team-size-label">How big is your team? *</span>
-            <p class="field-hint">Asked once, the first time you invite someone.</p>
-            <div class="radio-row">
-              <label v-for="opt in teamSizeOptions" :key="opt.value" class="radio-opt">
-                <input v-model="invite.team_size" type="radio" :value="opt.value" required />
-                {{ opt.label }}
-              </label>
-            </div>
-          </div>
+        <form class="field-stack" @submit.prevent="addContact">
           <label>
             Full name *
-            <input v-model="invite.name" type="text" required maxlength="100" placeholder="e.g. John Smith" />
+            <input v-model="form.name" type="text" required maxlength="200" placeholder="e.g. John Smith" />
           </label>
           <label>
             Email *
-            <input v-model="invite.email" type="email" required maxlength="150" placeholder="john@company.com" />
+            <input v-model="form.email" type="email" required maxlength="150" placeholder="john@company.com" />
           </label>
           <label>
-            Position
-            <input v-model="invite.position" type="text" maxlength="100" placeholder="e.g. Marketing Manager" />
+            Role *
+            <select v-model="form.role" required>
+              <option v-for="r in roleOptions" :key="r" :value="r">{{ r }}</option>
+            </select>
           </label>
-          <p v-if="inviteError" class="error-line">{{ inviteError }}</p>
-          <p v-if="inviteSuccess" class="success-line">{{ inviteSuccess }}</p>
+          <p v-if="formError" class="error-line">{{ formError }}</p>
           <div class="modal-actions">
-            <button type="button" class="btn-outline" :disabled="inviting" @click="cancelInvite">Cancel</button>
-            <button
-              type="submit"
-              class="btn-primary"
-              :disabled="inviting || (needsTeamSize && !invite.team_size)"
-            >
-              {{ inviting ? 'Sending…' : 'Send invitation' }}
+            <button type="button" class="btn-outline" :disabled="saving" @click="cancelAdd">Cancel</button>
+            <button type="submit" class="btn-primary" :disabled="saving">
+              {{ saving ? 'Saving…' : 'Add member' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="showTeamSizeModal" class="modal-overlay" @click.self="cancelTeamSize">
+      <div class="modal-panel">
+        <button type="button" class="modal-close" aria-label="Close" @click="cancelTeamSize">×</button>
+        <h2>How big is your team?</h2>
+        <p class="app-lede" style="margin-bottom: 1rem">Asked once, the first time you invite someone.</p>
+        <form class="field-stack" @submit.prevent="confirmTeamSizeInvite">
+          <div class="radio-row">
+            <label v-for="opt in teamSizeOptions" :key="opt.value" class="radio-opt">
+              <input v-model="pendingTeamSize" type="radio" :value="opt.value" required />
+              {{ opt.label }}
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-outline" @click="cancelTeamSize">Cancel</button>
+            <button type="submit" class="btn-primary" :disabled="!pendingTeamSize || invitingId">
+              Continue
             </button>
           </div>
         </form>
@@ -83,6 +109,8 @@ import { apiJson } from '@/api/client'
 import { user } from '@/composables/session'
 import { avatarTone, getInitials } from '@/utils/ui'
 
+const roleOptions = ['Member', 'Manager', 'Contractor', 'Client', 'Other']
+
 const teamSizeOptions = [
   { value: '1', label: 'Just me' },
   { value: '2-5', label: '2–5' },
@@ -90,17 +118,64 @@ const teamSizeOptions = [
   { value: '20+', label: '20+' },
 ]
 
+const contacts = ref([])
 const employees = ref([])
 const loading = ref(true)
 const error = ref('')
+const actionError = ref('')
+const actionSuccess = ref('')
 
-const showInviteModal = ref(false)
-const invite = ref({ name: '', email: '', position: '', team_size: '' })
-const inviting = ref(false)
-const inviteError = ref('')
-const inviteSuccess = ref('')
+const showAddModal = ref(false)
+const form = ref({ name: '', email: '', role: 'Member' })
+const saving = ref(false)
+const formError = ref('')
+
+const invitingId = ref(null)
+const showTeamSizeModal = ref(false)
+const pendingInviteContactId = ref(null)
+const pendingTeamSize = ref('')
 
 const needsTeamSize = computed(() => !user.value?.team_size)
+
+const rows = computed(() => {
+  const list = []
+  const contactEmails = new Set()
+
+  for (const c of contacts.value) {
+    contactEmails.add((c.email || '').toLowerCase())
+    list.push({
+      key: `c-${c.id}`,
+      contactId: c.id,
+      seed: c.id || c.email,
+      name: c.name || c.email,
+      email: c.email,
+      role: c.role || 'Member',
+      hasAccount: !!c.user_id,
+      meta: c.user_id
+        ? c.invited_at
+          ? `Invited ${formatDate(c.invited_at)}`
+          : 'Linked account'
+        : `Added ${formatDate(c.created_at)}`,
+    })
+  }
+
+  for (const emp of employees.value) {
+    const email = (emp.email || '').toLowerCase()
+    if (contactEmails.has(email)) continue
+    list.push({
+      key: `u-${emp.id}`,
+      contactId: null,
+      seed: emp.id || emp.email,
+      name: emp.full_name || emp.email,
+      email: emp.email,
+      role: emp.position || 'Employee',
+      hasAccount: true,
+      meta: `Joined ${formatDate(emp.created_at)}`,
+    })
+  }
+
+  return list
+})
 
 function formatDate(dateString) {
   if (!dateString) return ''
@@ -108,11 +183,16 @@ function formatDate(dateString) {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-async function fetchEmployees() {
+async function loadTeam() {
   try {
     loading.value = true
     error.value = ''
-    employees.value = await apiJson('/api/v1/users?role=employee')
+    const [c, e] = await Promise.all([
+      apiJson('/api/v1/contacts'),
+      apiJson('/api/v1/users?role=employee').catch(() => []),
+    ])
+    contacts.value = Array.isArray(c) ? c : []
+    employees.value = Array.isArray(e) ? e : []
   } catch (err) {
     console.error('[AdminTeam] load failed', err)
     error.value = err.message || 'Failed to load team members'
@@ -121,47 +201,100 @@ async function fetchEmployees() {
   }
 }
 
-async function inviteEmployee() {
-  if (!invite.value.name.trim() || !invite.value.email.trim()) return
-  if (needsTeamSize.value && !invite.value.team_size) return
+function openAddModal() {
+  form.value = { name: '', email: '', role: 'Member' }
+  formError.value = ''
+  showAddModal.value = true
+}
 
+function cancelAdd() {
+  showAddModal.value = false
+  formError.value = ''
+}
+
+async function addContact() {
+  if (!form.value.name.trim() || !form.value.email.trim()) return
+  saving.value = true
+  formError.value = ''
   try {
-    inviting.value = true
-    inviteError.value = ''
-    inviteSuccess.value = ''
-    const body = {
-      name: invite.value.name.trim(),
-      email: invite.value.email.trim().toLowerCase(),
-      position: invite.value.position.trim() || null,
-    }
-    if (needsTeamSize.value) body.team_size = invite.value.team_size
-
-    const created = await apiJson('/api/v1/invite', {
+    const created = await apiJson('/api/v1/contacts', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        name: form.value.name.trim(),
+        email: form.value.email.trim().toLowerCase(),
+        role: form.value.role,
+      }),
     })
-    employees.value.unshift(created)
-    if (needsTeamSize.value && user.value) {
-      user.value = { ...user.value, team_size: invite.value.team_size }
-    }
-    inviteSuccess.value = `Invitation sent to ${invite.value.email}`
-    setTimeout(() => cancelInvite(), 1600)
+    contacts.value = [created, ...contacts.value.filter((c) => c.id !== created.id)]
+    cancelAdd()
+    actionSuccess.value = `Added ${created.name}`
+    setTimeout(() => {
+      actionSuccess.value = ''
+    }, 2500)
   } catch (err) {
-    console.error('[AdminTeam] invite failed', err)
-    inviteError.value = err.message || 'Failed to send invitation'
+    console.error('[AdminTeam] add contact failed', err)
+    formError.value = err.message || 'Failed to add member'
   } finally {
-    inviting.value = false
+    saving.value = false
   }
 }
 
-function cancelInvite() {
-  showInviteModal.value = false
-  invite.value = { name: '', email: '', position: '', team_size: '' }
-  inviteError.value = ''
-  inviteSuccess.value = ''
+function inviteContact(row) {
+  actionError.value = ''
+  actionSuccess.value = ''
+  if (needsTeamSize.value) {
+    pendingInviteContactId.value = row.contactId
+    pendingTeamSize.value = ''
+    showTeamSizeModal.value = true
+    return
+  }
+  sendInvite(row.contactId)
 }
 
-onMounted(fetchEmployees)
+function cancelTeamSize() {
+  showTeamSizeModal.value = false
+  pendingInviteContactId.value = null
+  pendingTeamSize.value = ''
+}
+
+function confirmTeamSizeInvite() {
+  if (!pendingTeamSize.value || !pendingInviteContactId.value) return
+  const id = pendingInviteContactId.value
+  const teamSize = pendingTeamSize.value
+  cancelTeamSize()
+  sendInvite(id, teamSize)
+}
+
+async function sendInvite(contactId, teamSize = null) {
+  invitingId.value = contactId
+  actionError.value = ''
+  actionSuccess.value = ''
+  try {
+    const body = {}
+    if (teamSize) body.team_size = teamSize
+    const updated = await apiJson(`/api/v1/contacts/${contactId}/invite`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    const idx = contacts.value.findIndex((c) => c.id === contactId)
+    if (idx !== -1) contacts.value[idx] = updated
+    else contacts.value.unshift(updated)
+    if (teamSize && user.value) {
+      user.value = { ...user.value, team_size: teamSize }
+    }
+    actionSuccess.value = `Invitation sent to ${updated.email}`
+    setTimeout(() => {
+      actionSuccess.value = ''
+    }, 2500)
+  } catch (err) {
+    console.error('[AdminTeam] invite failed', err)
+    actionError.value = err.message || 'Failed to send invitation'
+  } finally {
+    invitingId.value = null
+  }
+}
+
+onMounted(loadTeam)
 </script>
 
 <style scoped>
@@ -184,20 +317,23 @@ onMounted(fetchEmployees)
   max-width: 100%;
 }
 
-.team-size-block {
-  margin-bottom: 0.25rem;
+.team-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
 }
 
-.team-size-label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
+.team-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-accent, #c4a35a);
 }
 
-.field-hint {
-  margin: 0.25rem 0 0.5rem;
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
+.btn-sm {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
 }
 
 .radio-row {
@@ -219,6 +355,6 @@ onMounted(fetchEmployees)
 .success-line {
   color: var(--status-done);
   font-size: 0.9rem;
-  margin: 0;
+  margin: 0.75rem 0 0;
 }
 </style>

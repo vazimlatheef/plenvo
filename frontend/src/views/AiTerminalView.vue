@@ -17,10 +17,38 @@
 
       <div class="field">
         <label>Project <span class="optional">(optional)</span></label>
-        <select v-model="form.project_id">
-          <option :value="null">No project</option>
-          <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.title }}</option>
+        <select :value="projectSelectValue" :disabled="creatingProject" @change="onProjectChange">
+          <option value="">No project</option>
+          <option v-for="p in projects" :key="p.id" :value="String(p.id)">{{ p.title }}</option>
+          <option value="__new__">+ New project</option>
         </select>
+        <p v-if="projectsLoadError" class="field-hint field-hint--error">{{ projectsLoadError }}</p>
+        <div v-if="showInlineCreate" class="inline-create">
+          <input
+            ref="newProjectInput"
+            v-model="newProjectTitle"
+            type="text"
+            maxlength="100"
+            placeholder="Project name"
+            :disabled="creatingProject"
+            @keydown.enter.prevent="createInlineProject"
+            @keydown.escape.prevent="cancelInlineCreate"
+          />
+          <div class="inline-create__actions">
+            <button type="button" class="btn-secondary btn-compact" :disabled="creatingProject" @click="cancelInlineCreate">
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn-primary btn-compact"
+              :disabled="creatingProject || !newProjectTitle.trim()"
+              @click="createInlineProject"
+            >
+              {{ creatingProject ? 'Creating…' : 'Create' }}
+            </button>
+          </div>
+          <p v-if="createProjectError" class="field-hint field-hint--error">{{ createProjectError }}</p>
+        </div>
       </div>
 
       <div class="field">
@@ -59,9 +87,11 @@
           <div class="row-fields">
             <div class="field">
               <label>Assign to</label>
-              <select v-model="task.assignee_id">
+              <select v-model="task.assignee_key">
                 <option :value="null">Unassigned</option>
-                <option v-for="u in teamMembers" :key="u.id" :value="u.id">{{ u.full_name }}</option>
+                <option v-for="opt in assigneeOptions" :key="opt.key" :value="opt.key">
+                  {{ assigneeOptionLabel(opt) }}
+                </option>
               </select>
               <span v-if="task.assignee_name" class="ai-hint">AI detected: {{ task.assignee_name }}</span>
             </div>
@@ -105,9 +135,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { apiJson } from '@/api/client'
 import DatePicker from '@/components/DatePicker.vue'
+import { user } from '@/composables/session'
+import {
+  assigneeOptionLabel,
+  buildAssigneeOptions,
+  parseAssigneeKey,
+} from '@/utils/assignee'
+
+const NEW_PROJECT_VALUE = '__new__'
 
 const step = ref('input')
 const loading = ref(false)
@@ -119,15 +157,100 @@ const form = ref({ title: '', raw_text: '', project_id: null })
 const extractedTasks = ref([])
 const projects = ref([])
 const teamMembers = ref([])
+const contacts = ref([])
+const projectsLoadError = ref('')
+
+const showInlineCreate = ref(false)
+const newProjectTitle = ref('')
+const newProjectInput = ref(null)
+const creatingProject = ref(false)
+const createProjectError = ref('')
+
+const assigneeOptions = computed(() =>
+  buildAssigneeOptions({
+    users: teamMembers.value,
+    contacts: contacts.value,
+    currentUser: user.value,
+  }),
+)
+
+const projectSelectValue = computed(() =>
+  form.value.project_id == null ? '' : String(form.value.project_id),
+)
+
+async function loadProjects() {
+  projectsLoadError.value = ''
+  try {
+    // Same endpoint / ordering as AdminProjectsView
+    const proj = await apiJson('/api/v1/projects')
+    projects.value = Array.isArray(proj) ? proj : []
+  } catch (err) {
+    console.error('[AiTerminal] failed to load projects', err)
+    projects.value = []
+    projectsLoadError.value = err.message || 'Failed to load projects'
+  }
+}
+
+function onProjectChange(event) {
+  const value = event.target.value
+  if (value === NEW_PROJECT_VALUE) {
+    event.target.value = projectSelectValue.value
+    openInlineCreate()
+    return
+  }
+  form.value.project_id = value === '' ? null : Number(value)
+  showInlineCreate.value = false
+  createProjectError.value = ''
+}
+
+async function openInlineCreate() {
+  showInlineCreate.value = true
+  createProjectError.value = ''
+  newProjectTitle.value = ''
+  await nextTick()
+  newProjectInput.value?.focus?.()
+}
+
+function cancelInlineCreate() {
+  showInlineCreate.value = false
+  newProjectTitle.value = ''
+  createProjectError.value = ''
+}
+
+async function createInlineProject() {
+  const title = newProjectTitle.value.trim()
+  if (!title || creatingProject.value) return
+
+  creatingProject.value = true
+  createProjectError.value = ''
+  try {
+    const created = await apiJson('/api/v1/projects', {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        description: null,
+      }),
+    })
+    projects.value = [created, ...projects.value.filter((p) => p.id !== created.id)]
+    form.value.project_id = created.id
+    cancelInlineCreate()
+  } catch (err) {
+    console.error('[AiTerminal] create project failed', err)
+    createProjectError.value = err.message || 'Failed to create project'
+  } finally {
+    creatingProject.value = false
+  }
+}
 
 onMounted(async () => {
+  await loadProjects()
   try {
-    const [proj, users] = await Promise.all([
-      apiJson('/api/v1/projects'),
-      apiJson('/api/v1/users'),
+    const [users, contactList] = await Promise.all([
+      apiJson('/api/v1/users').catch(() => []),
+      apiJson('/api/v1/contacts').catch(() => []),
     ])
-    projects.value = Array.isArray(proj) ? proj : []
     teamMembers.value = Array.isArray(users) ? users : []
+    contacts.value = Array.isArray(contactList) ? contactList : []
   } catch {
     // non-fatal
   }
@@ -146,7 +269,7 @@ async function parseNote() {
       }),
     })
     noteId.value = data.note_id
-    extractedTasks.value = data.extracted_tasks.map(t => ({ ...t, assignee_id: null }))
+    extractedTasks.value = data.extracted_tasks.map((t) => ({ ...t, assignee_key: null }))
     step.value = 'review'
   } catch (e) {
     error.value = e?.message || 'Something went wrong. Please try again.'
@@ -159,14 +282,18 @@ async function confirmTasks() {
   error.value = null
   loading.value = true
   try {
-    const tasks = extractedTasks.value.map(t => ({
-      title: t.title,
-      description: t.description || null,
-      assignee_id: t.assignee_id || null,
-      due_date: t.due_date || null,
-      priority: t.priority,
-      project_id: form.value.project_id,
-    }))
+    const tasks = extractedTasks.value.map((t) => {
+      const { assignee_id, assignee_contact_id } = parseAssigneeKey(t.assignee_key)
+      return {
+        title: t.title,
+        description: t.description || null,
+        assignee_id,
+        assignee_contact_id,
+        due_date: t.due_date || null,
+        priority: t.priority,
+        project_id: form.value.project_id,
+      }
+    })
     const data = await apiJson('/api/v1/ai/confirm-tasks', {
       method: 'POST',
       body: JSON.stringify({ note_id: noteId.value, tasks }),
@@ -186,10 +313,11 @@ function removeTask(i) {
 
 function reset() {
   step.value = 'input'
-  form.value = { title: '', raw_text: '', project_id: null }
+  form.value = { title: '', raw_text: '', project_id: form.value.project_id }
   extractedTasks.value = []
   noteId.value = null
   error.value = null
+  cancelInlineCreate()
 }
 </script>
 
@@ -262,6 +390,38 @@ function reset() {
   opacity: 0.75;
   text-transform: none;
   letter-spacing: 0;
+}
+
+.field-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.field-hint--error {
+  color: var(--color-danger);
+}
+
+.inline-create {
+  margin-top: 0.65rem;
+  padding: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.inline-create__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.btn-compact {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.82rem;
 }
 
 input,

@@ -38,6 +38,68 @@ def build_verify_email_url(token: str) -> str:
     return f"{FRONTEND_URL}/verify-email?token={quote(token, safe='')}"
 
 
+def build_reset_password_url(token: str) -> str:
+    return f"{FRONTEND_URL}/reset-password?token={quote(token, safe='')}"
+
+
+def send_password_reset_email(
+    to_email: str,
+    first_name: str,
+    reset_token: str,
+) -> bool:
+    """Password reset link (expires in 1 hour). Non-blocking for callers."""
+    reset_url = build_reset_password_url(reset_token)
+    name = (first_name or "there").strip() or "there"
+    subject = "Reset your Plenvo password"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #d4d4d8; background-color: #0f1210; margin: 0; padding: 0;">
+      <div style="max-width: 600px; margin: 40px auto; background: #18191b; border: 1px solid #27272a; border-radius: 8px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #c4a35a, #a6853a); padding: 32px 24px; text-align: center;">
+          <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #0f1210;">Plenvo</h1>
+        </div>
+        <div style="padding: 32px 24px;">
+          <h2 style="margin: 0 0 16px; font-size: 20px; color: #fafafa;">Reset your password</h2>
+          <p style="margin: 0 0 16px; color: #d4d4d8;">Hi {name},</p>
+          <p style="margin: 0 0 16px; color: #d4d4d8;">
+            We received a request to reset your Plenvo password. Click below to choose a new one.
+          </p>
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="{reset_url}"
+               style="display: inline-block; background: linear-gradient(135deg, #c4a35a, #a6853a); color: #0f1210; text-decoration: none; padding: 12px 32px; border-radius: 6px; font-weight: 600; font-size: 16px;">
+              Reset password →
+            </a>
+          </div>
+          <p style="margin: 0 0 8px; color: #a1a1aa; font-size: 14px;">This link expires in 1 hour.</p>
+          <p style="margin: 0 0 8px; color: #a1a1aa; font-size: 14px;">If you didn't request this, you can ignore this email.</p>
+          <p style="margin: 0; color: #71717a; font-size: 12px; word-break: break-all;">Or paste this URL: {reset_url}</p>
+        </div>
+        <div style="background: #0f1210; padding: 20px 24px; border-top: 1px solid #27272a; text-align: center;">
+          <p style="margin: 0; color: #71717a; font-size: 12px;">Plenvo · Built for managers who move fast</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+
+    plain_text = f"""Reset your Plenvo password
+
+Hi {name},
+
+We received a request to reset your Plenvo password. Open this link to choose a new one:
+
+{reset_url}
+
+This link expires in 1 hour. If you didn't request this, you can ignore this email.
+
+— Plenvo
+"""
+    return _send_email(to_email, name, subject, plain_text, html_content)
+
+
 def send_verification_email(
     to_email: str,
     first_name: str,

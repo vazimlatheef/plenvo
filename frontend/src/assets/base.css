@@ -365,10 +365,34 @@ select.status-pill {
   padding: 1.5rem;
   max-width: 440px;
   width: 100%;
+  position: relative;
+}
+
+.modal-close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: var(--color-text);
+  background: rgba(232, 228, 216, 0.06);
 }
 
 .modal-panel h2 {
-  margin: 0 0 1rem;
+  margin: 0 1.75rem 1rem 0;
   font-size: 1.35rem;
 }
 

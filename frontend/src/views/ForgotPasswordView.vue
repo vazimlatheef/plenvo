@@ -1,13 +1,14 @@
 <template>
-  <div class="login">
+  <div class="auth-page">
     <div class="panel">
       <p class="eyebrow">Plenvo</p>
-      <h1>Sign in</h1>
-      <p class="lede">
-        Sign in with your work email. Plenvo sends you straight to what matters — no hunting for the right screen.
-      </p>
+      <h1>Forgot password</h1>
+      <p class="lede">Enter your work email and we'll send a reset link if an account exists.</p>
+
       <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <form class="form" @submit.prevent="onSubmit">
+      <p v-if="done" class="success" role="status">{{ done }}</p>
+
+      <form v-if="!done" class="form" @submit.prevent="onSubmit">
         <label class="field">
           <span>Email</span>
           <input
@@ -15,64 +16,43 @@
             type="email"
             autocomplete="username"
             placeholder="you@company.com"
-            :disabled="loading"
             required
+            :disabled="loading"
           />
         </label>
-        <label class="field">
-          <span>Password</span>
-          <input
-            v-model="password"
-            type="password"
-            autocomplete="current-password"
-            placeholder="••••••••"
-            :disabled="loading"
-            required
-          />
-        </label>
-        <p class="forgot-row">
-          <RouterLink to="/forgot-password">Forgot password?</RouterLink>
-        </p>
-        <button type="submit" class="btn" :disabled="loading">
-          {{ loading ? 'Signing in…' : 'Continue' }}
+        <button type="submit" class="btn" :disabled="loading || !email.trim()">
+          {{ loading ? 'Sending…' : 'Send reset link' }}
         </button>
       </form>
+
+      <p class="foot">
+        <RouterLink to="/login">← Back to sign in</RouterLink>
+      </p>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
 
-import { setSessionUser } from '@/composables/session'
-import { login } from '@/services/auth'
+import { apiJson } from '@/api/client'
 
-const route = useRoute()
-const router = useRouter()
 const email = ref('')
-const password = ref('')
 const loading = ref(false)
 const error = ref('')
+const done = ref('')
 
 async function onSubmit() {
   error.value = ''
   loading.value = true
   try {
-    const me = await login(email.value.trim(), password.value)
-    setSessionUser(me)
-    const redir = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-    if (redir && redir.startsWith('/')) {
-      router.replace(redir)
-      return
-    }
-    if (me.role === 'admin') {
-      router.replace({ name: 'admin-dashboard' })
-    } else {
-      router.replace({ name: 'employee-assignments' })
-    }
+    const res = await apiJson('/api/v1/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email: email.value.trim() }),
+    })
+    done.value = res.message || "If an account exists for that email, we've sent a password reset link."
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Sign in failed'
+    error.value = e?.message || 'Something went wrong. Please try again.'
   } finally {
     loading.value = false
   }
@@ -80,7 +60,7 @@ async function onSubmit() {
 </script>
 
 <style scoped>
-.login {
+.auth-page {
   min-height: 100vh;
   display: grid;
   place-items: center;
@@ -107,19 +87,37 @@ async function onSubmit() {
   margin: 0 0 0.5rem;
 }
 
+h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.75rem;
+  margin: 0 0 0.5rem;
+}
+
 .lede {
   margin: 0 0 1.25rem;
   font-size: 0.9rem;
+  color: var(--color-text-muted);
 }
 
-.error {
+.error,
+.success {
   margin: 0 0 1rem;
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
   font-size: 0.85rem;
+}
+
+.error {
   color: #f0d0d0;
   background: rgba(180, 60, 60, 0.2);
   border: 1px solid rgba(180, 60, 60, 0.35);
+}
+
+.success {
+  color: var(--status-done);
+  background: var(--status-done-bg);
+  border: 1px solid var(--status-done-border);
 }
 
 .form {
@@ -146,6 +144,8 @@ async function onSubmit() {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .field input:focus {
@@ -153,31 +153,9 @@ async function onSubmit() {
   border-color: var(--color-accent);
 }
 
-.field input:disabled {
-  opacity: 0.6;
-}
-
-.forgot-row {
-  margin: -0.35rem 0 0;
-  text-align: right;
-  font-size: 0.82rem;
-  text-transform: none;
-  letter-spacing: normal;
-}
-
-.forgot-row a {
-  color: var(--color-text-muted);
-  text-decoration: none;
-}
-
-.forgot-row a:hover {
-  color: var(--color-accent);
-}
-
 .btn {
-  margin-top: 0.25rem;
   font-family: var(--font-body);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.95rem;
   padding: 0.65rem 1rem;
   border: none;
@@ -187,12 +165,23 @@ async function onSubmit() {
   cursor: pointer;
 }
 
-.btn:hover:not(:disabled) {
-  filter: brightness(1.05);
+.btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
-.btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.75;
+.foot {
+  margin: 1.25rem 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.foot a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.foot a:hover {
+  color: var(--color-accent);
 }
 </style>

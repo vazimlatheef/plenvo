@@ -28,6 +28,7 @@ class Organisation(Base):
     )
 
     users: Mapped[list[User]] = relationship(back_populates="organisation")
+    contacts: Mapped[list[Contact]] = relationship(back_populates="organisation")
     projects: Mapped[list[Project]] = relationship(back_populates="organisation")
     trainings: Mapped[list[Training]] = relationship(back_populates="organisation")
     notes: Mapped[list[Note]] = relationship(back_populates="organisation")
@@ -58,6 +59,8 @@ class User(Base):
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
     verification_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
     verification_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reset_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
+    reset_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
@@ -85,10 +88,43 @@ class User(Base):
     notes_created: Mapped[list[Note]] = relationship(
         back_populates="created_by", foreign_keys="Note.created_by_id"
     )
+    contact_profile: Mapped[Contact | None] = relationship(
+        back_populates="user", uselist=False, foreign_keys="Contact.user_id"
+    )
 
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
+
+
+class Contact(Base):
+    """Lightweight team member — name + email + role, no account required."""
+
+    __tablename__ = "contacts"
+    __table_args__ = (UniqueConstraint("organisation_id", "email", name="uq_contacts_org_email"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    organisation_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    # General role label (not auth role): Member, Manager, Contractor, Client, Other
+    role: Mapped[str] = mapped_column(String(40), nullable=False, server_default="Member")
+    user_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, unique=True, index=True
+    )
+    invited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    organisation: Mapped[Organisation] = relationship(back_populates="contacts")
+    user: Mapped[User | None] = relationship(back_populates="contact_profile", foreign_keys=[user_id])
+    tasks_assigned: Mapped[list[Task]] = relationship(
+        back_populates="assignee_contact", foreign_keys="Task.assignee_contact_id"
+    )
 
 
 class Project(Base):
@@ -134,6 +170,9 @@ class Task(Base):
     assignee_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    assignee_contact_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_by_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
@@ -146,6 +185,9 @@ class Task(Base):
     organisation: Mapped[Organisation] = relationship()
     project: Mapped[Project | None] = relationship(back_populates="tasks")
     assignee: Mapped[User | None] = relationship(back_populates="tasks_assigned", foreign_keys=[assignee_id])
+    assignee_contact: Mapped[Contact | None] = relationship(
+        back_populates="tasks_assigned", foreign_keys=[assignee_contact_id]
+    )
     created_by: Mapped[User] = relationship(back_populates="tasks_created", foreign_keys=[created_by_id])
 
 

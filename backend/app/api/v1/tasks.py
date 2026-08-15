@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
-from app.models.models import Project, Task, User
+from app.models.models import Contact, Project, Task, User
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
 
 router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
@@ -15,6 +15,20 @@ def _require_org(user: User) -> int:
     if user.organisation_id is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No organisation on account.")
     return user.organisation_id
+
+
+def _validate_user_assignee(db: Session, org_id: int, assignee_id: int) -> User:
+    assignee = db.query(User).filter(User.id == assignee_id).first()
+    if not assignee or assignee.organisation_id != org_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return assignee
+
+
+def _validate_contact_assignee(db: Session, org_id: int, contact_id: int) -> Contact:
+    contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    if not contact or contact.organisation_id != org_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
+    return contact
 
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
@@ -33,10 +47,16 @@ def create_task(
         if not project or project.organisation_id != org_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
-    if task_in.assignee_id:
-        assignee = db.query(User).filter(User.id == task_in.assignee_id).first()
-        if not assignee or assignee.organisation_id != org_id:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    assignee_id = task_in.assignee_id
+    assignee_contact_id = task_in.assignee_contact_id
+
+    if assignee_id is not None:
+        _validate_user_assignee(db, org_id, assignee_id)
+    if assignee_contact_id is not None:
+        contact = _validate_contact_assignee(db, org_id, assignee_contact_id)
+        # Prefer linked user so My Tasks works when contact already has an account.
+        if contact.user_id:
+            assignee_id = contact.user_id
 
     task = Task(
         title=task_in.title,
@@ -45,7 +65,8 @@ def create_task(
         priority=task_in.priority or "medium",
         due_date=task_in.due_date,
         project_id=task_in.project_id,
-        assignee_id=task_in.assignee_id,
+        assignee_id=assignee_id,
+        assignee_contact_id=assignee_contact_id,
         organisation_id=org_id,
         created_by_id=current_user.id,
     )
@@ -121,11 +142,17 @@ def update_task(
             task.priority = task_in.priority
         if task_in.due_date is not None:
             task.due_date = task_in.due_date
-        if task_in.assignee_id is not None:
-            assignee = db.query(User).filter(User.id == task_in.assignee_id).first()
-            if not assignee or assignee.organisation_id != org_id:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        if task_in.clear_assignee:
+            task.assignee_id = None
+            task.assignee_contact_id = None
+        elif task_in.assignee_contact_id is not None:
+            contact = _validate_contact_assignee(db, org_id, task_in.assignee_contact_id)
+            task.assignee_contact_id = contact.id
+            task.assignee_id = contact.user_id
+        elif task_in.assignee_id is not None:
+            _validate_user_assignee(db, org_id, task_in.assignee_id)
             task.assignee_id = task_in.assignee_id
+            task.assignee_contact_id = None
 
     db.commit()
     db.refresh(task)

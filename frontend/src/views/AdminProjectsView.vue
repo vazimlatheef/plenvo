@@ -34,6 +34,7 @@
 
     <div v-if="showCreateModal" class="modal-overlay" @click.self="cancelCreate">
       <div class="modal-panel">
+        <button type="button" class="modal-close" aria-label="Close" @click="cancelCreate">×</button>
         <h2>Create new project</h2>
         <form class="field-stack" @submit.prevent="createProject">
           <label>

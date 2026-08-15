@@ -19,6 +19,7 @@ from app.api.deps import get_current_admin_user, get_db
 from app.core.security import hash_password
 from app.models.models import Organisation, User
 from app.schemas.user import UserPublic
+from app.services.contact_service import find_org_contact_by_email, link_contact_to_user
 from app.services.email import generate_temp_password, send_invite_email, send_verification_email
 
 router = APIRouter(tags=["organisations"])
@@ -217,6 +218,13 @@ def invite_employee(
 
     db.refresh(user)
     db.refresh(current_user)
+
+    contact = find_org_contact_by_email(db, current_user.organisation_id, user.email)
+    if contact and contact.user_id is None:
+        link_contact_to_user(db, contact, user)
+        db.commit()
+        db.refresh(contact)
+
     org = db.query(Organisation).filter_by(id=current_user.organisation_id).first()
     email_sent = send_invite_email(
         to_email=user.email,
