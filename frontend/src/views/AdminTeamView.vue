@@ -1,50 +1,44 @@
 <template>
-  <div class="team-page">
-    <div class="page-header">
-      <h1>Team Members</h1>
-      <button @click="showInviteModal = true" class="btn-primary">+ Invite Employee</button>
+  <div class="app-page">
+    <div class="app-page-header">
+      <h1>Team</h1>
+      <button type="button" class="btn-primary" @click="showInviteModal = true">+ Invite</button>
     </div>
 
-    <div v-if="loading" class="loading">Loading team...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    
-    <div v-else-if="employees.length === 0" class="empty-state">
-      <p>No team members yet. Invite your first employee to get started.</p>
+    <p v-if="loading" class="muted-line">Loading team…</p>
+    <p v-else-if="error" class="error-line">{{ error }}</p>
+
+    <div v-else-if="employees.length === 0" class="empty-panel">
+      <p>No team members yet — invite the first one</p>
+      <button type="button" class="btn-primary" @click="showInviteModal = true">Invite employee</button>
     </div>
 
-    <div v-else class="employees-grid">
-      <div v-for="emp in employees" :key="emp.id" class="employee-card">
-        <div class="emp-header">
-          <div class="emp-avatar">{{ getInitials(emp.full_name) }}</div>
-          <div class="emp-info">
-            <h3>{{ emp.full_name }}</h3>
-            <p class="emp-position">{{ emp.position || 'Employee' }}</p>
-          </div>
+    <ul v-else class="dense-list">
+      <li v-for="emp in employees" :key="emp.id" class="dense-row team-row">
+        <span
+          class="avatar avatar--lg"
+          :class="`avatar-tone-${avatarTone(emp.id || emp.email)}`"
+        >
+          {{ getInitials(emp.full_name || emp.email) }}
+        </span>
+        <div class="dense-row__meta team-meta">
+          <span class="dense-row__title">{{ emp.full_name }}</span>
+          <span class="team-sub">{{ emp.position || 'Employee' }} · {{ emp.email }}</span>
         </div>
-        <div class="emp-meta">
-          <div class="meta-row">
-            <span class="meta-label">Email:</span>
-            <span class="meta-value">{{ emp.email }}</span>
-          </div>
-          <div class="meta-row">
-            <span class="meta-label">Joined:</span>
-            <span class="meta-value">{{ formatDate(emp.created_at) }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+        <span class="dense-row__due">Joined {{ formatDate(emp.created_at) }}</span>
+      </li>
+    </ul>
 
-    <!-- Invite Employee Modal -->
     <div v-if="showInviteModal" class="modal-overlay" @click.self="cancelInvite">
-      <div class="modal">
-        <h2>Invite Employee</h2>
-        <p class="modal-desc">
-          Send an invitation to add a new team member. They'll receive login credentials via email.
+      <div class="modal-panel">
+        <h2>Invite employee</h2>
+        <p class="app-lede" style="margin-bottom: 1rem">
+          They'll receive login credentials by email.
         </p>
-        <form @submit.prevent="inviteEmployee">
-          <div v-if="needsTeamSize" class="form-group">
-            <label>How big is your team? *</label>
-            <p class="field-hint">We ask this once, the first time you invite someone.</p>
+        <form class="field-stack" @submit.prevent="inviteEmployee">
+          <div v-if="needsTeamSize" class="team-size-block">
+            <span class="team-size-label">How big is your team? *</span>
+            <p class="field-hint">Asked once, the first time you invite someone.</p>
             <div class="radio-row">
               <label v-for="opt in teamSizeOptions" :key="opt.value" class="radio-opt">
                 <input v-model="invite.team_size" type="radio" :value="opt.value" required />
@@ -52,52 +46,28 @@
               </label>
             </div>
           </div>
-          <div class="form-group">
-            <label for="name">Full Name *</label>
-            <input
-              id="name"
-              v-model="invite.name"
-              type="text"
-              placeholder="e.g., John Smith"
-              required
-              maxlength="100"
-            />
-          </div>
-          <div class="form-group">
-            <label for="email">Email Address *</label>
-            <input
-              id="email"
-              v-model="invite.email"
-              type="email"
-              placeholder="e.g., john@company.com"
-              required
-              maxlength="150"
-            />
-          </div>
-          <div class="form-group">
-            <label for="position">Position</label>
-            <input
-              id="position"
-              v-model="invite.position"
-              type="text"
-              placeholder="e.g., Marketing Manager"
-              maxlength="100"
-            />
-          </div>
-          <div class="info-box">
-            <p><strong>📧 What happens next:</strong></p>
-            <ul>
-              <li>Employee receives email with temporary password</li>
-              <li>They log in and can view assigned tasks & trainings</li>
-              <li>You can assign them tasks from Projects page</li>
-            </ul>
-          </div>
-          <div v-if="inviteError" class="error-msg">{{ inviteError }}</div>
-          <div v-if="inviteSuccess" class="success-msg">{{ inviteSuccess }}</div>
+          <label>
+            Full name *
+            <input v-model="invite.name" type="text" required maxlength="100" placeholder="e.g. John Smith" />
+          </label>
+          <label>
+            Email *
+            <input v-model="invite.email" type="email" required maxlength="150" placeholder="john@company.com" />
+          </label>
+          <label>
+            Position
+            <input v-model="invite.position" type="text" maxlength="100" placeholder="e.g. Marketing Manager" />
+          </label>
+          <p v-if="inviteError" class="error-line">{{ inviteError }}</p>
+          <p v-if="inviteSuccess" class="success-line">{{ inviteSuccess }}</p>
           <div class="modal-actions">
-            <button type="button" @click="cancelInvite" class="btn-outline">Cancel</button>
-            <button type="submit" :disabled="inviting || (needsTeamSize && !invite.team_size)" class="btn-primary">
-              {{ inviting ? 'Sending...' : 'Send Invitation' }}
+            <button type="button" class="btn-outline" :disabled="inviting" @click="cancelInvite">Cancel</button>
+            <button
+              type="submit"
+              class="btn-primary"
+              :disabled="inviting || (needsTeamSize && !invite.team_size)"
+            >
+              {{ inviting ? 'Sending…' : 'Send invitation' }}
             </button>
           </div>
         </form>
@@ -107,12 +77,11 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
-import axios from 'axios'
-import { getToken } from '@/services/auth'
-import { user } from '@/composables/session'
+import { computed, onMounted, ref } from 'vue'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import { apiJson } from '@/api/client'
+import { user } from '@/composables/session'
+import { avatarTone, getInitials } from '@/utils/ui'
 
 const teamSizeOptions = [
   { value: '1', label: 'Just me' },
@@ -123,27 +92,30 @@ const teamSizeOptions = [
 
 const employees = ref([])
 const loading = ref(true)
-const error = ref(null)
+const error = ref('')
 
 const showInviteModal = ref(false)
 const invite = ref({ name: '', email: '', position: '', team_size: '' })
 const inviting = ref(false)
-const inviteError = ref(null)
-const inviteSuccess = ref(null)
+const inviteError = ref('')
+const inviteSuccess = ref('')
 
 const needsTeamSize = computed(() => !user.value?.team_size)
+
+function formatDate(dateString) {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 async function fetchEmployees() {
   try {
     loading.value = true
-    error.value = null
-    const token = getToken()
-    const response = await axios.get(`${API_URL}/api/v1/users?role=employee`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    employees.value = response.data
+    error.value = ''
+    employees.value = await apiJson('/api/v1/users?role=employee')
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Failed to load team members'
+    console.error('[AdminTeam] load failed', err)
+    error.value = err.message || 'Failed to load team members'
   } finally {
     loading.value = false
   }
@@ -155,32 +127,28 @@ async function inviteEmployee() {
 
   try {
     inviting.value = true
-    inviteError.value = null
-    inviteSuccess.value = null
-    const token = getToken()
+    inviteError.value = ''
+    inviteSuccess.value = ''
     const body = {
       name: invite.value.name.trim(),
       email: invite.value.email.trim().toLowerCase(),
       position: invite.value.position.trim() || null,
     }
-    if (needsTeamSize.value) {
-      body.team_size = invite.value.team_size
-    }
-    const response = await axios.post(`${API_URL}/api/v1/invite`, body, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    if (needsTeamSize.value) body.team_size = invite.value.team_size
 
-    employees.value.unshift(response.data)
+    const created = await apiJson('/api/v1/invite', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    employees.value.unshift(created)
     if (needsTeamSize.value && user.value) {
       user.value = { ...user.value, team_size: invite.value.team_size }
     }
-    inviteSuccess.value = `Invitation sent to ${invite.value.email}!`
-
-    setTimeout(() => {
-      cancelInvite()
-    }, 2000)
+    inviteSuccess.value = `Invitation sent to ${invite.value.email}`
+    setTimeout(() => cancelInvite(), 1600)
   } catch (err) {
-    inviteError.value = err.response?.data?.detail || 'Failed to send invitation'
+    console.error('[AdminTeam] invite failed', err)
+    inviteError.value = err.message || 'Failed to send invitation'
   } finally {
     inviting.value = false
   }
@@ -189,218 +157,45 @@ async function inviteEmployee() {
 function cancelInvite() {
   showInviteModal.value = false
   invite.value = { name: '', email: '', position: '', team_size: '' }
-  inviteError.value = null
-  inviteSuccess.value = null
+  inviteError.value = ''
+  inviteSuccess.value = ''
 }
 
-function getInitials(name) {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
-
-function formatDate(dateString) {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-onMounted(() => {
-  fetchEmployees()
-})
+onMounted(fetchEmployees)
 </script>
 
 <style scoped>
-.team-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+.team-row {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2rem;
-}
-
-.page-header h1 {
-  font-size: 1.75rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-.loading, .error, .empty-state {
-  text-align: center;
-  padding: 3rem;
-  color: var(--color-text-muted);
-}
-
-.error {
-  color: #ef4444;
-}
-
-.employees-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.25rem;
-}
-
-.employee-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 1.5rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.employee-card:hover {
-  border-color: var(--color-accent);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.emp-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.emp-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  color: #0f1210;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 1rem;
-  flex-shrink: 0;
-}
-
-.emp-info h3 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0 0 0.25rem;
-  color: var(--color-text);
-}
-
-.emp-position {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  margin: 0;
-}
-
-.emp-meta {
-  display: flex;
+.team-meta {
   flex-direction: column;
-  gap: 0.5rem;
+  align-items: flex-start;
+  gap: 0.15rem;
 }
 
-.meta-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.85rem;
-}
-
-.meta-label {
+.team-sub {
+  font-size: 0.78rem;
   color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.team-size-block {
+  margin-bottom: 0.25rem;
+}
+
+.team-size-label {
+  font-size: 0.75rem;
   font-weight: 500;
-}
-
-.meta-value {
-  color: var(--color-text);
-}
-
-.btn-primary {
-  background: var(--color-accent);
-  color: #0f1210;
-  border: none;
-  padding: 0.6rem 1.25rem;
-  border-radius: var(--radius);
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: filter 0.2s;
-}
-
-.btn-primary:hover {
-  filter: brightness(1.1);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-outline {
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  padding: 0.6rem 1.25rem;
-  border-radius: var(--radius);
-  font-weight: 500;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.btn-outline:hover {
-  border-color: var(--color-accent);
-}
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 1rem;
-}
-
-.modal {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 2rem;
-  max-width: 500px;
-  width: 100%;
-}
-
-.modal h2 {
-  font-size: 1.4rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem;
-}
-
-.modal-desc {
-  font-size: 0.9rem;
   color: var(--color-text-muted);
-  margin: 0 0 1.5rem;
-  line-height: 1.5;
-}
-
-.form-group {
-  margin-bottom: 1.25rem;
-}
-
-.form-group label {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-  color: var(--color-text);
 }
 
 .field-hint {
-  margin: -0.25rem 0 0.65rem;
+  margin: 0.25rem 0 0.5rem;
   font-size: 0.8rem;
   color: var(--color-text-muted);
 }
@@ -417,66 +212,13 @@ onMounted(() => {
   gap: 0.35rem;
   font-size: 0.9rem;
   color: var(--color-text);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
-.form-group input {
-  width: 100%;
-  padding: 0.65rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: inherit;
+.success-line {
+  color: var(--status-done);
   font-size: 0.9rem;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-.info-box {
-  background: rgba(196, 163, 90, 0.08);
-  border: 1px solid rgba(196, 163, 90, 0.2);
-  border-radius: var(--radius);
-  padding: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.info-box p {
-  margin: 0 0 0.5rem;
-  font-size: 0.85rem;
-  color: var(--color-text);
-}
-
-.info-box ul {
   margin: 0;
-  padding-left: 1.25rem;
-}
-
-.info-box li {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  line-height: 1.5;
-  margin-bottom: 0.25rem;
-}
-
-.error-msg {
-  color: #ef4444;
-  font-size: 0.85rem;
-  margin-bottom: 1rem;
-}
-
-.success-msg {
-  color: #10b981;
-  font-size: 0.85rem;
-  margin-bottom: 1rem;
-  font-weight: 500;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
 }
 </style>

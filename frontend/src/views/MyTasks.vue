@@ -1,37 +1,59 @@
 <template>
-  <div class="my-tasks">
-    <h1>My tasks</h1>
+  <div class="app-page">
+    <div class="app-page-header">
+      <h1>My tasks</h1>
+    </div>
 
-    <p v-if="loading" class="muted">Loading tasks…</p>
-    <p v-else-if="error" class="error">{{ error }}</p>
-    <p v-else-if="!tasks.length" class="muted">No tasks assigned to you yet.</p>
+    <p v-if="loading" class="muted-line">Loading tasks…</p>
+    <p v-else-if="error" class="error-line">{{ error }}</p>
 
-    <div v-else class="groups">
-      <section v-for="group in statusGroups" :key="group.key" class="group">
-        <h2>{{ group.label }} <span class="count">({{ group.tasks.length }})</span></h2>
-        <ul v-if="group.tasks.length" class="list">
-          <li v-for="task in group.tasks" :key="task.id" class="row">
-            <div class="main">
-              <span class="title">{{ task.title }}</span>
-              <span class="meta">
-                {{ projectName(task.project_id) }}
-                <template v-if="task.due_date"> · Due {{ formatDate(task.due_date) }}</template>
-                <template v-else> · No due date</template>
+    <div v-else-if="!tasks.length" class="empty-panel">
+      <p>No tasks assigned to you yet.</p>
+    </div>
+
+    <div v-else>
+      <section v-for="group in statusGroups" :key="group.key">
+        <div class="group-label">
+          <span class="status-pill" :data-s="group.key">{{ group.label }}</span>
+          <span class="count">({{ group.tasks.length }})</span>
+        </div>
+        <ul v-if="group.tasks.length" class="dense-list">
+          <li
+            v-for="task in group.tasks"
+            :key="task.id"
+            class="dense-row"
+            :class="{ 'dense-row--flash': flashId === task.id }"
+          >
+            <span
+              class="avatar"
+              :class="`avatar-tone-${avatarTone(assigneeSeed(task))}`"
+              :title="assigneeName(task.assignee_id)"
+            >
+              {{ getInitials(assigneeName(task.assignee_id)) }}
+            </span>
+            <div class="dense-row__meta">
+              <span class="dense-row__title">{{ task.title }}</span>
+              <span v-if="projectLabel(task.project_id)" class="project-tag">
+                {{ projectLabel(task.project_id) }}
               </span>
             </div>
+            <span class="dense-row__due">
+              {{ task.due_date ? formatShortDate(task.due_date) : '—' }}
+            </span>
             <select
-              class="status-select"
+              class="status-pill"
+              :data-s="task.status"
               :value="task.status"
               :disabled="busyId === task.id"
               @change="onStatusChange(task, $event)"
             >
-              <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">
+              <option v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
                 {{ opt.label }}
               </option>
             </select>
           </li>
         </ul>
-        <p v-else class="empty">None</p>
+        <p v-else class="muted-line" style="margin: 0.35rem 0 0; font-size: 0.85rem">None</p>
       </section>
     </div>
   </div>
@@ -42,37 +64,51 @@ import { computed, onMounted, ref } from 'vue'
 
 import { apiJson } from '@/api/client'
 import { user } from '@/composables/session'
-
-const STATUS_ORDER = [
-  { key: 'pending', label: 'To Do' },
-  { key: 'in_progress', label: 'In Progress' },
-  { key: 'completed', label: 'Done' },
-]
-
-const statusOptions = STATUS_ORDER.map((s) => ({ value: s.key, label: s.label }))
+import {
+  STATUS_GROUPS,
+  STATUS_OPTIONS,
+  avatarTone,
+  formatShortDate,
+  getInitials,
+} from '@/utils/ui'
 
 const loading = ref(true)
 const error = ref('')
 const tasks = ref([])
 const projectsById = ref({})
+const usersById = ref({})
 const busyId = ref(null)
+const flashId = ref(null)
+let flashTimer = null
 
 const statusGroups = computed(() =>
-  STATUS_ORDER.map((group) => ({
+  STATUS_GROUPS.map((group) => ({
     ...group,
     tasks: tasks.value.filter((t) => t.status === group.key),
   })),
 )
 
-function projectName(projectId) {
-  if (!projectId) return 'No project'
+function projectLabel(projectId) {
+  if (!projectId) return ''
   return projectsById.value[projectId]?.title || `Project #${projectId}`
 }
 
-function formatDate(dateString) {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+function assigneeName(assigneeId) {
+  if (!assigneeId) return user.value?.full_name || user.value?.email || 'You'
+  const u = usersById.value[assigneeId]
+  return u?.full_name || u?.email || `User #${assigneeId}`
+}
+
+function assigneeSeed(task) {
+  return task.assignee_id || user.value?.id || task.title
+}
+
+function triggerFlash(taskId) {
+  flashId.value = taskId
+  if (flashTimer) clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => {
+    flashId.value = null
+  }, 700)
 }
 
 async function loadTasks() {
@@ -85,17 +121,20 @@ async function loadTasks() {
   try {
     loading.value = true
     error.value = ''
-    const [taskList, projectList] = await Promise.all([
+    const [taskList, projectList, users] = await Promise.all([
       apiJson(`/api/v1/tasks?assignee_id=${user.value.id}`),
       apiJson('/api/v1/projects').catch(() => []),
+      apiJson('/api/v1/users').catch(() => []),
     ])
     tasks.value = Array.isArray(taskList) ? taskList : []
-    const map = {}
-    for (const p of Array.isArray(projectList) ? projectList : []) {
-      map[p.id] = p
-    }
-    projectsById.value = map
+    const pMap = {}
+    for (const p of Array.isArray(projectList) ? projectList : []) pMap[p.id] = p
+    projectsById.value = pMap
+    const uMap = {}
+    for (const u of Array.isArray(users) ? users : []) uMap[u.id] = u
+    usersById.value = uMap
   } catch (err) {
+    console.error('[MyTasks] load failed', err)
     error.value = err.message || 'Failed to load tasks'
   } finally {
     loading.value = false
@@ -109,6 +148,7 @@ async function onStatusChange(task, event) {
   const previous = task.status
   task.status = next
   busyId.value = task.id
+  triggerFlash(task.id)
 
   try {
     const updated = await apiJson(`/api/v1/tasks/${task.id}`, {
@@ -116,10 +156,9 @@ async function onStatusChange(task, event) {
       body: JSON.stringify({ status: next }),
     })
     const idx = tasks.value.findIndex((t) => t.id === task.id)
-    if (idx !== -1) {
-      tasks.value[idx] = { ...tasks.value[idx], ...updated }
-    }
+    if (idx !== -1) tasks.value[idx] = { ...tasks.value[idx], ...updated }
   } catch (err) {
+    console.error('[MyTasks] status update failed', err)
     task.status = previous
     event.target.value = previous
     error.value = err.message || 'Failed to update status'
@@ -130,95 +169,3 @@ async function onStatusChange(task, event) {
 
 onMounted(loadTasks)
 </script>
-
-<style scoped>
-.my-tasks {
-  max-width: 800px;
-}
-
-.my-tasks h1 {
-  margin: 0 0 1.25rem;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.muted {
-  color: var(--color-text-muted);
-}
-
-.error {
-  color: #ef4444;
-}
-
-.groups {
-  display: flex;
-  flex-direction: column;
-  gap: 1.75rem;
-}
-
-.group h2 {
-  margin: 0 0 0.75rem;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.count {
-  font-weight: 400;
-  color: var(--color-text-muted);
-}
-
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.main {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  min-width: 0;
-}
-
-.title {
-  font-weight: 500;
-}
-
-.meta {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-}
-
-.status-select {
-  flex-shrink: 0;
-  padding: 0.35rem 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font: inherit;
-  font-size: 0.85rem;
-}
-
-.status-select:disabled {
-  opacity: 0.6;
-}
-
-.empty {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--color-text-muted);
-}
-</style>

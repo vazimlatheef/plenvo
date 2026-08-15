@@ -1,64 +1,100 @@
 <template>
-  <div class="projects-page">
-    <div class="page-header">
-      <h1>Projects</h1>
-      <button @click="showCreateModal = true" class="btn-primary">+ New Project</button>
-    </div>
-
-    <div v-if="loading" class="loading">Loading projects...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    
-    <div v-else-if="projects.length === 0" class="empty-state">
-      <p>No projects yet. Create your first project to get started.</p>
-    </div>
-
-    <div v-else class="projects-grid">
-      <div v-for="project in projects" :key="project.id" class="project-card">
-        <div class="project-header">
-          <h3>{{ project.title }}</h3>
-          <span class="project-date">{{ formatDate(project.created_at) }}</span>
-        </div>
-        <p v-if="project.description" class="project-desc">{{ project.description }}</p>
-        <p v-else class="project-desc empty">No description</p>
-        <div class="project-actions">
-          <router-link :to="`/app/projects/${project.id}/tasks`" class="btn-outline-sm">
-            View Tasks →
-          </router-link>
-        </div>
+  <div class="app-page">
+    <div class="app-page-header">
+      <div>
+        <RouterLink to="/app/projects" class="app-back">← Projects</RouterLink>
+        <h1>{{ project?.title || 'Project tasks' }}</h1>
+        <p v-if="project?.description" class="app-lede">{{ project.description }}</p>
       </div>
+      <button type="button" class="btn-primary" @click="showCreate = true">+ New task</button>
     </div>
 
-    <!-- Create Project Modal -->
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
-      <div class="modal">
-        <h2>Create New Project</h2>
-        <form @submit.prevent="createProject">
-          <div class="form-group">
-            <label for="title">Project name *</label>
-            <input
-              id="title"
-              v-model="newProject.title"
-              type="text"
-              placeholder="e.g., Website Redesign"
-              required
-              maxlength="100"
-            />
-          </div>
-          <div class="form-group">
-            <label for="description">Description</label>
-            <textarea
-              id="description"
-              v-model="newProject.description"
-              placeholder="Brief description of the project (optional)"
-              rows="3"
-              maxlength="500"
-            />
-          </div>
-          <div v-if="createError" class="error-msg">{{ createError }}</div>
+    <p v-if="loading" class="muted-line">Loading tasks…</p>
+    <p v-else-if="error" class="error-line">{{ error }}</p>
+
+    <div v-else-if="!tasks.length" class="empty-panel">
+      <p>No tasks yet — create the first one</p>
+      <button type="button" class="btn-primary" @click="showCreate = true">Create task</button>
+    </div>
+
+    <div v-else>
+      <section v-for="group in statusGroups" :key="group.key">
+        <div class="group-label">
+          <span class="status-pill" :data-s="group.key">{{ group.label }}</span>
+          <span class="count">({{ group.tasks.length }})</span>
+        </div>
+        <ul v-if="group.tasks.length" class="dense-list">
+          <li
+            v-for="task in group.tasks"
+            :key="task.id"
+            class="dense-row"
+            :class="{ 'dense-row--flash': flashId === task.id }"
+          >
+            <span
+              class="avatar"
+              :class="`avatar-tone-${avatarTone(assigneeSeed(task))}`"
+              :title="assigneeName(task.assignee_id)"
+            >
+              {{ getInitials(assigneeName(task.assignee_id)) }}
+            </span>
+            <div class="dense-row__meta">
+              <span class="dense-row__title">{{ task.title }}</span>
+              <span v-if="project?.title" class="project-tag">{{ project.title }}</span>
+            </div>
+            <span class="dense-row__due">
+              {{ task.due_date ? formatShortDate(task.due_date) : '—' }}
+            </span>
+            <select
+              class="status-pill"
+              :data-s="task.status"
+              :value="task.status"
+              :disabled="busyId === task.id"
+              @change="onStatusChange(task, $event)"
+            >
+              <option v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </li>
+        </ul>
+        <p v-else class="muted-line" style="margin: 0.35rem 0 0; font-size: 0.85rem">None</p>
+      </section>
+    </div>
+
+    <div v-if="showCreate" class="modal-overlay" @click.self="closeCreate">
+      <div class="modal-panel">
+        <h2>New task</h2>
+        <form class="field-stack" @submit.prevent="createTask">
+          <label>
+            Title *
+            <input v-model="newTask.title" type="text" required maxlength="200" :disabled="creating" />
+          </label>
+          <label>
+            Assignee
+            <select v-model="newTask.assignee_id" :disabled="creating">
+              <option :value="null">Unassigned</option>
+              <option v-for="u in team" :key="u.id" :value="u.id">
+                {{ u.full_name || u.email }}
+              </option>
+            </select>
+          </label>
+          <label>
+            Due date
+            <input v-model="newTask.due_date" type="date" :disabled="creating" />
+          </label>
+          <label>
+            Status
+            <select v-model="newTask.status" :disabled="creating">
+              <option v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </label>
+          <p v-if="createError" class="error-line">{{ createError }}</p>
           <div class="modal-actions">
-            <button type="button" @click="cancelCreate" class="btn-outline">Cancel</button>
-            <button type="submit" :disabled="creating" class="btn-primary">
-              {{ creating ? 'Creating...' : 'Create Project' }}
+            <button type="button" class="btn-outline" :disabled="creating" @click="closeCreate">Cancel</button>
+            <button type="submit" class="btn-primary" :disabled="creating || !newTask.title.trim()">
+              {{ creating ? 'Creating…' : 'Create task' }}
             </button>
           </div>
         </form>
@@ -68,285 +104,170 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import axios from 'axios'
-import { getToken } from '@/services/auth'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import { apiJson } from '@/api/client'
+import {
+  STATUS_GROUPS,
+  STATUS_OPTIONS,
+  avatarTone,
+  formatShortDate,
+  getInitials,
+} from '@/utils/ui'
 
-const projects = ref([])
+const route = useRoute()
+
+const project = ref(null)
+const tasks = ref([])
+const team = ref([])
+const usersById = ref({})
 const loading = ref(true)
-const error = ref(null)
+const error = ref('')
+const busyId = ref(null)
+const flashId = ref(null)
+let flashTimer = null
 
-const showCreateModal = ref(false)
-const newProject = ref({ title: '', description: '' })
+const showCreate = ref(false)
 const creating = ref(false)
-const createError = ref(null)
+const createError = ref('')
+const newTask = ref({
+  title: '',
+  assignee_id: null,
+  due_date: '',
+  status: 'pending',
+})
 
-async function fetchProjects() {
+const projectId = computed(() => {
+  const id = Number(route.params.projectId)
+  return Number.isFinite(id) && id > 0 ? id : null
+})
+
+const statusGroups = computed(() =>
+  STATUS_GROUPS.map((group) => ({
+    ...group,
+    tasks: tasks.value.filter((t) => t.status === group.key),
+  })),
+)
+
+function assigneeName(assigneeId) {
+  if (!assigneeId) return 'Unassigned'
+  const u = usersById.value[assigneeId]
+  return u?.full_name || u?.email || `User #${assigneeId}`
+}
+
+function assigneeSeed(task) {
+  return task.assignee_id || task.title
+}
+
+function triggerFlash(taskId) {
+  flashId.value = taskId
+  if (flashTimer) clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => {
+    flashId.value = null
+  }, 700)
+}
+
+function resetCreateForm() {
+  newTask.value = { title: '', assignee_id: null, due_date: '', status: 'pending' }
+  createError.value = ''
+}
+
+function closeCreate() {
+  showCreate.value = false
+  resetCreateForm()
+}
+
+async function loadPage() {
+  if (!projectId.value) {
+    error.value = 'Invalid project id'
+    loading.value = false
+    console.error('[AdminProjectTasks] missing/invalid projectId', route.params.projectId)
+    return
+  }
+
+  loading.value = true
+  error.value = ''
   try {
-    loading.value = true
-    error.value = null
-    const token = getToken()
-    const response = await axios.get(`${API_URL}/api/v1/projects`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    projects.value = response.data
+    const [proj, taskList, users] = await Promise.all([
+      apiJson(`/api/v1/projects/${projectId.value}`),
+      apiJson(`/api/v1/tasks?project_id=${projectId.value}`),
+      apiJson('/api/v1/users').catch((err) => {
+        console.error('[AdminProjectTasks] failed to load users', err)
+        return []
+      }),
+    ])
+
+    project.value = proj
+    tasks.value = Array.isArray(taskList) ? taskList : []
+    team.value = Array.isArray(users) ? users : []
+    const map = {}
+    for (const u of team.value) map[u.id] = u
+    usersById.value = map
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Failed to load projects'
+    console.error('[AdminProjectTasks] load failed', err)
+    error.value = err.message || 'Failed to load project tasks'
+    project.value = null
+    tasks.value = []
   } finally {
     loading.value = false
   }
 }
 
-async function createProject() {
-  if (!newProject.value.title.trim()) return
+async function onStatusChange(task, event) {
+  const next = event.target.value
+  if (next === task.status) return
+
+  const previous = task.status
+  task.status = next
+  busyId.value = task.id
+  triggerFlash(task.id)
 
   try {
-    creating.value = true
-    createError.value = null
-    const token = getToken()
-    const response = await axios.post(
-      `${API_URL}/api/v1/projects`,
-      {
-        title: newProject.value.title.trim(),
-        description: newProject.value.description.trim() || null,
-      },
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-    projects.value.unshift(response.data)
-    showCreateModal.value = false
-    newProject.value = { title: '', description: '' }
+    const updated = await apiJson(`/api/v1/tasks/${task.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: next }),
+    })
+    const idx = tasks.value.findIndex((t) => t.id === task.id)
+    if (idx !== -1) tasks.value[idx] = { ...tasks.value[idx], ...updated }
   } catch (err) {
-    createError.value = err.response?.data?.detail || 'Failed to create project'
+    console.error('[AdminProjectTasks] status update failed', err)
+    task.status = previous
+    event.target.value = previous
+    error.value = err.message || 'Failed to update status'
+  } finally {
+    busyId.value = null
+  }
+}
+
+async function createTask() {
+  if (!newTask.value.title.trim() || !projectId.value) return
+
+  creating.value = true
+  createError.value = ''
+  try {
+    const created = await apiJson('/api/v1/tasks', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: newTask.value.title.trim(),
+        project_id: projectId.value,
+        status: newTask.value.status || 'pending',
+        assignee_id: newTask.value.assignee_id ? Number(newTask.value.assignee_id) : null,
+        due_date: newTask.value.due_date || null,
+      }),
+    })
+    tasks.value = [created, ...tasks.value]
+    closeCreate()
+  } catch (err) {
+    console.error('[AdminProjectTasks] create task failed', err)
+    createError.value = err.message || 'Failed to create task'
   } finally {
     creating.value = false
   }
 }
 
-function cancelCreate() {
-  showCreateModal.value = false
-  newProject.value = { name: '', description: '' }
-  createError.value = null
-}
-
-function formatDate(dateString) {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-onMounted(() => {
-  fetchProjects()
+onMounted(loadPage)
+watch(projectId, (id, prev) => {
+  if (id && id !== prev) loadPage()
 })
 </script>
-
-<style scoped>
-.projects-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2rem;
-}
-
-.page-header h1 {
-  font-size: 1.75rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-.loading, .error, .empty-state {
-  text-align: center;
-  padding: 3rem;
-  color: var(--color-text-muted);
-}
-
-.error {
-  color: #ef4444;
-}
-
-.projects-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.25rem;
-}
-
-.project-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 1.5rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.project-card:hover {
-  border-color: var(--color-accent);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.project-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
-}
-
-.project-header h3 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0;
-  color: var(--color-text);
-}
-
-.project-date {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
-
-.project-desc {
-  font-size: 0.9rem;
-  color: var(--color-text-muted);
-  line-height: 1.5;
-  margin: 0 0 1rem;
-}
-
-.project-desc.empty {
-  font-style: italic;
-  opacity: 0.6;
-}
-
-.project-actions {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.btn-primary {
-  background: var(--color-accent);
-  color: #0f1210;
-  border: none;
-  padding: 0.6rem 1.25rem;
-  border-radius: var(--radius);
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: filter 0.2s;
-}
-
-.btn-primary:hover {
-  filter: brightness(1.1);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-outline-sm {
-  display: inline-block;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--color-text);
-  text-decoration: none;
-  transition: border-color 0.2s, color 0.2s;
-}
-
-.btn-outline-sm:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-  text-decoration: none;
-}
-
-.btn-outline {
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  padding: 0.6rem 1.25rem;
-  border-radius: var(--radius);
-  font-weight: 500;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.btn-outline:hover {
-  border-color: var(--color-accent);
-}
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 1rem;
-}
-
-.modal {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 2rem;
-  max-width: 500px;
-  width: 100%;
-}
-
-.modal h2 {
-  font-size: 1.4rem;
-  font-weight: 600;
-  margin: 0 0 1.5rem;
-}
-
-.form-group {
-  margin-bottom: 1.25rem;
-}
-
-.form-group label {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-  color: var(--color-text);
-}
-
-.form-group input,
-.form-group textarea {
-  width: 100%;
-  padding: 0.65rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: 0.9rem;
-}
-
-.form-group input:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-.error-msg {
-  color: #ef4444;
-  font-size: 0.85rem;
-  margin-bottom: 1rem;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
-}
-</style>
