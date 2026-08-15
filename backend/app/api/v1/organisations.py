@@ -20,7 +20,12 @@ from app.core.security import hash_password
 from app.models.models import Organisation, User
 from app.schemas.user import UserPublic
 from app.services.contact_service import find_org_contact_by_email, link_contact_to_user
-from app.services.email import generate_temp_password, send_invite_email, send_verification_email
+from app.services.email import (
+    generate_temp_password,
+    generate_unsubscribe_token,
+    send_invite_email,
+    send_verification_email,
+)
 
 router = APIRouter(tags=["organisations"])
 
@@ -136,6 +141,8 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             company_name=company_name,
             team_size=None,
             is_verified=False,
+            do_not_email=False,
+            email_unsubscribe_token=generate_unsubscribe_token(),
             verification_token=str(uuid.uuid4()),
             verification_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
         )
@@ -152,20 +159,22 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
 
         db.refresh(user)
 
-        email_sent = send_verification_email(
-            to_email=user.email,
-            first_name=user.first_name,
-            verification_token=user.verification_token,
-        )
-        if not email_sent:
-            print(f"⚠️ Warning: Failed to send verification email to {user.email}")
+        if not user.do_not_email:
+            email_sent = send_verification_email(
+                to_email=user.email,
+                first_name=user.first_name,
+                verification_token=user.verification_token,
+                unsubscribe_token=user.email_unsubscribe_token,
+            )
+            if not email_sent:
+                print(f"Warning: Failed to send verification email to {user.email}")
 
         return SignupResponse(
             user=UserPublic.model_validate(user),
             organisation_name=org.name,
             trial_ends_at=trial_ends_at,
             plan_tier=org.plan_tier,
-            message=f"Welcome to Plenvo! Your {TRIAL_DAYS}-day free trial has started. Check your inbox to verify your email.",
+            message=f"Your Plenvo account is ready. A {TRIAL_DAYS}-day trial has started — check your inbox to verify your email.",
         )
     except HTTPException:
         raise
@@ -204,6 +213,7 @@ def invite_employee(
         role="employee",
         position=payload.position,
         company_name=current_user.company_name,
+        email_unsubscribe_token=generate_unsubscribe_token(),
     )
     db.add(user)
 

@@ -3,7 +3,7 @@ AI Terminal endpoint — parses meeting notes / updates into structured tasks.
 """
 
 import json
-import os
+import traceback
 from datetime import date, datetime, timezone
 
 import httpx
@@ -12,12 +12,15 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.core.config import settings
 from app.models.models import Contact, Note, Task, User
 
 router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+# Read from Settings (loads backend/.env) — not bare os.getenv, which misses .env.
+ANTHROPIC_API_KEY = (settings.anthropic_api_key or "").strip()
+# Current Claude API model (claude-sonnet-4-20250514 was retired 2026-06-15).
+CLAUDE_MODEL = (settings.anthropic_model or "claude-sonnet-4-6").strip()
 
 
 class ParseNoteRequest(BaseModel):
@@ -54,7 +57,18 @@ def _parse_due_date(value) -> date | None:
     return None
 
 
+def _log_ai_error(context: str, exc: BaseException) -> None:
+    print(
+        f"[AI] {context}: {type(exc).__name__}: {exc}",
+        flush=True,
+    )
+    traceback.print_exc()
+
+
 async def call_claude(raw_text: str) -> list[ExtractedTask]:
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured.")
+
     system_prompt = """You are an AI assistant for Plenvo, a management platform.
 Your job is to extract actionable tasks from meeting notes or team updates.
 
@@ -73,33 +87,62 @@ Each task object must have:
         "messages": [{"role": "user", "content": raw_text}],
     }
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json=payload,
-        )
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json=payload,
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _log_ai_error("Anthropic HTTP request failed", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"AI request failed ({type(exc).__name__}): {exc}",
+        ) from exc
 
     if response.status_code != 200:
-        raise HTTPException(status_code=502, detail="AI service error. Check ANTHROPIC_API_KEY.")
-
-    data = response.json()
-    raw_json = data["content"][0]["text"].strip()
-
-    if raw_json.startswith("```"):
-        raw_json = raw_json.split("```")[1]
-        if raw_json.startswith("json"):
-            raw_json = raw_json[4:]
+        body_preview = (response.text or "")[:800]
+        print(
+            f"[AI] Anthropic API error HTTP {response.status_code} "
+            f"model={CLAUDE_MODEL}: {body_preview}",
+            flush=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"AI service error (HTTP {response.status_code}). "
+                "Check ANTHROPIC_API_KEY and model configuration."
+            ),
+        )
 
     try:
+        data = response.json()
+        raw_json = data["content"][0]["text"].strip()
+
+        if raw_json.startswith("```"):
+            raw_json = raw_json.split("```")[1]
+            if raw_json.startswith("json"):
+                raw_json = raw_json[4:]
+
         tasks_data = json.loads(raw_json)
+        if not isinstance(tasks_data, list):
+            raise ValueError("AI response JSON root must be an array of tasks")
         return [ExtractedTask(**t) for t in tasks_data]
-    except Exception:
-        raise HTTPException(status_code=500, detail="Failed to parse AI response. Try again.")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _log_ai_error("Failed to parse Anthropic response", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to parse AI response ({type(exc).__name__}): {exc}",
+        ) from exc
 
 
 @router.post("/parse-note", response_model=ParseNoteResponse)
@@ -124,7 +167,17 @@ async def parse_note(
     db.commit()
     db.refresh(note)
 
-    extracted_tasks = await call_claude(body.raw_text)
+    try:
+        extracted_tasks = await call_claude(body.raw_text)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _log_ai_error("parse-note unhandled failure", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"AI parse failed ({type(exc).__name__}): {exc}",
+        ) from exc
+
     return ParseNoteResponse(note_id=note.id, extracted_tasks=extracted_tasks)
 
 

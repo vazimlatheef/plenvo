@@ -9,7 +9,7 @@ from app.core.security import hash_password
 from app.models.models import Contact, Organisation, User
 from app.schemas.contact import ContactCreate, ContactInviteRequest, ContactResponse, ContactUpdate
 from app.services.contact_service import link_contact_to_user
-from app.services.email import generate_temp_password, send_invite_email
+from app.services.email import generate_temp_password, generate_unsubscribe_token, send_invite_email
 
 router = APIRouter(prefix="/api/v1/contacts", tags=["contacts"])
 
@@ -177,6 +177,7 @@ def invite_contact(
                 role="employee",
                 position=contact.role,
                 company_name=current_user.company_name,
+                email_unsubscribe_token=generate_unsubscribe_token(),
             )
             db.add(user)
             try:

@@ -26,12 +26,19 @@ MAILERLITE_API_URL = "https://connect.mailerlite.com/api"
 FROM_EMAIL = os.getenv("MAIL_FROM_EMAIL", "hi@plenvo.io")
 FROM_NAME = os.getenv("MAIL_FROM_NAME", "Plenvo")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://plenvo.io").rstrip("/")
+API_BASE_URL = os.getenv("API_BASE_URL", os.getenv("BACKEND_URL", "http://localhost:8000")).rstrip("/")
+
+FOOTER_TAGLINE = "Plenvo — Project and task management for professionals"
 
 
 def generate_temp_password(length: int = 12) -> str:
     """Generate a secure temporary password."""
     alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
     return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def generate_unsubscribe_token() -> str:
+    return secrets.token_urlsafe(32)
 
 
 def build_verify_email_url(token: str) -> str:
@@ -42,60 +49,123 @@ def build_reset_password_url(token: str) -> str:
     return f"{FRONTEND_URL}/reset-password?token={quote(token, safe='')}"
 
 
+def build_unsubscribe_url(token: str) -> str:
+    return f"{API_BASE_URL}/api/v1/email/unsubscribe?token={quote(token, safe='')}"
+
+
+def _esc(text: str) -> str:
+    return (
+        (text or "")
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def _html_shell(body_html: str, footer_html: str) -> str:
+    """Minimal professional HTML email — light background, no marketing chrome."""
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plenvo</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f2;color:#1a1a1a;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f4f2;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e6e6e2;">
+          <tr>
+            <td style="padding:28px 32px 8px;font-family:Georgia,'Times New Roman',serif;font-size:18px;color:#1a1a1a;">
+              Plenvo
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 32px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#333333;">
+              {body_html}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px;border-top:1px solid #e6e6e2;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;color:#777777;">
+              {footer_html}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+
+def _footer_html(*, unsubscribe_url: str | None = None) -> str:
+    parts = [f'<p style="margin:0 0 8px;">{_esc(FOOTER_TAGLINE)}</p>']
+    if unsubscribe_url:
+        parts.append(
+            '<p style="margin:0;">'
+            f'<a href="{_esc(unsubscribe_url)}" style="color:#555555;text-decoration:underline;">Unsubscribe</a>'
+            " from non-essential Plenvo emails."
+            "</p>"
+        )
+    return "\n".join(parts)
+
+
+def _footer_text(*, unsubscribe_url: str | None = None) -> str:
+    lines = [FOOTER_TAGLINE]
+    if unsubscribe_url:
+        lines.append(f"Unsubscribe from non-essential emails: {unsubscribe_url}")
+    return "\n".join(lines)
+
+
+def _cta_button(url: str, label: str) -> str:
+    return (
+        f'<p style="margin:24px 0;">'
+        f'<a href="{_esc(url)}" '
+        f'style="display:inline-block;background:#1a1a1a;color:#ffffff;text-decoration:none;'
+        f'padding:11px 20px;font-size:14px;font-family:Arial,Helvetica,sans-serif;">'
+        f"{_esc(label)}</a></p>"
+    )
+
+
 def send_password_reset_email(
     to_email: str,
     first_name: str,
     reset_token: str,
 ) -> bool:
-    """Password reset link (expires in 1 hour). Non-blocking for callers."""
+    """Password reset — security-critical; no unsubscribe link."""
     reset_url = build_reset_password_url(reset_token)
-    name = (first_name or "there").strip() or "there"
+    name = (first_name or "").strip() or "there"
     subject = "Reset your Plenvo password"
 
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-    <body style="font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #d4d4d8; background-color: #0f1210; margin: 0; padding: 0;">
-      <div style="max-width: 600px; margin: 40px auto; background: #18191b; border: 1px solid #27272a; border-radius: 8px; overflow: hidden;">
-        <div style="background: linear-gradient(135deg, #c4a35a, #a6853a); padding: 32px 24px; text-align: center;">
-          <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #0f1210;">Plenvo</h1>
-        </div>
-        <div style="padding: 32px 24px;">
-          <h2 style="margin: 0 0 16px; font-size: 20px; color: #fafafa;">Reset your password</h2>
-          <p style="margin: 0 0 16px; color: #d4d4d8;">Hi {name},</p>
-          <p style="margin: 0 0 16px; color: #d4d4d8;">
-            We received a request to reset your Plenvo password. Click below to choose a new one.
-          </p>
-          <div style="text-align: center; margin: 28px 0;">
-            <a href="{reset_url}"
-               style="display: inline-block; background: linear-gradient(135deg, #c4a35a, #a6853a); color: #0f1210; text-decoration: none; padding: 12px 32px; border-radius: 6px; font-weight: 600; font-size: 16px;">
-              Reset password →
-            </a>
-          </div>
-          <p style="margin: 0 0 8px; color: #a1a1aa; font-size: 14px;">This link expires in 1 hour.</p>
-          <p style="margin: 0 0 8px; color: #a1a1aa; font-size: 14px;">If you didn't request this, you can ignore this email.</p>
-          <p style="margin: 0; color: #71717a; font-size: 12px; word-break: break-all;">Or paste this URL: {reset_url}</p>
-        </div>
-        <div style="background: #0f1210; padding: 20px 24px; border-top: 1px solid #27272a; text-align: center;">
-          <p style="margin: 0; color: #71717a; font-size: 12px;">Plenvo · Built for managers who move fast</p>
-        </div>
-      </div>
-    </body>
-    </html>
+    body_html = f"""
+      <p style="margin:0 0 14px;">Hello {_esc(name)},</p>
+      <p style="margin:0 0 14px;">
+        We received a request to reset the password for your Plenvo account.
+        Use the button below to choose a new password. This link expires in one hour.
+      </p>
+      {_cta_button(reset_url, "Reset password")}
+      <p style="margin:0 0 14px;font-size:13px;color:#555555;">
+        If you did not request this change, you can ignore this message. Your password will remain unchanged.
+      </p>
+      <p style="margin:0;font-size:12px;color:#888888;word-break:break-all;">
+        Or open this link: {_esc(reset_url)}
+      </p>
     """
 
-    plain_text = f"""Reset your Plenvo password
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
 
-Hi {name},
+    plain_text = f"""Hello {name},
 
-We received a request to reset your Plenvo password. Open this link to choose a new one:
+We received a request to reset the password for your Plenvo account.
+Open the link below to choose a new password. This link expires in one hour.
 
 {reset_url}
 
-This link expires in 1 hour. If you didn't request this, you can ignore this email.
+If you did not request this change, you can ignore this message. Your password will remain unchanged.
 
-— Plenvo
+{_footer_text()}
 """
     return _send_email(to_email, name, subject, plain_text, html_content)
 
@@ -104,52 +174,39 @@ def send_verification_email(
     to_email: str,
     first_name: str,
     verification_token: str,
+    unsubscribe_token: str | None = None,
 ) -> bool:
-    """Welcome + verify-email link for new signups (Resend). Non-blocking for callers."""
+    """Welcome + verify email for new signups. Includes unsubscribe for non-essential mail."""
     verify_url = build_verify_email_url(verification_token)
-    name = (first_name or "there").strip() or "there"
-    subject = "Welcome to Plenvo — verify your email"
+    unsub_url = build_unsubscribe_url(unsubscribe_token) if unsubscribe_token else None
+    name = (first_name or "").strip() or "there"
+    subject = "Confirm your Plenvo account"
 
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-    <body style="font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #d4d4d8; background-color: #0f1210; margin: 0; padding: 0;">
-      <div style="max-width: 600px; margin: 40px auto; background: #18191b; border: 1px solid #27272a; border-radius: 8px; overflow: hidden;">
-        <div style="background: linear-gradient(135deg, #c4a35a, #a6853a); padding: 32px 24px; text-align: center;">
-          <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #0f1210;">Plenvo</h1>
-        </div>
-        <div style="padding: 32px 24px;">
-          <h2 style="margin: 0 0 16px; font-size: 20px; color: #fafafa;">Welcome, {name}!</h2>
-          <p style="margin: 0 0 16px; color: #d4d4d8;">
-            Your Plenvo account is ready. Confirm your email so we know it's really you.
-          </p>
-          <div style="text-align: center; margin: 28px 0;">
-            <a href="{verify_url}"
-               style="display: inline-block; background: linear-gradient(135deg, #c4a35a, #a6853a); color: #0f1210; text-decoration: none; padding: 12px 32px; border-radius: 6px; font-weight: 600; font-size: 16px;">
-              Verify your email →
-            </a>
-          </div>
-          <p style="margin: 0 0 8px; color: #a1a1aa; font-size: 14px;">This link expires in 24 hours.</p>
-          <p style="margin: 0; color: #71717a; font-size: 12px; word-break: break-all;">Or paste this URL: {verify_url}</p>
-        </div>
-        <div style="background: #0f1210; padding: 20px 24px; border-top: 1px solid #27272a; text-align: center;">
-          <p style="margin: 0; color: #71717a; font-size: 12px;">Plenvo · Built for managers who move fast</p>
-        </div>
-      </div>
-    </body>
-    </html>
+    body_html = f"""
+      <p style="margin:0 0 14px;">Hello {_esc(name)},</p>
+      <p style="margin:0 0 14px;">
+        Plenvo helps teams plan projects, assign work, and track progress in one place.
+      </p>
+      <p style="margin:0 0 14px;">
+        Confirm your email address to finish setting up your account.
+      </p>
+      {_cta_button(verify_url, "Verify email")}
+      <p style="margin:0;font-size:12px;color:#888888;word-break:break-all;">
+        Or open this link: {_esc(verify_url)}
+      </p>
     """
 
-    plain_text = f"""Welcome to Plenvo, {name}!
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=unsub_url))
 
-Your account is ready. Verify your email so we know it's really you:
+    plain_text = f"""Hello {name},
+
+Plenvo helps teams plan projects, assign work, and track progress in one place.
+
+Confirm your email address to finish setting up your account:
 
 {verify_url}
 
-This link expires in 24 hours.
-
-— Plenvo
+{_footer_text(unsubscribe_url=unsub_url)}
 """
     return _send_email(to_email, name, subject, plain_text, html_content)
 
@@ -159,68 +216,44 @@ def send_invite_email(
     employee_name: str,
     temp_password: str,
     organisation_name: Optional[str] = None,
+    unsubscribe_token: str | None = None,
 ) -> bool:
-    """Send employee invite email with login credentials."""
-    org_text = f" at {organisation_name}" if organisation_name else ""
-    subject = f"Welcome to Plenvo{org_text}!"
+    """Invite with login credentials (operational). Unsubscribe optional for preference footer."""
+    org_label = f" ({organisation_name})" if organisation_name else ""
+    subject = f"Your Plenvo account{org_label}"
+    unsub_url = build_unsubscribe_url(unsubscribe_token) if unsubscribe_token else None
+    login_url = f"{FRONTEND_URL}/login"
 
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    </head>
-    <body style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #d4d4d8; background-color: #0f1210; margin: 0; padding: 0;">
-        <div style="max-width: 600px; margin: 40px auto; background: #18191b; border: 1px solid #27272a; border-radius: 8px; overflow: hidden;">
-            <div style="background: linear-gradient(135deg, #c4a35a, #a6853a); padding: 32px 24px; text-align: center;">
-                <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #0f1210; font-family: 'Instrument Serif', Georgia, serif;">Plenvo</h1>
-            </div>
-            <div style="padding: 32px 24px;">
-                <h2 style="margin: 0 0 16px; font-size: 20px; color: #fafafa;">Welcome to Plenvo{org_text}!</h2>
-                <p style="margin: 0 0 16px; color: #d4d4d8;">Hi {employee_name},</p>
-                <p style="margin: 0 0 24px; color: #d4d4d8;">Your manager has invited you to join Plenvo. You can now view your assigned tasks, training, and collaborate with your team.</p>
-                <div style="background: #0f1210; border: 1px solid #27272a; border-radius: 6px; padding: 20px; margin-bottom: 24px;">
-                    <p style="margin: 0 0 12px; font-weight: 600; color: #fafafa;">Your login credentials:</p>
-                    <p style="margin: 0 0 8px; color: #d4d4d8;"><strong style="color: #c4a35a;">Email:</strong> {to_email}</p>
-                    <p style="margin: 0; color: #d4d4d8;"><strong style="color: #c4a35a;">Temporary Password:</strong> <code style="background: #27272a; padding: 4px 8px; border-radius: 4px; font-family: monospace;">{temp_password}</code></p>
-                </div>
-                <p style="margin: 0 0 24px; color: #a1a1aa; font-size: 14px;">⚠️ Please change your password after logging in for the first time.</p>
-                <div style="text-align: center; margin-bottom: 24px;">
-                    <a href="{FRONTEND_URL}/login" style="display: inline-block; background: linear-gradient(135deg, #c4a35a, #a6853a); color: #0f1210; text-decoration: none; padding: 12px 32px; border-radius: 6px; font-weight: 600; font-size: 16px;">Sign In to Plenvo →</a>
-                </div>
-                <p style="margin: 0; color: #a1a1aa; font-size: 14px;">If you have any questions, reply to this email or contact your manager.</p>
-            </div>
-            <div style="background: #0f1210; padding: 20px 24px; border-top: 1px solid #27272a; text-align: center;">
-                <p style="margin: 0; color: #71717a; font-size: 12px;">Plenvo · Built for managers who move fast</p>
-                <p style="margin: 8px 0 0; color: #71717a; font-size: 12px;">© 2026 Plenvo. All rights reserved.</p>
-            </div>
-        </div>
-    </body>
-    </html>
+    body_html = f"""
+      <p style="margin:0 0 14px;">Hello {_esc(employee_name)},</p>
+      <p style="margin:0 0 14px;">
+        You have been added to Plenvo{(' for ' + _esc(organisation_name)) if organisation_name else ''}.
+        Use the credentials below to sign in, then change your password.
+      </p>
+      <p style="margin:0 0 8px;"><strong>Email:</strong> {_esc(to_email)}</p>
+      <p style="margin:0 0 14px;"><strong>Temporary password:</strong> {_esc(temp_password)}</p>
+      {_cta_button(login_url, "Sign in")}
+      <p style="margin:0;font-size:13px;color:#555555;">
+        If you were not expecting this message, contact your manager or hi@plenvo.io.
+      </p>
     """
 
-    plain_text_content = f"""
-Welcome to Plenvo{org_text}!
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=unsub_url))
 
-Hi {employee_name},
+    plain_text_content = f"""Hello {employee_name},
 
-Your manager has invited you to join Plenvo. You can now view your assigned tasks, training, and collaborate with your team.
+You have been added to Plenvo{(' for ' + organisation_name) if organisation_name else ''}.
+Use the credentials below to sign in, then change your password.
 
-Your login credentials:
 Email: {to_email}
-Temporary Password: {temp_password}
+Temporary password: {temp_password}
 
-⚠️ Please change your password after logging in for the first time.
+Sign in: {login_url}
 
-Sign in: {FRONTEND_URL}/login
+If you were not expecting this message, contact your manager or hi@plenvo.io.
 
-If you have any questions, reply to this email or contact your manager.
-
----
-Plenvo · Built for managers who move fast
-© 2026 Plenvo. All rights reserved.
-    """
+{_footer_text(unsubscribe_url=unsub_url)}
+"""
     return _send_email(to_email, employee_name, subject, plain_text_content, html_content)
 
 
@@ -233,17 +266,21 @@ def send_training_magic_link_email(
 ) -> bool:
     """Send employee a magic link to complete assigned training without logging in."""
     subject = f"Training assigned: {training_title}"
-    html_content = f"""
-    <p>Hi {employee_name},</p>
-    <p><strong>{assigned_by_name}</strong> assigned you training: <strong>{training_title}</strong>.</p>
-    <p><a href="{magic_url}">Open your training →</a></p>
-    <p>This link expires in 7 days.</p>
+    body_html = f"""
+      <p style="margin:0 0 14px;">Hello {_esc(employee_name)},</p>
+      <p style="margin:0 0 14px;">
+        {_esc(assigned_by_name)} assigned you training: <strong>{_esc(training_title)}</strong>.
+      </p>
+      {_cta_button(magic_url, "Open training")}
+      <p style="margin:0;font-size:13px;color:#555555;">This link expires in 7 days.</p>
     """
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
     plain_text = (
-        f"Hi {employee_name},\n\n"
+        f"Hello {employee_name},\n\n"
         f"{assigned_by_name} assigned you training: {training_title}.\n\n"
         f"Open your training: {magic_url}\n\n"
-        f"This link expires in 7 days."
+        f"This link expires in 7 days.\n\n"
+        f"{_footer_text()}"
     )
     return _send_email(to_email, employee_name, subject, plain_text, html_content)
 
@@ -256,15 +293,20 @@ def send_manager_training_complete_email(
 ) -> bool:
     """Notify manager when an employee completes training via magic link."""
     subject = f"{employee_name} completed: {training_title}"
-    html_content = f"""
-    <p>Hi {manager_name},</p>
-    <p><strong>{employee_name}</strong> has completed <strong>{training_title}</strong>.</p>
-    <p>View progress in your <a href="{FRONTEND_URL}/app/admin">Plenvo dashboard</a>.</p>
+    dash = f"{FRONTEND_URL}/app/admin"
+    body_html = f"""
+      <p style="margin:0 0 14px;">Hello {_esc(manager_name)},</p>
+      <p style="margin:0 0 14px;">
+        {_esc(employee_name)} has completed <strong>{_esc(training_title)}</strong>.
+      </p>
+      {_cta_button(dash, "Open dashboard")}
     """
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
     plain_text = (
-        f"Hi {manager_name},\n\n"
+        f"Hello {manager_name},\n\n"
         f"{employee_name} has completed {training_title}.\n\n"
-        f"View progress: {FRONTEND_URL}/app/admin"
+        f"View progress: {dash}\n\n"
+        f"{_footer_text()}"
     )
     return _send_email(to_email, manager_name, subject, plain_text, html_content)
 

@@ -15,7 +15,7 @@
       </router-link>
       <router-link to="/app/team" class="action-card">
         <span class="action-icon">👥</span>
-        <span class="action-text">Invite Employee</span>
+        <span class="action-text">Add Team Member</span>
       </router-link>
       <router-link to="/app/admin/ai-terminal" class="action-card highlight">
         <span class="action-icon">⚡</span>
@@ -102,7 +102,7 @@
       </div>
       <div v-if="loadingTeam" class="loading-state">Loading team...</div>
       <div v-else-if="recentEmployees.length === 0" class="empty-state">
-        <p>No team members yet. <router-link to="/app/team">Add your first member</router-link></p>
+        <p>No team members yet. <router-link to="/app/team">Add your first team member</router-link></p>
       </div>
       <div v-else class="team-preview">
         <div v-for="emp in recentEmployees" :key="emp.key" class="team-member">

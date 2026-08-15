@@ -2,7 +2,7 @@
   <div class="app-page">
     <div class="app-page-header">
       <h1>Team</h1>
-      <button type="button" class="btn-primary" @click="openAddModal">+ Add member</button>
+      <button type="button" class="btn-primary" @click="openAddModal">+ Add team member</button>
     </div>
 
     <p v-if="loading" class="muted-line">Loading team…</p>
@@ -10,7 +10,7 @@
 
     <div v-else-if="rows.length === 0" class="empty-panel">
       <p>No team members yet — add someone with name and email (no account needed)</p>
-      <button type="button" class="btn-primary" @click="openAddModal">Add member</button>
+      <button type="button" class="btn-primary" @click="openAddModal">Add team member</button>
     </div>
 
     <ul v-else class="dense-list">
@@ -71,7 +71,7 @@
           <div class="modal-actions">
             <button type="button" class="btn-outline" :disabled="saving" @click="cancelAdd">Cancel</button>
             <button type="submit" class="btn-primary" :disabled="saving">
-              {{ saving ? 'Saving…' : 'Add member' }}
+              {{ saving ? 'Saving…' : 'Add team member' }}
             </button>
           </div>
         </form>

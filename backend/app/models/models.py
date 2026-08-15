@@ -57,6 +57,8 @@ class User(Base):
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=true())
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+    do_not_email: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+    email_unsubscribe_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
     verification_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
     verification_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reset_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)

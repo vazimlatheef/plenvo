@@ -9,6 +9,7 @@ from app.api.v1.assignments import router as assignments_router
 from app.api.v1.trainings import router as trainings_router
 from app.api.v1.ai import router as ai_router
 from app.api.v1.contacts import router as contacts_router
+from app.api.v1.email_prefs import router as email_prefs_router
 from app.api.v1.organisations import router as organisations_router
 from app.api.v1.projects import router as projects_router
 from app.api.v1.tasks import router as tasks_router
@@ -50,6 +51,7 @@ app.include_router(trainings_router)
 app.include_router(assignments_router)
 app.include_router(ai_router)
 app.include_router(organisations_router, prefix="/api/v1")
+app.include_router(email_prefs_router)
 app.include_router(contacts_router)
 app.include_router(projects_router)
 app.include_router(tasks_router)
