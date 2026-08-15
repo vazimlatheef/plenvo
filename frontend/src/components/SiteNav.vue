@@ -1,0 +1,96 @@
+<template>
+  <nav class="site-nav" aria-label="Site">
+    <div class="nav-inner">
+      <RouterLink to="/" class="logo">Plenvo</RouterLink>
+      <div class="nav-links">
+        <RouterLink to="/about" class="nav-link">About</RouterLink>
+        <RouterLink to="/security" class="nav-link">Security</RouterLink>
+        <RouterLink to="/support" class="nav-link">Support</RouterLink>
+        <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
+        <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
+      </div>
+    </div>
+  </nav>
+</template>
+
+<style scoped>
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(15, 18, 16, 0.95);
+  backdrop-filter: blur(20px);
+}
+
+.nav-inner {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0.9rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  color: var(--color-accent);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+}
+
+.logo:hover {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  justify-content: flex-end;
+}
+
+.nav-link {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.nav-link:hover {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.nav-link.router-link-active {
+  color: var(--color-accent);
+}
+
+.nav-cta {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.5rem 1.25rem;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #0f1210;
+  text-decoration: none;
+}
+
+.nav-cta:hover {
+  filter: brightness(1.1);
+  text-decoration: none;
+}
+
+@media (max-width: 640px) {
+  .nav-links .nav-link:not(.router-link-active) {
+    display: none;
+  }
+  .nav-links .nav-link.router-link-active {
+    display: inline;
+  }
+}
+</style>

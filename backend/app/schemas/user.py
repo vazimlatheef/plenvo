@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator
 
+from app.schemas.profile_validators import normalize_optional_str, validate_linkedin_url, validate_phone
+
 
 class UserCreate(BaseModel):
     """Used by admin to create employees directly (legacy flow)."""
@@ -26,12 +28,41 @@ class UserUpdate(BaseModel):
     last_name: str | None = Field(default=None, min_length=1, max_length=100)
     position: str | None = None
     job_title: str | None = None
+    company_name: str | None = None
     linkedin_url: str | None = None
+    phone: str | None = None
     phone_country: str | None = None
     phone_number: str | None = None
     country: str | None = None
     team_size: str | None = None
     timezone: str | None = None
+
+    @field_validator("job_title", "company_name", "position", mode="before")
+    @classmethod
+    def empty_to_none_text(cls, v: object) -> object:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return normalize_optional_str(v, max_len=200)
+        return v
+
+    @field_validator("phone", "phone_number", mode="before")
+    @classmethod
+    def check_phone(cls, v: object) -> object:
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            return validate_phone(v)
+        return v
+
+    @field_validator("linkedin_url", mode="before")
+    @classmethod
+    def check_linkedin(cls, v: object) -> object:
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            return validate_linkedin_url(v)
+        return v
 
 
 class UserPublic(BaseModel):
@@ -61,3 +92,8 @@ class UserPublic(BaseModel):
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
+
+    @computed_field
+    @property
+    def phone(self) -> str | None:
+        return self.phone_number

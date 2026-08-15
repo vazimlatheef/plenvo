@@ -18,6 +18,8 @@
 
           <RouterLink to="/security" class="nav-link">Security</RouterLink>
 
+          <RouterLink to="/support" class="nav-link">Support</RouterLink>
+
           <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
 
           <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
@@ -393,6 +395,12 @@
           <RouterLink to="/about">About</RouterLink>
 
           <RouterLink to="/security">Security</RouterLink>
+
+          <RouterLink to="/support">Support</RouterLink>
+
+          <RouterLink to="/privacy">Privacy</RouterLink>
+
+          <RouterLink to="/terms">Terms</RouterLink>
 
           <a href="mailto:hi@plenvo.io">hi@plenvo.io</a>
 

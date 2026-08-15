@@ -1,115 +1,163 @@
 <template>
   <div class="page">
-    <nav class="nav">
-      <div class="nav-inner">
-        <RouterLink to="/" class="logo">Plenvo</RouterLink>
-        <div class="nav-links">
-          <RouterLink to="/security" class="nav-link">Security</RouterLink>
-          <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
-          <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
-        </div>
-      </div>
-    </nav>
+    <SiteNav />
 
     <main class="main">
       <div class="content">
-        <p class="eyebrow">About Plenvo</p>
-        <h1>Built for managers.<br /><em class="accent">By someone who gets it.</em></h1>
+        <p class="eyebrow">About</p>
+        <h1>Work and life,<br /><em class="accent">in one place.</em></h1>
 
         <div class="story">
-          <p>Managing a team is one of the hardest jobs in any company. You're responsible for results you don't directly control. You spend hours chasing updates, running meetings that produce more questions than answers, and trying to keep track of who owns what — across projects, training, and performance.</p>
-
-          <p>Plenvo was built to fix that. One dashboard. Every tool a manager needs. Powered by AI so the admin work disappears and the clarity stays.</p>
-
-          <p>We believe managers should spend their time leading — not chasing. That's why Plenvo turns your meeting notes into assigned tasks automatically, tracks your team's training and performance in real time, and gives you a single view of everything that matters.</p>
-
-          <p>No bloat. No per-seat pricing surprises. No complexity. Just control.</p>
+          <p>
+            Plenvo brings your work and life into one place. Track your own projects and goals, or
+            manage a team's — tasks, deadlines, and progress, without the status-chasing meetings or
+            scattered tools. Use it solo to stay organized, or invite your team to see what's assigned,
+            what's done, and what's stuck, all in one view.
+          </p>
         </div>
 
-        <div class="values">
-          <div class="value" v-for="v in values" :key="v.title">
-            <span class="v-icon">{{ v.icon }}</span>
-            <div>
-              <h3>{{ v.title }}</h3>
-              <p>{{ v.desc }}</p>
-            </div>
-          </div>
-        </div>
+        <section class="info-block">
+          <h2>What it does</h2>
+          <p>
+            Plan projects, assign tasks, and follow progress in a single workspace. Optional AI
+            helpers turn notes into structured work. Invite teammates when you need shared visibility —
+            or keep using Plenvo on your own.
+          </p>
+        </section>
 
-        <div class="cta-block">
-          <h2>Ready to take control?</h2>
-          <p>Start your 14-day free trial. No credit card required.</p>
-          <RouterLink to="/signup" class="btn-primary">Start for free →</RouterLink>
-        </div>
+        <section class="info-block">
+          <h2>Who it’s for</h2>
+          <p>
+            Professionals — individuals organising their own work, and managers or team leads who need
+            a clear view of assignments and delivery without adding process for its own sake.
+          </p>
+        </section>
+
+        <section class="contact-block">
+          <h2>Contact</h2>
+          <p>Questions about Plenvo? Email us and we’ll get back to you.</p>
+          <a href="mailto:hi@plenvo.io" class="btn-primary">hi@plenvo.io</a>
+        </section>
       </div>
     </main>
 
-    <footer class="footer">
-      <div class="footer-inner">
-        <span class="logo small">Plenvo</span>
-        <div class="footer-links">
-          <RouterLink to="/security" class="nav-link">Security</RouterLink>
-          <RouterLink to="/privacy" class="nav-link">Privacy</RouterLink>
-          <RouterLink to="/terms" class="nav-link">Terms</RouterLink>
-          <a href="mailto:hi@plenvo.io" class="nav-link">hi@plenvo.io</a>
-        </div>
-        <span class="copy">© 2026 Plenvo</span>
-      </div>
-    </footer>
+    <SiteFooter />
   </div>
 </template>
 
 <script setup>
-const values = [
-  { icon: '⚡', title: 'Speed over complexity', desc: 'Every feature is designed to save time, not create new workflows to manage.' },
-  { icon: '🔒', title: 'Security first', desc: 'Your company data is isolated, encrypted and GDPR compliant. No exceptions.' },
-  { icon: '🎯', title: 'Manager-focused', desc: 'Built exclusively for the person responsible for outcomes. Not for the whole company.' },
-  { icon: '🤝', title: 'Honest pricing', desc: 'Flat monthly rate. No per-seat surprises. No hidden fees. Cancel anytime.' },
-]
+import SiteFooter from '@/components/SiteFooter.vue'
+import SiteNav from '@/components/SiteNav.vue'
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
+.page {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
 
-.page { background: var(--color-bg); color: var(--color-text); font-family: 'Inter', sans-serif; min-height: 100vh; }
+.main {
+  padding: 5rem 1.5rem 4rem;
+  flex: 1;
+}
 
-.nav { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--color-border); background: rgba(15,18,16,0.95); backdrop-filter: blur(20px); }
-.nav-inner { max-width: 1160px; margin: 0 auto; padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
-.logo { font-family: 'Instrument Serif', serif; font-size: 1.75rem; color: var(--color-accent); text-decoration: none; letter-spacing: 0.04em; }
-.logo.small { font-size: 1.2rem; }
-.logo:hover { text-decoration: none; color: var(--color-accent); }
-.nav-links { display: flex; align-items: center; gap: 1.75rem; }
-.nav-link { font-size: 0.85rem; color: var(--color-text-muted); text-decoration: none; transition: color 0.2s; }
-.nav-link:hover { color: var(--color-text); text-decoration: none; }
-.nav-cta { font-size: 0.85rem; font-weight: 600; padding: 0.5rem 1.25rem; border-radius: 999px; background: var(--color-accent); color: #0f1210; text-decoration: none; }
-.nav-cta:hover { filter: brightness(1.1); text-decoration: none; }
+.content {
+  max-width: 680px;
+  margin: 0 auto;
+}
 
-.main { padding: 6rem 1.5rem; }
-.content { max-width: 680px; margin: 0 auto; }
+.eyebrow {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--color-accent);
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+}
 
-.eyebrow { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.16em; color: var(--color-accent); margin: 0 0 0.75rem; font-weight: 600; }
+h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 5vw, 3.4rem);
+  font-weight: 400;
+  line-height: 1.1;
+  margin: 0 0 2.5rem;
+}
 
-h1 { font-family: 'Instrument Serif', serif; font-size: clamp(2.4rem, 5vw, 3.5rem); font-weight: 400; line-height: 1.1; margin: 0 0 3rem; }
-.accent { color: var(--color-accent); font-style: italic; }
+.accent {
+  color: var(--color-accent);
+  font-style: italic;
+}
 
-.story { display: flex; flex-direction: column; gap: 1.25rem; margin-bottom: 3.5rem; }
-.story p { font-size: 1rem; color: var(--color-text-muted); line-height: 1.85; margin: 0; font-weight: 300; }
+.story {
+  margin-bottom: 2.75rem;
+}
 
-.values { display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 4rem; padding: 2rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); }
-.value { display: flex; gap: 1rem; align-items: flex-start; }
-.v-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 2px; }
-.value h3 { margin: 0 0 0.25rem; font-size: 0.95rem; font-weight: 600; color: var(--color-text); }
-.value p { margin: 0; font-size: 0.875rem; color: var(--color-text-muted); line-height: 1.6; }
+.story p {
+  font-size: 1.05rem;
+  color: var(--color-text-muted);
+  line-height: 1.85;
+  margin: 0;
+  font-weight: 300;
+}
 
-.cta-block { text-align: center; padding: 3rem; background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: var(--radius); }
-.cta-block h2 { font-family: 'Instrument Serif', serif; font-size: 1.8rem; font-weight: 400; margin: 0 0 0.5rem; }
-.cta-block p { font-size: 0.9rem; color: var(--color-text-muted); margin-bottom: 1.5rem; }
+.info-block {
+  margin-bottom: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
 
-.btn-primary { display: inline-block; font-weight: 600; font-size: 0.9rem; padding: 0.75rem 1.75rem; border-radius: 999px; background: linear-gradient(135deg, var(--color-accent), #a6853a); color: #0f1210; text-decoration: none; transition: filter 0.2s, transform 0.2s; }
-.btn-primary:hover { filter: brightness(1.08); transform: translateY(-2px); text-decoration: none; }
+.info-block h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1.35rem;
+  font-weight: 400;
+}
 
-.footer { border-top: 1px solid var(--color-border); padding: 1.5rem; }
-.footer-inner { max-width: 1160px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-.footer-links { display: flex; gap: 1.5rem; }
-.copy { font-size: 0.78rem; color: var(--color-text-muted); }
+.info-block p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  line-height: 1.75;
+  font-weight: 300;
+}
+
+.contact-block {
+  margin-top: 3rem;
+  padding: 2rem;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.contact-block h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.contact-block p {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.btn-primary {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-accent), #a6853a);
+  color: #0f1210;
+  text-decoration: none;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.08);
+  text-decoration: none;
+}
 </style>

@@ -63,6 +63,9 @@ def create_contact(
         name=payload.name.strip(),
         email=email,
         role=payload.role,
+        company=payload.company,
+        phone=payload.phone,
+        linkedin_url=payload.linkedin_url,
         user_id=existing_user.id if existing_user else None,
     )
     db.add(contact)
@@ -91,12 +94,19 @@ def update_contact(
     if not contact or contact.organisation_id != org_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
 
-    if payload.name is not None:
-        contact.name = payload.name.strip()
-    if payload.role is not None:
-        contact.role = payload.role
-    if payload.email is not None:
-        contact.email = str(payload.email).strip().lower()
+    data = payload.model_dump(exclude_unset=True)
+    if "name" in data and data["name"] is not None:
+        contact.name = data["name"].strip()
+    if "role" in data and data["role"] is not None:
+        contact.role = data["role"]
+    if "email" in data and data["email"] is not None:
+        contact.email = str(data["email"]).strip().lower()
+    if "company" in data:
+        contact.company = data["company"]
+    if "phone" in data:
+        contact.phone = data["phone"]
+    if "linkedin_url" in data:
+        contact.linkedin_url = data["linkedin_url"]
 
     try:
         db.commit()

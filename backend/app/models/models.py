@@ -51,7 +51,7 @@ class User(Base):
     job_title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     linkedin_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     phone_country: Mapped[str | None] = mapped_column(String(8), nullable=True)
-    phone_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    phone_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
     country: Mapped[str | None] = mapped_column(String(8), nullable=True)
     team_size: Mapped[str | None] = mapped_column(String(20), nullable=True)
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -113,6 +113,9 @@ class Contact(Base):
     email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
     # General role label (not auth role): Member, Manager, Contractor, Client, Other
     role: Mapped[str] = mapped_column(String(40), nullable=False, server_default="Member")
+    company: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    linkedin_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     user_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, unique=True, index=True
     )

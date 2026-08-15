@@ -19,12 +19,14 @@ import SignupView from '@/views/SignupView.vue'
 import VerifyEmail from '@/views/VerifyEmail.vue'
 import AboutView from '@/views/AboutView.vue'
 import SecurityView from '@/views/SecurityView.vue'
+import SupportView from '@/views/SupportView.vue'
 import PrivacyView from '@/views/PrivacyView.vue'
 import TermsView from '@/views/TermsView.vue'
 import AdminProjectsView from '@/views/AdminProjectsView.vue'
 import AdminProjectTasksView from '@/views/AdminProjectTasksView.vue'
 import AdminTeamView from '@/views/AdminTeamView.vue'
 import MyTasks from '@/views/MyTasks.vue'
+import ProfileView from '@/views/ProfileView.vue'
 import TrainingView from '@/views/TrainingView.vue'
 
 
@@ -80,6 +82,12 @@ const router = createRouter({
       name: 'security',
       component: SecurityView,
       meta: { public: true, title: 'Security' },
+    },
+    {
+      path: '/support',
+      name: 'support',
+      component: SupportView,
+      meta: { public: true, title: 'Support' },
     },
     { path: '/privacy', name: 'privacy', component: PrivacyView, meta: { public: true, title: 'Privacy Policy' } },
     { path: '/terms', name: 'terms', component: TermsView, meta: { public: true, title: 'Terms of Service' } },
@@ -165,6 +173,12 @@ const router = createRouter({
           name: 'admin-team',
           component: AdminTeamView,
           meta: { title: 'Team', adminOnly: true },
+        },
+        {
+          path: 'profile',
+          name: 'profile',
+          component: ProfileView,
+          meta: { title: 'Profile' },
         },
       ],
     },

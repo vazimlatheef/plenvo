@@ -23,7 +23,9 @@
         </span>
         <div class="dense-row__meta team-meta">
           <span class="dense-row__title">{{ row.name }}</span>
-          <span class="team-sub">{{ row.role }} · {{ row.email }}</span>
+          <span class="team-sub">
+            {{ row.role }}{{ row.company ? ` · ${row.company}` : '' }} · {{ row.email }}
+          </span>
         </div>
         <div class="team-actions">
           <span v-if="row.hasAccount" class="team-badge">On Plenvo</span>
@@ -50,7 +52,7 @@
         <button type="button" class="modal-close" aria-label="Close" @click="cancelAdd">×</button>
         <h2>Add team member</h2>
         <p class="app-lede" style="margin-bottom: 1rem">
-          Name and email only — no Plenvo account required. You can invite them later.
+          Name and email required. Role, company, and LinkedIn are optional — no Plenvo account needed.
         </p>
         <form class="field-stack" @submit.prevent="addContact">
           <label>
@@ -62,15 +64,29 @@
             <input v-model="form.email" type="email" required maxlength="150" placeholder="john@company.com" />
           </label>
           <label>
-            Role *
-            <select v-model="form.role" required>
+            Role
+            <select v-model="form.role">
               <option v-for="r in roleOptions" :key="r" :value="r">{{ r }}</option>
             </select>
+          </label>
+          <label>
+            Company
+            <input v-model="form.company" type="text" maxlength="200" placeholder="Optional" />
+          </label>
+          <label>
+            LinkedIn URL
+            <input
+              v-model="form.linkedin_url"
+              type="url"
+              maxlength="2048"
+              placeholder="https://linkedin.com/in/… (optional)"
+            />
+            <span v-if="formLinkedInError" class="error-line" style="margin-top: 0.25rem">{{ formLinkedInError }}</span>
           </label>
           <p v-if="formError" class="error-line">{{ formError }}</p>
           <div class="modal-actions">
             <button type="button" class="btn-outline" :disabled="saving" @click="cancelAdd">Cancel</button>
-            <button type="submit" class="btn-primary" :disabled="saving">
+            <button type="submit" class="btn-primary" :disabled="saving || !!formLinkedInError">
               {{ saving ? 'Saving…' : 'Add team member' }}
             </button>
           </div>
@@ -126,9 +142,16 @@ const actionError = ref('')
 const actionSuccess = ref('')
 
 const showAddModal = ref(false)
-const form = ref({ name: '', email: '', role: 'Member' })
+const form = ref({ name: '', email: '', role: 'Member', company: '', linkedin_url: '' })
 const saving = ref(false)
 const formError = ref('')
+
+const LINKEDIN_RE = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[\w\-.%]+\/?$/i
+const formLinkedInError = computed(() => {
+  const v = (form.value.linkedin_url || '').trim()
+  if (!v) return ''
+  return LINKEDIN_RE.test(v) ? '' : 'LinkedIn URL must look like https://linkedin.com/in/your-profile'
+})
 
 const invitingId = ref(null)
 const showTeamSizeModal = ref(false)
@@ -150,6 +173,7 @@ const rows = computed(() => {
       name: c.name || c.email,
       email: c.email,
       role: c.role || 'Member',
+      company: c.company || '',
       hasAccount: !!c.user_id,
       meta: c.user_id
         ? c.invited_at
@@ -168,7 +192,8 @@ const rows = computed(() => {
       seed: emp.id || emp.email,
       name: emp.full_name || emp.email,
       email: emp.email,
-      role: emp.position || 'Employee',
+      role: emp.job_title || emp.position || 'Employee',
+      company: emp.company_name || '',
       hasAccount: true,
       meta: `Joined ${formatDate(emp.created_at)}`,
     })
@@ -202,7 +227,7 @@ async function loadTeam() {
 }
 
 function openAddModal() {
-  form.value = { name: '', email: '', role: 'Member' }
+  form.value = { name: '', email: '', role: 'Member', company: '', linkedin_url: '' }
   formError.value = ''
   showAddModal.value = true
 }
@@ -214,6 +239,7 @@ function cancelAdd() {
 
 async function addContact() {
   if (!form.value.name.trim() || !form.value.email.trim()) return
+  if (formLinkedInError.value) return
   saving.value = true
   formError.value = ''
   try {
@@ -223,6 +249,8 @@ async function addContact() {
         name: form.value.name.trim(),
         email: form.value.email.trim().toLowerCase(),
         role: form.value.role,
+        company: form.value.company.trim() || null,
+        linkedin_url: form.value.linkedin_url.trim() || null,
       }),
     })
     contacts.value = [created, ...contacts.value.filter((c) => c.id !== created.id)]

@@ -5,9 +5,53 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_admin_user, get_current_user, get_db
 from app.core.security import hash_password
 from app.models import User
-from app.schemas.user import UserCreate, UserPublic
+from app.schemas.user import UserCreate, UserPublic, UserUpdate
 
 router = APIRouter(tags=["users"])
+
+
+@router.get("/me", response_model=UserPublic)
+def get_me(current_user: User = Depends(get_current_user)) -> User:
+    return current_user
+
+
+@router.patch("/me", response_model=UserPublic)
+def update_me(
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> User:
+    data = payload.model_dump(exclude_unset=True)
+
+    if "first_name" in data and data["first_name"] is not None:
+        current_user.first_name = data["first_name"].strip()
+    if "last_name" in data and data["last_name"] is not None:
+        current_user.last_name = data["last_name"].strip()
+    if "position" in data:
+        current_user.position = data["position"]
+    if "job_title" in data:
+        current_user.job_title = data["job_title"]
+    if "company_name" in data:
+        current_user.company_name = data["company_name"]
+    if "linkedin_url" in data:
+        current_user.linkedin_url = data["linkedin_url"]
+    if "phone" in data:
+        current_user.phone_number = data["phone"]
+    elif "phone_number" in data:
+        current_user.phone_number = data["phone_number"]
+    if "phone_country" in data:
+        current_user.phone_country = data["phone_country"]
+    if "country" in data:
+        current_user.country = data["country"]
+    if "team_size" in data:
+        current_user.team_size = data["team_size"]
+    if "timezone" in data:
+        current_user.timezone = data["timezone"]
+
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 
 @router.post("/", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
