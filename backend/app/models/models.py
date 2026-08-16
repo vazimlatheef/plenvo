@@ -18,6 +18,8 @@ class Organisation(Base):
     slug: Mapped[str] = mapped_column(String(300), unique=True, index=True, nullable=False)
     # free/trial default; paid tiers set on explicit upgrade
     plan_tier: Mapped[str] = mapped_column(String(32), nullable=False, server_default="team")
+    # Billing currency locked at signup (GBP/EUR/USD/INR). Never re-detect later.
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, server_default="USD")
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

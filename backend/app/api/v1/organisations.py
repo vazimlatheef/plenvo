@@ -15,7 +15,8 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_admin_user, get_db
+from app.api.deps import get_current_admin_user, get_current_user, get_db
+from app.core.pricing import normalize_currency
 from app.core.security import hash_password
 from app.models.models import Organisation, User
 from app.schemas.user import UserPublic
@@ -26,6 +27,7 @@ from app.services.email import (
     send_invite_email,
     send_verification_email,
 )
+from app.services.plan_limits import assert_can_add_team_members, team_limit_snapshot
 
 router = APIRouter(tags=["organisations"])
 
@@ -52,6 +54,8 @@ _CONSUMER_EMAIL_DOMAINS = frozenset(
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    # Detected client-side via useCurrency / IP; frozen on the organisation.
+    currency: str | None = Field(default=None, max_length=3)
 
 
 class InviteRequest(BaseModel):
@@ -67,6 +71,7 @@ class SignupResponse(BaseModel):
     organisation_name: str
     trial_ends_at: datetime
     plan_tier: str
+    currency: str
     message: str
 
 
@@ -112,6 +117,41 @@ def _defaults_from_email(email: str) -> tuple[str, str, str]:
     return first_name, last_name, company_name
 
 
+@router.get("/organisations/me")
+def get_my_organisation(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return org billing/plan fields. `currency` is immutable after signup."""
+    if not current_user.organisation_id:
+        raise HTTPException(status_code=400, detail="No organisation on account.")
+    org = db.query(Organisation).filter(Organisation.id == current_user.organisation_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found.")
+    return {
+        "id": org.id,
+        "name": org.name,
+        "slug": org.slug,
+        "plan_tier": org.plan_tier,
+        "currency": (org.currency or "USD").strip().upper(),
+        "trial_ends_at": org.trial_ends_at.isoformat() if org.trial_ends_at else None,
+        "is_active": org.is_active,
+    }
+
+
+@router.get("/organisations/me/team-limits")
+def get_my_team_limits(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.organisation_id:
+        raise HTTPException(status_code=400, detail="No organisation on account.")
+    org = db.query(Organisation).filter(Organisation.id == current_user.organisation_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found.")
+    return team_limit_snapshot(db, org)
+
+
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     try:
@@ -119,11 +159,13 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         first_name, last_name, company_name = _defaults_from_email(email)
         trial_ends_at = datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)
         slug = make_unique_slug(db, slugify(company_name))
+        billing_currency = normalize_currency(payload.currency)
 
         org = Organisation(
             name=company_name,
             slug=slug,
             plan_tier=DEFAULT_PLAN_TIER,
+            currency=billing_currency,
             stripe_customer_id=None,
             stripe_subscription_id=None,
             trial_ends_at=trial_ends_at,
@@ -174,6 +216,7 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             organisation_name=org.name,
             trial_ends_at=trial_ends_at,
             plan_tier=org.plan_tier,
+            currency=org.currency,
             message=f"Your Plenvo account is ready. A {TRIAL_DAYS}-day trial has started — check your inbox to verify your email.",
         )
     except HTTPException:
@@ -201,12 +244,27 @@ def invite_employee(
             )
         current_user.team_size = payload.team_size.strip()
 
+    org = db.query(Organisation).filter(Organisation.id == current_user.organisation_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found.")
+
+    email = str(payload.email).strip().lower()
+    existing_contact = find_org_contact_by_email(db, current_user.organisation_id, email)
+    # New user seat only when this person isn't already an unlinked contact / user.
+    existing_user = (
+        db.query(User)
+        .filter(User.organisation_id == current_user.organisation_id, User.email == email)
+        .first()
+    )
+    if existing_user is None and existing_contact is None:
+        assert_can_add_team_members(db, org, adding=1)
+
     first_name, last_name = _split_name(payload.name)
     temp_password = generate_temp_password()
 
     user = User(
         organisation_id=current_user.organisation_id,
-        email=str(payload.email).strip().lower(),
+        email=email,
         password_hash=hash_password(temp_password),
         first_name=first_name,
         last_name=last_name,

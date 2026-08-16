@@ -13,12 +13,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.core.config import settings
-from app.models.models import Contact, Note, Project, Task, User
+from app.models.models import Contact, Note, Organisation, Project, Task, User
 from app.services.mention_match import (
     build_person_candidates,
     match_person,
     match_project,
 )
+from app.services.plan_limits import assert_can_add_team_members
 from app.services.relative_dates import resolve_task_due_date
 
 router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
@@ -51,8 +52,9 @@ class ExtractedTask(BaseModel):
     # Canonical labels from User/Contact/Project (correct casing for UI).
     matched_assignee_label: str | None = None
     matched_project_label: str | None = None
-    # Unmatched project mention — UI may offer "+ Create '{name}'" on confirm.
+    # Unmatched project / person mentions — UI may offer create-on-confirm.
     suggested_new_project: str | None = None
+    suggested_new_contact: str | None = None
 
 
 class ParseNoteResponse(BaseModel):
@@ -94,6 +96,19 @@ def _normalize_project_title(name: str | None) -> str | None:
     return text or None
 
 
+def _normalize_person_name(name: str | None) -> str | None:
+    return _normalize_project_title(name)
+
+
+def _placeholder_contact_email(name: str, org_id: int) -> str:
+    import re
+    import secrets
+
+    slug = re.sub(r"[^a-z0-9]+", ".", name.lower()).strip(".") or "contact"
+    slug = slug[:40].strip(".")
+    return f"{slug}.{org_id}.{secrets.token_hex(3)}@pending.local"
+
+
 def _resolve_extracted_tasks(
     tasks: list[ExtractedTask],
     *,
@@ -117,6 +132,7 @@ def _resolve_extracted_tasks(
         data["matched_assignee_label"] = None
         data["matched_project_label"] = None
         data["suggested_new_project"] = None
+        data["suggested_new_contact"] = None
 
         # Relative / natural-language due dates → concrete ISO date.
         data["due_date"] = resolve_task_due_date(
@@ -126,7 +142,10 @@ def _resolve_extracted_tasks(
             today=today,
         )
 
-        person = match_person(task.assignee_name, people)
+        assignee_name = _normalize_person_name(task.assignee_name)
+        data["assignee_name"] = assignee_name
+
+        person = match_person(assignee_name, people)
         if person:
             data["assignee_matched"] = True
             data["matched_assignee_label"] = person.display_name
@@ -134,6 +153,8 @@ def _resolve_extracted_tasks(
                 data["assignee_id"] = person.id
             else:
                 data["assignee_contact_id"] = person.id
+        elif assignee_name:
+            data["suggested_new_contact"] = assignee_name
 
         project_name = _normalize_project_title(task.project_name)
         data["project_name"] = project_name
@@ -258,6 +279,7 @@ Do not drop meeting or calendar-style lines — they are valid tasks."""
             "matched_assignee_label",
             "matched_project_label",
             "suggested_new_project",
+            "suggested_new_contact",
         }
         cleaned = []
         for t in tasks_data:
@@ -347,6 +369,10 @@ def confirm_tasks(
 
     note.processed_at = datetime.now(timezone.utc)
 
+    org = db.query(Organisation).filter(Organisation.id == current_user.organisation_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found.")
+
     # Create any new projects requested in the review step (once per unique title).
     pending_titles: dict[str, str] = {}
     for t in body.tasks:
@@ -379,12 +405,42 @@ def confirm_tasks(
         db.flush()
         created_project_ids[key] = project.id
 
+    # Create any new contacts requested in the review step (once per unique name).
+    pending_contacts: dict[str, str] = {}
+    for t in body.tasks:
+        if t.get("assignee_id") or t.get("assignee_contact_id"):
+            continue
+        cname = _normalize_person_name(t.get("create_contact_name"))
+        if cname:
+            pending_contacts.setdefault(cname.casefold(), cname)
+
+    if pending_contacts:
+        assert_can_add_team_members(db, org, adding=len(pending_contacts))
+
+    created_contact_ids: dict[str, int] = {}
+    for key, cname in pending_contacts.items():
+        contact = Contact(
+            organisation_id=current_user.organisation_id,
+            name=cname,
+            email=_placeholder_contact_email(cname, current_user.organisation_id),
+            role="Member",
+        )
+        db.add(contact)
+        db.flush()
+        created_contact_ids[key] = contact.id
+
     created_tasks = []
     for t in body.tasks:
         assignee_id = t.get("assignee_id")
         assignee_contact_id = t.get("assignee_contact_id")
         if assignee_id and assignee_contact_id:
             raise HTTPException(status_code=400, detail="Provide either assignee_id or assignee_contact_id, not both.")
+
+        if not assignee_id and not assignee_contact_id:
+            create_name = _normalize_person_name(t.get("create_contact_name"))
+            if create_name:
+                assignee_contact_id = created_contact_ids.get(create_name.casefold())
+
         if assignee_contact_id:
             contact = db.get(Contact, assignee_contact_id)
             if not contact or contact.organisation_id != current_user.organisation_id:
@@ -422,5 +478,6 @@ def confirm_tasks(
     return {
         "created": len(created_tasks),
         "projects_created": len(created_project_ids),
+        "contacts_created": len(created_contact_ids),
         "message": f"{len(created_tasks)} tasks created successfully.",
     }

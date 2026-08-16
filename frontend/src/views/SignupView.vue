@@ -54,10 +54,12 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { apiJson } from '@/api/client'
+import { useCurrency } from '@/composables/useCurrency'
 import { setSessionUser } from '@/composables/session'
 import { login } from '@/services/auth'
 
 const router = useRouter()
+const { currency, loaded: currencyLoaded, detect } = useCurrency()
 
 const email = ref('')
 const password = ref('')
@@ -72,11 +74,15 @@ async function onSubmit() {
   error.value = ''
   loading.value = true
   try {
+    if (!currencyLoaded.value) {
+      await detect()
+    }
     await apiJson('/api/v1/signup', {
       method: 'POST',
       body: JSON.stringify({
         email: email.value.trim(),
         password: password.value,
+        currency: currency.value || 'USD',
       }),
     })
 

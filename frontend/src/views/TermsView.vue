@@ -54,7 +54,7 @@
           <p><strong>Billing:</strong></p>
           <ul>
             <li>Subscriptions are billed monthly or annually (depending on your plan)</li>
-            <li>Prices are in Euros (€) and exclude VAT where applicable</li>
+            <li>Prices are shown in your local currency (GBP, EUR, USD, or INR) and exclude VAT where applicable</li>
             <li>Payment is processed via Stripe — we never store your card details</li>
             <li>Failed payments may result in service suspension after 7 days</li>
           </ul>

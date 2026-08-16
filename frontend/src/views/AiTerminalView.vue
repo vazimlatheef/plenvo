@@ -87,18 +87,37 @@
           <div class="row-fields">
             <div class="field">
               <label>Assign to</label>
-              <select v-model="task.assignee_key">
-                <option :value="null">Unassigned</option>
+              <select
+                :value="taskAssigneeSelectValue(task)"
+                @change="onTaskAssigneeChange(task, $event)"
+              >
+                <option value="">Unassigned</option>
                 <option v-for="opt in assigneeOptions" :key="opt.key" :value="opt.key">
                   {{ assigneeOptionLabel(opt) }}
                 </option>
+                <option
+                  v-if="task.suggested_new_contact && canAddMembers"
+                  :value="createContactOptionValue(task.suggested_new_contact)"
+                >
+                  + Create contact '{{ task.suggested_new_contact }}'
+                </option>
+                <option
+                  v-else-if="task.suggested_new_contact && !canAddMembers"
+                  value="__limit__"
+                  disabled
+                >
+                  + Create contact '{{ task.suggested_new_contact }}' (limit reached)
+                </option>
               </select>
-              <span v-if="task.assignee_name" class="ai-hint" :class="{ 'ai-hint--matched': task.assignee_matched && !!task.assignee_key }">
-                {{
-                  task.assignee_matched && task.assignee_key
-                    ? `Matched: ${task.matched_assignee_label || task.assignee_name}`
-                    : `AI detected: ${task.assignee_name} — pick manually`
-                }}
+              <span
+                v-if="task.assignee_name || task.create_contact_name"
+                class="ai-hint"
+                :class="{
+                  'ai-hint--matched':
+                    (task.assignee_matched && !!task.assignee_key) || !!task.create_contact_name,
+                }"
+              >
+                {{ assigneeHint(task) }}
               </span>
             </div>
             <div class="field">
@@ -179,6 +198,7 @@ import {
 
 const NEW_PROJECT_VALUE = '__new__'
 const CREATE_PROJECT_PREFIX = 'new:'
+const CREATE_CONTACT_PREFIX = 'contact:'
 
 const step = ref('input')
 const loading = ref(false)
@@ -192,12 +212,21 @@ const projects = ref([])
 const teamMembers = ref([])
 const contacts = ref([])
 const projectsLoadError = ref('')
+const teamLimits = ref({
+  can_add_members: true,
+  limit_message: null,
+  member_limit: null,
+  member_count: 0,
+  plan_tier: 'team',
+})
 
 const showInlineCreate = ref(false)
 const newProjectTitle = ref('')
 const newProjectInput = ref(null)
 const creatingProject = ref(false)
 const createProjectError = ref('')
+
+const canAddMembers = computed(() => teamLimits.value?.can_add_members !== false)
 
 const assigneeOptions = computed(() =>
   buildAssigneeOptions({
@@ -213,6 +242,57 @@ const projectSelectValue = computed(() =>
 
 function createProjectOptionValue(title) {
   return `${CREATE_PROJECT_PREFIX}${title}`
+}
+
+function createContactOptionValue(name) {
+  return `${CREATE_CONTACT_PREFIX}${name}`
+}
+
+function taskAssigneeSelectValue(task) {
+  if (task.create_contact_name) {
+    return createContactOptionValue(task.create_contact_name)
+  }
+  return task.assignee_key || ''
+}
+
+function onTaskAssigneeChange(task, event) {
+  const value = event.target.value
+  if (!value) {
+    task.assignee_key = null
+    task.create_contact_name = null
+    return
+  }
+  if (value.startsWith(CREATE_CONTACT_PREFIX)) {
+    if (!canAddMembers.value) {
+      event.target.value = taskAssigneeSelectValue(task)
+      error.value = teamLimits.value?.limit_message || 'Team member limit reached.'
+      return
+    }
+    task.assignee_key = null
+    task.create_contact_name = value.slice(CREATE_CONTACT_PREFIX.length)
+    return
+  }
+  task.assignee_key = value
+  task.create_contact_name = null
+}
+
+function assigneeHint(task) {
+  if (task.assignee_matched && task.assignee_key) {
+    return `Matched: ${task.matched_assignee_label || task.assignee_name}`
+  }
+  if (task.create_contact_name) {
+    return `Will create contact: ${task.create_contact_name}`
+  }
+  if (task.suggested_new_contact || task.assignee_name) {
+    if (!canAddMembers.value && task.suggested_new_contact) {
+      return (
+        teamLimits.value?.limit_message ||
+        `AI detected: ${task.suggested_new_contact} — team limit reached`
+      )
+    }
+    return `AI detected: ${task.suggested_new_contact || task.assignee_name} — pick or create`
+  }
+  return ''
 }
 
 function taskProjectSelectValue(task) {
@@ -255,6 +335,15 @@ function projectHint(task) {
     return `AI detected: ${task.suggested_new_project || task.project_name} — pick or create`
   }
   return ''
+}
+
+async function loadTeamLimits() {
+  try {
+    const limits = await apiJson('/api/v1/organisations/me/team-limits')
+    teamLimits.value = limits || teamLimits.value
+  } catch (err) {
+    console.error('[AiTerminal] failed to load team limits', err)
+  }
 }
 
 async function loadProjects() {
@@ -322,7 +411,7 @@ async function createInlineProject() {
 }
 
 onMounted(async () => {
-  await loadProjects()
+  await Promise.all([loadProjects(), loadTeamLimits()])
   try {
     const [users, contactList] = await Promise.all([
       apiJson('/api/v1/users').catch(() => []),
@@ -339,6 +428,7 @@ async function parseNote() {
   error.value = null
   loading.value = true
   try {
+    await loadTeamLimits()
     const data = await apiJson('/api/v1/ai/parse-note', {
       method: 'POST',
       body: JSON.stringify({
@@ -355,17 +445,21 @@ async function parseNote() {
       })
       const matchedProject = t.project_matched && t.project_id != null ? Number(t.project_id) : null
       const noteProject = form.value.project_id != null ? Number(form.value.project_id) : null
-      const suggested = (t.suggested_new_project || '').trim() || null
+      const suggestedProject = (t.suggested_new_project || '').trim() || null
+      const suggestedContact = (t.suggested_new_contact || '').trim() || null
+      const matchedAssignee = Boolean(t.assignee_matched && assignee_key)
       return {
         ...t,
-        assignee_key,
+        assignee_key: matchedAssignee ? assignee_key : null,
         matched_assignee_label: t.matched_assignee_label || null,
         matched_project_label: t.matched_project_label || null,
-        suggested_new_project: suggested,
-        // Prefer unique existing match; else note-level project; else offer create.
-        project_id: matchedProject ?? (suggested ? null : noteProject),
+        suggested_new_project: suggestedProject,
+        suggested_new_contact: suggestedContact,
+        project_id: matchedProject ?? (suggestedProject ? null : noteProject),
         project_matched: Boolean(t.project_matched),
-        create_project_title: suggested && !matchedProject ? suggested : null,
+        create_project_title: suggestedProject && !matchedProject ? suggestedProject : null,
+        create_contact_name:
+          suggestedContact && !matchedAssignee && canAddMembers.value ? suggestedContact : null,
       }
     })
     step.value = 'review'
@@ -380,14 +474,28 @@ async function confirmTasks() {
   error.value = null
   loading.value = true
   try {
+    await loadTeamLimits()
+    const creatingContacts = new Set(
+      extractedTasks.value
+        .map((t) => (t.create_contact_name || '').trim().toLowerCase())
+        .filter(Boolean),
+    )
+    if (creatingContacts.size > 0 && !canAddMembers.value) {
+      error.value = teamLimits.value?.limit_message || 'Team member limit reached.'
+      loading.value = false
+      return
+    }
+
     const tasks = extractedTasks.value.map((t) => {
       const { assignee_id, assignee_contact_id } = parseAssigneeKey(t.assignee_key)
       const createTitle = (t.create_project_title || '').trim() || null
+      const createContact = (t.create_contact_name || '').trim() || null
       return {
         title: t.title,
         description: t.description || null,
-        assignee_id,
-        assignee_contact_id,
+        assignee_id: createContact ? null : assignee_id,
+        assignee_contact_id: createContact ? null : assignee_contact_id,
+        create_contact_name: createContact,
         due_date: t.due_date || null,
         priority: t.priority,
         project_id: createTitle ? null : t.project_id ?? form.value.project_id ?? null,
@@ -399,8 +507,14 @@ async function confirmTasks() {
       body: JSON.stringify({ note_id: noteId.value, tasks }),
     })
     lastCreatedCount.value = data.created
-    if (data.projects_created) {
-      await loadProjects()
+    if (data.projects_created || data.contacts_created) {
+      await Promise.all([loadProjects(), loadTeamLimits()])
+      try {
+        const contactList = await apiJson('/api/v1/contacts').catch(() => [])
+        contacts.value = Array.isArray(contactList) ? contactList : []
+      } catch {
+        /* ignore */
+      }
     }
     step.value = 'success'
   } catch (e) {

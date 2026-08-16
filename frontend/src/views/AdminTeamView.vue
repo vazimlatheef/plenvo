@@ -2,15 +2,30 @@
   <div class="app-page">
     <div class="app-page-header">
       <h1>Team</h1>
-      <button type="button" class="btn-primary" @click="openAddModal">+ Add team member</button>
+      <button
+        type="button"
+        class="btn-primary"
+        :disabled="!canAddMembers"
+        :title="canAddMembers ? undefined : teamLimits.limit_message || undefined"
+        @click="openAddModal"
+      >
+        + Add team member
+      </button>
     </div>
+
+    <p v-if="teamLimits.limit_message && !canAddMembers" class="error-line">{{ teamLimits.limit_message }}</p>
 
     <p v-if="loading" class="muted-line">Loading team…</p>
     <p v-else-if="error" class="error-line">{{ error }}</p>
 
     <div v-else-if="rows.length === 0" class="empty-panel">
       <p>No team members yet — add someone with name and email (no account needed)</p>
-      <button type="button" class="btn-primary" @click="openAddModal">Add team member</button>
+      <button type="button" class="btn-primary" :disabled="!canAddMembers" @click="openAddModal">
+        Add team member
+      </button>
+      <p v-if="!canAddMembers && teamLimits.limit_message" class="error-line" style="margin-top: 0.75rem">
+        {{ teamLimits.limit_message }}
+      </p>
     </div>
 
     <ul v-else class="dense-list">
@@ -84,9 +99,14 @@
             <span v-if="formLinkedInError" class="error-line" style="margin-top: 0.25rem">{{ formLinkedInError }}</span>
           </label>
           <p v-if="formError" class="error-line">{{ formError }}</p>
+          <p v-if="!canAddMembers && teamLimits.limit_message" class="error-line">{{ teamLimits.limit_message }}</p>
           <div class="modal-actions">
             <button type="button" class="btn-outline" :disabled="saving" @click="cancelAdd">Cancel</button>
-            <button type="submit" class="btn-primary" :disabled="saving || !!formLinkedInError">
+            <button
+              type="submit"
+              class="btn-primary"
+              :disabled="saving || !!formLinkedInError || !canAddMembers"
+            >
               {{ saving ? 'Saving…' : 'Add team member' }}
             </button>
           </div>
@@ -140,6 +160,13 @@ const loading = ref(true)
 const error = ref('')
 const actionError = ref('')
 const actionSuccess = ref('')
+const teamLimits = ref({
+  can_add_members: true,
+  limit_message: null,
+  member_limit: null,
+  member_count: 0,
+  plan_tier: 'team',
+})
 
 const showAddModal = ref(false)
 const form = ref({ name: '', email: '', role: 'Member', company: '', linkedin_url: '' })
@@ -152,6 +179,8 @@ const formLinkedInError = computed(() => {
   if (!v) return ''
   return LINKEDIN_RE.test(v) ? '' : 'LinkedIn URL must look like https://linkedin.com/in/your-profile'
 })
+
+const canAddMembers = computed(() => teamLimits.value?.can_add_members !== false)
 
 const invitingId = ref(null)
 const showTeamSizeModal = ref(false)
@@ -208,6 +237,15 @@ function formatDate(dateString) {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+async function loadTeamLimits() {
+  try {
+    const limits = await apiJson('/api/v1/organisations/me/team-limits')
+    teamLimits.value = limits || teamLimits.value
+  } catch (err) {
+    console.error('[AdminTeam] failed to load team limits', err)
+  }
+}
+
 async function loadTeam() {
   try {
     loading.value = true
@@ -215,6 +253,7 @@ async function loadTeam() {
     const [c, e] = await Promise.all([
       apiJson('/api/v1/contacts'),
       apiJson('/api/v1/users?role=employee').catch(() => []),
+      loadTeamLimits(),
     ])
     contacts.value = Array.isArray(c) ? c : []
     employees.value = Array.isArray(e) ? e : []
@@ -227,6 +266,10 @@ async function loadTeam() {
 }
 
 function openAddModal() {
+  if (!canAddMembers.value) {
+    actionError.value = teamLimits.value?.limit_message || 'Team member limit reached.'
+    return
+  }
   form.value = { name: '', email: '', role: 'Member', company: '', linkedin_url: '' }
   formError.value = ''
   showAddModal.value = true
@@ -240,6 +283,10 @@ function cancelAdd() {
 async function addContact() {
   if (!form.value.name.trim() || !form.value.email.trim()) return
   if (formLinkedInError.value) return
+  if (!canAddMembers.value) {
+    formError.value = teamLimits.value?.limit_message || 'Team member limit reached.'
+    return
+  }
   saving.value = true
   formError.value = ''
   try {
@@ -254,6 +301,7 @@ async function addContact() {
       }),
     })
     contacts.value = [created, ...contacts.value.filter((c) => c.id !== created.id)]
+    await loadTeamLimits()
     cancelAdd()
     actionSuccess.value = `Added ${created.name}`
     setTimeout(() => {
@@ -262,6 +310,7 @@ async function addContact() {
   } catch (err) {
     console.error('[AdminTeam] add contact failed', err)
     formError.value = err.message || 'Failed to add member'
+    await loadTeamLimits()
   } finally {
     saving.value = false
   }

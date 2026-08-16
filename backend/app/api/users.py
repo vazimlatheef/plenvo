@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_admin_user, get_current_user, get_db
 from app.core.security import hash_password
 from app.models import User
+from app.models.models import Organisation
 from app.schemas.user import UserCreate, UserPublic, UserUpdate
+from app.services.plan_limits import assert_can_add_team_members
 
 router = APIRouter(tags=["users"])
 
@@ -62,6 +64,11 @@ def create_user(
 ) -> User:
     if not current_user.organisation_id:
         raise HTTPException(status_code=400, detail="No organisation on account.")
+
+    org = db.query(Organisation).filter(Organisation.id == current_user.organisation_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found.")
+    assert_can_add_team_members(db, org, adding=1)
 
     user = User(
         organisation_id=current_user.organisation_id,

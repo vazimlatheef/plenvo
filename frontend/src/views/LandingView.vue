@@ -432,7 +432,7 @@ import { useCurrency } from '@/composables/useCurrency'
 
 
 
-const { symbol, prices, currencyLabel } = useCurrency()
+const { symbol, currencyLabel, personalPrice, teamPrice, enterprisePrice } = useCurrency()
 
 
 
@@ -488,7 +488,7 @@ const bullets = computed(() => [
 
   '✓ AI that reads context, not just keywords',
 
-  `✓ From ${symbol.value}${prices.value.personal}/mo · Free for 14 days · No card required`,
+  `✓ From ${personalPrice.value}/mo · Free for 14 days · No card required`,
 
   '✓ Your data. Private. Encrypted. Always yours.',
 
@@ -582,7 +582,7 @@ const displayPlans = computed(() => [
 
     name: 'Personal',
 
-    price: `${symbol.value}${prices.value.personal}`,
+    price: personalPrice.value,
 
     members: '1 person, unlimited everything',
 
@@ -612,7 +612,7 @@ const displayPlans = computed(() => [
 
     name: 'Team',
 
-    price: `${symbol.value}${prices.value.team}`,
+    price: teamPrice.value,
 
     members: 'Up to 5 people',
 
@@ -644,7 +644,7 @@ const displayPlans = computed(() => [
 
     name: 'Enterprise',
 
-    price: `${symbol.value}${prices.value.enterprise}`,
+    price: enterprisePrice.value,
 
     members: '5+ people, unlimited',
 

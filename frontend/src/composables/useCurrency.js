@@ -1,18 +1,39 @@
-import { ref, onMounted } from 'vue'
+/**
+ * Single source of truth for display pricing + IP-based currency detection.
+ * Billing currency is frozen on Organisation.currency at signup (backend) —
+ * this composable is for marketing/UI detection only.
+ */
 
-const STORAGE_KEY = 'plenvo_currency'
+import { computed, onMounted, ref } from 'vue'
 
-const EURO_ZONE = new Set([
-  'DE', 'FR', 'IT', 'ES', 'PT', 'NL', 'BE', 'AT', 'FI', 'GR', 'IE',
-  'LU', 'MT', 'CY', 'SK', 'SI', 'EE', 'LV', 'LT',
+const STORAGE_KEY = 'plenvo_currency_v2'
+export const DEFAULT_CURRENCY = 'USD'
+
+/** Official Eurozone (ISO 3166-1 alpha-2), as of 2026. */
+export const EUROZONE = new Set([
+  'AT', // Austria
+  'BE', // Belgium
+  'HR', // Croatia
+  'CY', // Cyprus
+  'EE', // Estonia
+  'FI', // Finland
+  'FR', // France
+  'DE', // Germany
+  'GR', // Greece
+  'IE', // Ireland
+  'IT', // Italy
+  'LV', // Latvia
+  'LT', // Lithuania
+  'LU', // Luxembourg
+  'MT', // Malta
+  'NL', // Netherlands
+  'PT', // Portugal
+  'SK', // Slovakia
+  'SI', // Slovenia
+  'ES', // Spain
 ])
 
-const PRICE_MAP = {
-  INR: {
-    currency: 'INR',
-    symbol: '₹',
-    prices: { personal: '499', team: '1,999', enterprise: '3,999' },
-  },
+export const PRICE_MAP = {
   GBP: {
     currency: 'GBP',
     symbol: '£',
@@ -28,42 +49,72 @@ const PRICE_MAP = {
     symbol: '$',
     prices: { personal: '4.99', team: '19.99', enterprise: '39.99' },
   },
+  INR: {
+    currency: 'INR',
+    symbol: '₹',
+    prices: { personal: '499', team: '1,999', enterprise: '3,999' },
+  },
 }
 
-const CURRENCY_LABELS = {
-  INR: 'INR (₹)',
+export const CURRENCY_LABELS = {
   GBP: 'GBP (£)',
   EUR: 'EUR (€)',
   USD: 'USD ($)',
+  INR: 'INR (₹)',
 }
 
-function resolveCurrency(countryCode) {
-  const cc = (countryCode || '').toUpperCase()
+export const SUPPORTED_CURRENCIES = Object.keys(PRICE_MAP)
+
+/**
+ * Map ISO country code → billing/display currency.
+ * GB → GBP, IN → INR, Eurozone → EUR, US + everything else → USD.
+ */
+export function resolveCurrencyFromCountry(countryCode) {
+  const cc = String(countryCode || '').trim().toUpperCase()
+  if (cc === 'GB') return PRICE_MAP.GBP
   if (cc === 'IN') return PRICE_MAP.INR
-  if (cc === 'GB' || cc === 'IE') return PRICE_MAP.GBP
-  if (EURO_ZONE.has(cc)) return PRICE_MAP.EUR
+  if (EUROZONE.has(cc)) return PRICE_MAP.EUR
   return PRICE_MAP.USD
 }
 
+export function getCurrencyConfig(code) {
+  const key = String(code || '').trim().toUpperCase()
+  return PRICE_MAP[key] || PRICE_MAP[DEFAULT_CURRENCY]
+}
+
+export function formatPrice(symbol, amount) {
+  return `${symbol}${amount}`
+}
+
+function applyConfig(target, config, countryCode = '') {
+  target.currency.value = config.currency
+  target.symbol.value = config.symbol
+  target.prices.value = { ...config.prices }
+  target.currencyLabel.value = CURRENCY_LABELS[config.currency] || config.currency
+  if (countryCode !== undefined) target.country.value = countryCode || ''
+}
+
 export function useCurrency() {
-  const currency = ref('USD')
-  const symbol = ref('$')
-  const prices = ref({ ...PRICE_MAP.USD.prices })
+  const currency = ref(DEFAULT_CURRENCY)
+  const symbol = ref(PRICE_MAP[DEFAULT_CURRENCY].symbol)
+  const prices = ref({ ...PRICE_MAP[DEFAULT_CURRENCY].prices })
   const country = ref('')
   const loaded = ref(false)
+  const currencyLabel = ref(CURRENCY_LABELS[DEFAULT_CURRENCY])
 
-  const currencyLabel = ref(CURRENCY_LABELS.USD)
+  const state = { currency, symbol, prices, country, currencyLabel }
+
+  const personalPrice = computed(() => formatPrice(symbol.value, prices.value.personal))
+  const teamPrice = computed(() => formatPrice(symbol.value, prices.value.team))
+  const enterprisePrice = computed(() => formatPrice(symbol.value, prices.value.enterprise))
 
   async function detect() {
     try {
       const cached = sessionStorage.getItem(STORAGE_KEY)
       if (cached) {
         const data = JSON.parse(cached)
-        currency.value = data.currency
-        symbol.value = data.symbol
-        prices.value = data.prices
-        country.value = data.country || ''
-        currencyLabel.value = CURRENCY_LABELS[data.currency] || data.currency
+        const config = getCurrencyConfig(data.currency)
+        applyConfig(state, config, data.country || '')
         loaded.value = true
         return
       }
@@ -72,12 +123,8 @@ export function useCurrency() {
       if (!res.ok) throw new Error('geo lookup failed')
       const json = await res.json()
       const cc = json.country_code || ''
-      country.value = cc
-      const resolved = resolveCurrency(cc)
-      currency.value = resolved.currency
-      symbol.value = resolved.symbol
-      prices.value = { ...resolved.prices }
-      currencyLabel.value = CURRENCY_LABELS[resolved.currency] || resolved.currency
+      const resolved = resolveCurrencyFromCountry(cc)
+      applyConfig(state, resolved, cc)
 
       sessionStorage.setItem(
         STORAGE_KEY,
@@ -89,11 +136,7 @@ export function useCurrency() {
         }),
       )
     } catch {
-      const resolved = resolveCurrency('US')
-      currency.value = resolved.currency
-      symbol.value = resolved.symbol
-      prices.value = { ...resolved.prices }
-      currencyLabel.value = CURRENCY_LABELS.USD
+      applyConfig(state, PRICE_MAP[DEFAULT_CURRENCY], '')
     } finally {
       loaded.value = true
     }
@@ -101,5 +144,17 @@ export function useCurrency() {
 
   onMounted(detect)
 
-  return { currency, symbol, prices, country, loaded, currencyLabel }
+  return {
+    currency,
+    symbol,
+    prices,
+    country,
+    loaded,
+    currencyLabel,
+    personalPrice,
+    teamPrice,
+    enterprisePrice,
+    formatPrice: (amount) => formatPrice(symbol.value, amount),
+    detect,
+  }
 }

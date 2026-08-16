@@ -10,6 +10,7 @@ from app.models.models import Contact, Organisation, User
 from app.schemas.contact import ContactCreate, ContactInviteRequest, ContactResponse, ContactUpdate
 from app.services.contact_service import link_contact_to_user
 from app.services.email import generate_temp_password, generate_unsubscribe_token, send_invite_email
+from app.services.plan_limits import assert_can_add_team_members
 
 router = APIRouter(prefix="/api/v1/contacts", tags=["contacts"])
 
@@ -57,6 +58,12 @@ def create_contact(
         .filter(User.organisation_id == org_id, User.email == email)
         .first()
     )
+
+    if existing_user is None:
+        org = db.query(Organisation).filter(Organisation.id == org_id).first()
+        if not org:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organisation not found")
+        assert_can_add_team_members(db, org, adding=1)
 
     contact = Contact(
         organisation_id=org_id,
