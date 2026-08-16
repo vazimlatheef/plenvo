@@ -49,6 +49,7 @@ class PersonCandidate:
 class PersonMatch:
     kind: Literal["user", "contact"]
     id: int
+    display_name: str  # Canonical casing from User/Contact, never the raw query.
 
 
 @dataclass(frozen=True)
@@ -126,33 +127,38 @@ def match_person(name: str | None, people: list[PersonCandidate]) -> PersonMatch
     # Prefer user when the unique identity is a linked contact
     chosen = best.candidate
     if chosen.kind == "contact" and chosen.linked_user_id is not None:
-        return PersonMatch(kind="user", id=chosen.linked_user_id)
-    return PersonMatch(kind=chosen.kind, id=chosen.id)
+        user_cand = next(
+            (p for p in people if p.kind == "user" and p.id == chosen.linked_user_id),
+            None,
+        )
+        display = (user_cand.full_name if user_cand else chosen.full_name).strip()
+        return PersonMatch(kind="user", id=chosen.linked_user_id, display_name=display)
+
+    return PersonMatch(kind=chosen.kind, id=chosen.id, display_name=chosen.full_name.strip())
 
 
-def match_project(name: str | None, projects: list[tuple[int, str]]) -> int | None:
-    """Return project id if exactly one clear title match, else None."""
+def match_project(name: str | None, projects: list[tuple[int, str]]) -> tuple[int, str] | None:
+    """Return (project id, canonical title) if exactly one clear match, else None."""
     query = _norm(name)
     if not query or not projects:
         return None
 
-    exact: list[int] = []
-    fuzzy: list[tuple[float, int]] = []
+    exact: list[tuple[int, str]] = []
+    fuzzy: list[tuple[float, int, str]] = []
     for pid, title in projects:
         t = _norm(title)
         if not t:
             continue
         if query == t:
-            exact.append(pid)
+            exact.append((pid, title))
             continue
         # Containment: query is full title or title contains query as whole phrase
         if query in t or t in query:
-            # Prefer longer overlap; treat as strong fuzzy
-            fuzzy.append((0.95, pid))
+            fuzzy.append((0.95, pid, title))
             continue
         r = _ratio(query, t)
         if r >= _FUZZY_PROJECT_MIN:
-            fuzzy.append((r, pid))
+            fuzzy.append((r, pid, title))
 
     if len(exact) == 1:
         return exact[0]
@@ -162,12 +168,13 @@ def match_project(name: str | None, projects: list[tuple[int, str]]) -> int | No
     if not fuzzy:
         return None
     fuzzy.sort(key=lambda x: x[0], reverse=True)
-    best_score, best_id = fuzzy[0]
+    best_score, best_id, best_title = fuzzy[0]
     # Ambiguous if another candidate is within 0.03
-    rivals = [pid for score, pid in fuzzy if score >= best_score - 0.03]
-    if len(set(rivals)) != 1:
+    rivals = [(pid, title) for score, pid, title in fuzzy if score >= best_score - 0.03]
+    distinct = {(pid, _norm(title)) for pid, title in rivals}
+    if len(distinct) != 1:
         return None
-    return best_id
+    return best_id, best_title
 
 
 def build_person_candidates(*, users, contacts) -> list[PersonCandidate]:

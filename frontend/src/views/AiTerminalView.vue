@@ -96,23 +96,34 @@
               <span v-if="task.assignee_name" class="ai-hint" :class="{ 'ai-hint--matched': task.assignee_matched && !!task.assignee_key }">
                 {{
                   task.assignee_matched && task.assignee_key
-                    ? `Matched: ${task.assignee_name}`
+                    ? `Matched: ${task.matched_assignee_label || task.assignee_name}`
                     : `AI detected: ${task.assignee_name} — pick manually`
                 }}
               </span>
             </div>
             <div class="field">
               <label>Project</label>
-              <select v-model="task.project_id">
-                <option :value="null">No project</option>
-                <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.title }}</option>
+              <select
+                :value="taskProjectSelectValue(task)"
+                @change="onTaskProjectChange(task, $event)"
+              >
+                <option value="">No project</option>
+                <option v-for="p in projects" :key="p.id" :value="`id:${p.id}`">{{ p.title }}</option>
+                <option
+                  v-if="task.suggested_new_project"
+                  :value="createProjectOptionValue(task.suggested_new_project)"
+                >
+                  + Create '{{ task.suggested_new_project }}'
+                </option>
               </select>
-              <span v-if="task.project_name" class="ai-hint" :class="{ 'ai-hint--matched': !!task.project_matched }">
-                {{
-                  task.project_matched
-                    ? `Matched: ${task.project_name}`
-                    : `AI detected: ${task.project_name} — pick manually`
-                }}
+              <span
+                v-if="task.project_name || task.create_project_title"
+                class="ai-hint"
+                :class="{
+                  'ai-hint--matched': !!task.project_matched || !!task.create_project_title,
+                }"
+              >
+                {{ projectHint(task) }}
               </span>
             </div>
             <div class="field">
@@ -167,6 +178,7 @@ import {
 } from '@/utils/assignee'
 
 const NEW_PROJECT_VALUE = '__new__'
+const CREATE_PROJECT_PREFIX = 'new:'
 
 const step = ref('input')
 const loading = ref(false)
@@ -198,6 +210,52 @@ const assigneeOptions = computed(() =>
 const projectSelectValue = computed(() =>
   form.value.project_id == null ? '' : String(form.value.project_id),
 )
+
+function createProjectOptionValue(title) {
+  return `${CREATE_PROJECT_PREFIX}${title}`
+}
+
+function taskProjectSelectValue(task) {
+  if (task.create_project_title) {
+    return createProjectOptionValue(task.create_project_title)
+  }
+  if (task.project_id != null) return `id:${task.project_id}`
+  return ''
+}
+
+function onTaskProjectChange(task, event) {
+  const value = event.target.value
+  if (!value) {
+    task.project_id = null
+    task.create_project_title = null
+    return
+  }
+  if (value.startsWith(CREATE_PROJECT_PREFIX)) {
+    task.project_id = null
+    task.create_project_title = value.slice(CREATE_PROJECT_PREFIX.length)
+    return
+  }
+  if (value.startsWith('id:')) {
+    task.project_id = Number(value.slice(3))
+    task.create_project_title = null
+    return
+  }
+  task.project_id = Number(value)
+  task.create_project_title = null
+}
+
+function projectHint(task) {
+  if (task.project_matched) {
+    return `Matched: ${task.matched_project_label || task.project_name}`
+  }
+  if (task.create_project_title) {
+    return `Will create project: ${task.create_project_title}`
+  }
+  if (task.suggested_new_project || task.project_name) {
+    return `AI detected: ${task.suggested_new_project || task.project_name} — pick or create`
+  }
+  return ''
+}
 
 async function loadProjects() {
   projectsLoadError.value = ''
@@ -295,13 +353,19 @@ async function parseNote() {
         assignee_id: t.assignee_id,
         assignee_contact_id: t.assignee_contact_id,
       })
-      const matchedProject = t.project_id != null ? Number(t.project_id) : null
+      const matchedProject = t.project_matched && t.project_id != null ? Number(t.project_id) : null
       const noteProject = form.value.project_id != null ? Number(form.value.project_id) : null
+      const suggested = (t.suggested_new_project || '').trim() || null
       return {
         ...t,
         assignee_key,
-        project_id: matchedProject ?? noteProject,
+        matched_assignee_label: t.matched_assignee_label || null,
+        matched_project_label: t.matched_project_label || null,
+        suggested_new_project: suggested,
+        // Prefer unique existing match; else note-level project; else offer create.
+        project_id: matchedProject ?? (suggested ? null : noteProject),
         project_matched: Boolean(t.project_matched),
+        create_project_title: suggested && !matchedProject ? suggested : null,
       }
     })
     step.value = 'review'
@@ -318,6 +382,7 @@ async function confirmTasks() {
   try {
     const tasks = extractedTasks.value.map((t) => {
       const { assignee_id, assignee_contact_id } = parseAssigneeKey(t.assignee_key)
+      const createTitle = (t.create_project_title || '').trim() || null
       return {
         title: t.title,
         description: t.description || null,
@@ -325,7 +390,8 @@ async function confirmTasks() {
         assignee_contact_id,
         due_date: t.due_date || null,
         priority: t.priority,
-        project_id: t.project_id ?? form.value.project_id ?? null,
+        project_id: createTitle ? null : t.project_id ?? form.value.project_id ?? null,
+        create_project_title: createTitle,
       }
     })
     const data = await apiJson('/api/v1/ai/confirm-tasks', {
@@ -333,6 +399,9 @@ async function confirmTasks() {
       body: JSON.stringify({ note_id: noteId.value, tasks }),
     })
     lastCreatedCount.value = data.created
+    if (data.projects_created) {
+      await loadProjects()
+    }
     step.value = 'success'
   } catch (e) {
     error.value = e?.message || 'Failed to save tasks. Please try again.'
