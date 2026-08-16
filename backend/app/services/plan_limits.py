@@ -75,7 +75,7 @@ def plan_limit_message(org: Organisation, limit: int, *, now: datetime | None = 
     else:
         shown = limit
     return (
-        f"Your {tier} plan allows up to {shown} team members. Upgrade to add more."
+        f"Your {tier} plan allows up to {shown} team members. Upgrade in Account & Subscription to add more."
     )
 
 

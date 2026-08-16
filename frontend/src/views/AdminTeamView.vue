@@ -9,11 +9,15 @@
         :title="canAddMembers ? undefined : teamLimits.limit_message || undefined"
         @click="openAddModal"
       >
-        + Add team member
+        <Plus :size="16" :stroke-width="2" />
+        Add team member
       </button>
     </div>
 
-    <p v-if="teamLimits.limit_message && !canAddMembers" class="error-line">{{ teamLimits.limit_message }}</p>
+    <p v-if="teamLimits.limit_message && !canAddMembers" class="error-line">
+      {{ teamLimits.limit_message }}
+      <RouterLink to="/app/account" class="inline-upgrade">Open Account</RouterLink>
+    </p>
 
     <p v-if="loading" class="muted-line">Loading team…</p>
     <p v-else-if="error" class="error-line">{{ error }}</p>
@@ -21,6 +25,7 @@
     <div v-else-if="rows.length === 0" class="empty-panel">
       <p>No team members yet — add someone with name and email (no account needed)</p>
       <button type="button" class="btn-primary" :disabled="!canAddMembers" @click="openAddModal">
+        <Plus :size="16" :stroke-width="2" />
         Add team member
       </button>
       <p v-if="!canAddMembers && teamLimits.limit_message" class="error-line" style="margin-top: 0.75rem">
@@ -64,7 +69,9 @@
 
     <div v-if="showAddModal" class="modal-overlay" @click.self="cancelAdd">
       <div class="modal-panel">
-        <button type="button" class="modal-close" aria-label="Close" @click="cancelAdd">×</button>
+        <button type="button" class="modal-close" aria-label="Close" @click="cancelAdd">
+          <X :size="18" :stroke-width="1.75" />
+        </button>
         <h2>Add team member</h2>
         <p class="app-lede" style="margin-bottom: 1rem">
           Name and email required. Role, company, and LinkedIn are optional — no Plenvo account needed.
@@ -116,7 +123,9 @@
 
     <div v-if="showTeamSizeModal" class="modal-overlay" @click.self="cancelTeamSize">
       <div class="modal-panel">
-        <button type="button" class="modal-close" aria-label="Close" @click="cancelTeamSize">×</button>
+        <button type="button" class="modal-close" aria-label="Close" @click="cancelTeamSize">
+          <X :size="18" :stroke-width="1.75" />
+        </button>
         <h2>How big is your team?</h2>
         <p class="app-lede" style="margin-bottom: 1rem">Asked once, the first time you invite someone.</p>
         <form class="field-stack" @submit.prevent="confirmTeamSizeInvite">
@@ -139,6 +148,7 @@
 </template>
 
 <script setup>
+import { Plus, X } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 
 import { apiJson } from '@/api/client'
@@ -433,5 +443,16 @@ onMounted(loadTeam)
   color: var(--status-done);
   font-size: 0.9rem;
   margin: 0.75rem 0 0;
+}
+
+.inline-upgrade {
+  margin-left: 0.5rem;
+  color: var(--color-accent);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.inline-upgrade:hover {
+  filter: brightness(1.1);
 }
 </style>

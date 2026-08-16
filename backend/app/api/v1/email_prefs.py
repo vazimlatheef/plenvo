@@ -13,6 +13,9 @@ _FOOTER = "Plenvo — Project and task management for professionals"
 
 
 def _page(title: str, body: str, status_code: int = 200) -> HTMLResponse:
+    from app.services.email import FRONTEND_URL
+
+    logo_url = f"{FRONTEND_URL.rstrip('/')}/plenvo-icon-v2.png"
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,7 +25,9 @@ def _page(title: str, body: str, status_code: int = 200) -> HTMLResponse:
 </head>
 <body style="margin:0;padding:40px 20px;font-family:Georgia,'Times New Roman',serif;background:#f7f7f5;color:#1a1a1a;">
   <div style="max-width:480px;margin:0 auto;background:#fff;border:1px solid #e5e5e0;padding:32px 28px;">
-    <p style="margin:0 0 8px;font-size:13px;letter-spacing:0.04em;text-transform:uppercase;color:#666;">Plenvo</p>
+    <p style="margin:0 0 16px;">
+      <img src="{logo_url}" alt="Plenvo" width="36" height="36" style="display:block;border-radius:8px;" />
+    </p>
     <h1 style="margin:0 0 16px;font-size:22px;font-weight:400;">{title}</h1>
     <p style="margin:0 0 24px;font-size:15px;line-height:1.55;color:#333;">{body}</p>
     <p style="margin:0;font-size:12px;color:#888;">{_FOOTER}</p>

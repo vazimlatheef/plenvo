@@ -1,7 +1,9 @@
 <template>
   <footer class="site-footer">
     <div class="footer-inner">
-      <RouterLink to="/" class="logo">Plenvo</RouterLink>
+      <RouterLink to="/" class="logo" aria-label="Plenvo">
+        <img src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="120" height="32" />
+      </RouterLink>
       <div class="footer-links">
         <RouterLink to="/about">About</RouterLink>
         <RouterLink to="/security">Security</RouterLink>
@@ -33,15 +35,20 @@
 }
 
 .logo {
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  color: var(--color-accent);
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
-  letter-spacing: 0.04em;
+  line-height: 0;
+}
+
+.logo img {
+  display: block;
+  height: 28px;
+  width: auto;
+  max-width: 132px;
 }
 
 .logo:hover {
-  color: var(--color-accent);
   text-decoration: none;
 }
 

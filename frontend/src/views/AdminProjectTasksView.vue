@@ -1,33 +1,51 @@
 <template>
-  <div class="app-page">
+  <div class="app-page tasks-page">
     <div class="app-page-header">
       <div>
-        <RouterLink to="/app/projects" class="app-back">← Projects</RouterLink>
+        <RouterLink to="/app/projects" class="app-back">
+          <ArrowLeft :size="14" :stroke-width="1.75" />
+          Projects
+        </RouterLink>
         <h1>{{ project?.title || 'Project tasks' }}</h1>
         <p v-if="project?.description" class="app-lede">{{ project.description }}</p>
       </div>
-      <button type="button" class="btn-primary" @click="openCreate">+ New task</button>
+      <button type="button" class="btn-primary" @click="openCreate">
+        <Plus :size="16" :stroke-width="2" />
+        New task
+      </button>
     </div>
 
     <p v-if="loading" class="muted-line">Loading tasks…</p>
     <p v-else-if="error" class="error-line">{{ error }}</p>
 
     <div v-else-if="!tasks.length" class="empty-panel">
+      <ClipboardList class="empty-icon" :size="28" :stroke-width="1.5" />
       <p>No tasks yet — create the first one</p>
-      <button type="button" class="btn-primary" @click="openCreate">Create task</button>
+      <button type="button" class="btn-primary" @click="openCreate">
+        <Plus :size="16" :stroke-width="2" />
+        Create task
+      </button>
     </div>
 
     <div v-else>
-      <section v-for="group in statusGroups" :key="group.key">
+      <div class="dense-row dense-row--task dense-row--head" aria-hidden="true">
+        <span />
+        <span class="dense-head-label">Task</span>
+        <span class="dense-head-label">Assigned to</span>
+        <span class="dense-head-label">Due</span>
+        <span />
+        <span class="dense-head-label dense-head-label--end">Status</span>
+      </div>
+      <section v-for="group in statusGroups" :key="group.key" class="task-group">
         <div class="group-label">
           <span class="status-pill" :data-s="group.key">{{ group.label }}</span>
-          <span class="count">({{ group.tasks.length }})</span>
+          <span class="count">{{ group.tasks.length }}</span>
         </div>
         <ul v-if="group.tasks.length" class="dense-list">
           <li
             v-for="task in group.tasks"
             :key="task.id"
-            class="dense-row"
+            class="dense-row dense-row--task"
             :class="{ 'dense-row--flash': flashId === task.id }"
           >
             <span
@@ -41,10 +59,14 @@
               <button type="button" class="dense-row__title" @click="openEdit(task)">
                 {{ task.title }}
               </button>
-              <span v-if="project?.title" class="project-tag">{{ project.title }}</span>
+            </div>
+            <div class="dense-row__assignee" :title="assigneeName(task)">
+              <UserRound class="dense-row__assignee-icon" :size="13" :stroke-width="1.75" />
+              <span class="dense-row__assignee-name">{{ assigneeName(task) }}</span>
             </div>
             <span class="dense-row__due">
-              {{ task.due_date ? formatShortDate(task.due_date) : '—' }}
+              <Calendar class="dense-row__due-icon" :size="13" :stroke-width="1.75" />
+              {{ task.due_date ? formatShortDate(task.due_date) : 'No due date' }}
             </span>
             <div class="dense-row__actions">
               <button
@@ -55,7 +77,7 @@
                 :disabled="busyId === task.id"
                 @click="openEdit(task)"
               >
-                ✎
+                <Pencil :size="15" :stroke-width="1.75" />
               </button>
               <button
                 type="button"
@@ -65,7 +87,7 @@
                 :disabled="busyId === task.id"
                 @click="confirmDelete(task)"
               >
-                ⌫
+                <Trash2 :size="15" :stroke-width="1.75" />
               </button>
             </div>
             <select
@@ -81,13 +103,15 @@
             </select>
           </li>
         </ul>
-        <p v-else class="muted-line" style="margin: 0.35rem 0 0; font-size: 0.85rem">None</p>
+        <p v-else class="muted-line empty-group">None</p>
       </section>
     </div>
 
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-panel">
-        <button type="button" class="modal-close" aria-label="Close" @click="closeModal">×</button>
+        <button type="button" class="modal-close" aria-label="Close" @click="closeModal">
+          <X :size="18" :stroke-width="1.75" />
+        </button>
         <h2>{{ editingTaskId ? 'Edit task' : 'New task' }}</h2>
         <form class="field-stack" @submit.prevent="saveTask">
           <label>
@@ -129,6 +153,7 @@
 </template>
 
 <script setup>
+import { ArrowLeft, Calendar, ClipboardList, Pencil, Plus, Trash2, UserRound, X } from '@lucide/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -199,6 +224,7 @@ function assigneeName(task) {
   return resolveAssigneeName(task, {
     usersById: usersById.value,
     contactsById: contactsById.value,
+    fallback: 'Unassigned',
   })
 }
 
@@ -387,3 +413,35 @@ watch(projectId, (id, prev) => {
   if (id && id !== prev) loadPage()
 })
 </script>
+
+<style scoped>
+.app-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tasks-page .empty-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  text-align: center;
+}
+
+.empty-icon {
+  color: var(--color-accent);
+  opacity: 0.85;
+}
+
+.empty-group {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+}
+</style>

@@ -1,8 +1,8 @@
 <template>
   <header class="header">
     <div class="inner">
-      <RouterLink :to="homeLink" class="brand">
-        <span class="mark">Plenvo</span>
+      <RouterLink :to="homeLink" class="brand" aria-label="Plenvo">
+        <img class="mark-img" src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="132" height="36" />
         <span class="tagline">
           <span class="tag">Training</span>
           <span class="sub">See who's done · Less chasing</span>
@@ -28,6 +28,9 @@
           <div v-if="menuOpen" class="user-dropdown" role="menu">
             <RouterLink to="/app/profile" class="menu-item" role="menuitem" @click="menuOpen = false">
               Profile
+            </RouterLink>
+            <RouterLink to="/app/account" class="menu-item" role="menuitem" @click="menuOpen = false">
+              Account &amp; Subscription
             </RouterLink>
             <RouterLink to="/support" class="menu-item" role="menuitem" @click="menuOpen = false">
               Help
@@ -121,11 +124,12 @@ onBeforeUnmount(() => {
   text-decoration: none;
 }
 
-.mark {
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+.mark-img {
+  display: block;
+  height: 32px;
+  width: auto;
+  max-width: 140px;
+  flex-shrink: 0;
 }
 
 .tagline {

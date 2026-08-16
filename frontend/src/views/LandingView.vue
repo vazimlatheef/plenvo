@@ -10,7 +10,9 @@
 
       <div class="nav-inner">
 
-        <RouterLink to="/" class="logo">Plenvo</RouterLink>
+        <RouterLink to="/" class="logo" aria-label="Plenvo">
+          <img src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="148" height="40" />
+        </RouterLink>
 
         <div class="nav-links">
 
@@ -384,7 +386,9 @@
 
         <div class="footer-brand">
 
-          <span class="logo">Plenvo</span>
+          <span class="logo" aria-label="Plenvo">
+            <img src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="140" height="38" />
+          </span>
 
           <p>Work. Life. Team. All in one place.</p>
 
@@ -889,22 +893,22 @@ onMounted(() => {
 }
 
 .logo {
-
-  font-family: 'Instrument Serif', serif;
-
-  font-size: 1.75rem;
-
-  color: var(--color-accent);
-
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
-
-  letter-spacing: 0.04em;
-
+  line-height: 0;
 }
 
-.logo:hover { text-decoration: none; color: var(--color-accent); }
+.logo img {
+  display: block;
+  height: 36px;
+  width: auto;
+  max-width: 168px;
+}
 
-.logo.small { font-size: 1.2rem; }
+.logo:hover { text-decoration: none; }
+
+.logo.small img { height: 28px; }
 
 .nav-links { display: flex; align-items: center; gap: 1.75rem; }
 

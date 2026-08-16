@@ -65,6 +65,7 @@ def _esc(text: str) -> str:
 
 def _html_shell(body_html: str, footer_html: str) -> str:
     """Minimal professional HTML email — light background, no marketing chrome."""
+    logo_url = f"{FRONTEND_URL}/plenvo-logo-full-v2.png"
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -78,12 +79,14 @@ def _html_shell(body_html: str, footer_html: str) -> str:
       <td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e6e6e2;">
           <tr>
-            <td style="padding:28px 32px 8px;font-family:Georgia,'Times New Roman',serif;font-size:18px;color:#1a1a1a;">
-              Plenvo
+            <td style="padding:0;background:#14170f;">
+              <a href="{_esc(FRONTEND_URL)}" style="display:block;padding:20px 32px;text-decoration:none;">
+                <img src="{_esc(logo_url)}" alt="Plenvo" width="148" height="40" style="display:block;height:40px;width:auto;border:0;outline:none;" />
+              </a>
             </td>
           </tr>
           <tr>
-            <td style="padding:8px 32px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#333333;">
+            <td style="padding:24px 32px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#333333;">
               {body_html}
             </td>
           </tr>

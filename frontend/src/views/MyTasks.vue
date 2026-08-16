@@ -1,27 +1,39 @@
 <template>
-  <div class="app-page">
+  <div class="app-page tasks-page">
     <div class="app-page-header">
-      <h1>My tasks</h1>
+      <div>
+        <h1>My tasks</h1>
+        <p class="app-lede">Track what you owe — grouped by status.</p>
+      </div>
     </div>
 
     <p v-if="loading" class="muted-line">Loading tasks…</p>
     <p v-else-if="error" class="error-line">{{ error }}</p>
 
     <div v-else-if="!tasks.length" class="empty-panel">
+      <ClipboardList class="empty-icon" :size="28" :stroke-width="1.5" />
       <p>No tasks assigned to you yet.</p>
     </div>
 
     <div v-else>
-      <section v-for="group in statusGroups" :key="group.key">
+      <div class="dense-row dense-row--task dense-row--head" aria-hidden="true">
+        <span />
+        <span class="dense-head-label">Task</span>
+        <span class="dense-head-label">Assigned to</span>
+        <span class="dense-head-label">Due</span>
+        <span />
+        <span class="dense-head-label dense-head-label--end">Status</span>
+      </div>
+      <section v-for="group in statusGroups" :key="group.key" class="task-group">
         <div class="group-label">
           <span class="status-pill" :data-s="group.key">{{ group.label }}</span>
-          <span class="count">({{ group.tasks.length }})</span>
+          <span class="count">{{ group.tasks.length }}</span>
         </div>
         <ul v-if="group.tasks.length" class="dense-list">
           <li
             v-for="task in group.tasks"
             :key="task.id"
-            class="dense-row"
+            class="dense-row dense-row--task"
             :class="{ 'dense-row--flash': flashId === task.id }"
           >
             <span
@@ -45,8 +57,13 @@
                 {{ projectLabel(task.project_id) }}
               </span>
             </div>
+            <div class="dense-row__assignee" :title="assigneeName(task)">
+              <UserRound class="dense-row__assignee-icon" :size="13" :stroke-width="1.75" />
+              <span class="dense-row__assignee-name">{{ assigneeName(task) }}</span>
+            </div>
             <span class="dense-row__due">
-              {{ task.due_date ? formatShortDate(task.due_date) : '—' }}
+              <Calendar class="dense-row__due-icon" :size="13" :stroke-width="1.75" />
+              {{ task.due_date ? formatShortDate(task.due_date) : 'No due date' }}
             </span>
             <div class="dense-row__actions">
               <template v-if="canManageTasks">
@@ -58,7 +75,7 @@
                   :disabled="busyId === task.id"
                   @click="openEdit(task)"
                 >
-                  ✎
+                  <Pencil :size="15" :stroke-width="1.75" />
                 </button>
                 <button
                   type="button"
@@ -68,7 +85,7 @@
                   :disabled="busyId === task.id"
                   @click="confirmDelete(task)"
                 >
-                  ⌫
+                  <Trash2 :size="15" :stroke-width="1.75" />
                 </button>
               </template>
             </div>
@@ -85,13 +102,15 @@
             </select>
           </li>
         </ul>
-        <p v-else class="muted-line" style="margin: 0.35rem 0 0; font-size: 0.85rem">None</p>
+        <p v-else class="muted-line empty-group">None</p>
       </section>
     </div>
 
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-panel">
-        <button type="button" class="modal-close" aria-label="Close" @click="closeModal">×</button>
+        <button type="button" class="modal-close" aria-label="Close" @click="closeModal">
+          <X :size="18" :stroke-width="1.75" />
+        </button>
         <h2>Edit task</h2>
         <form class="field-stack" @submit.prevent="saveTask">
           <label>
@@ -133,6 +152,7 @@
 </template>
 
 <script setup>
+import { Calendar, ClipboardList, Pencil, Trash2, UserRound, X } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 
 import { apiJson } from '@/api/client'
@@ -325,7 +345,6 @@ async function saveTask() {
     })
     const idx = tasks.value.findIndex((t) => t.id === editingTaskId.value)
     if (idx !== -1) {
-      // If reassigned away from current user, drop from My Tasks list.
       if (updated.assignee_id !== user.value?.id) {
         tasks.value = tasks.value.filter((t) => t.id !== updated.id)
       } else {
@@ -361,3 +380,23 @@ async function confirmDelete(task) {
 
 onMounted(loadTasks)
 </script>
+
+<style scoped>
+.tasks-page .empty-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  text-align: center;
+}
+
+.empty-icon {
+  color: var(--color-accent);
+  opacity: 0.85;
+}
+
+.empty-group {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+}
+</style>

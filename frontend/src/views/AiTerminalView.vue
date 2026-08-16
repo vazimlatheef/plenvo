@@ -1,7 +1,9 @@
 <template>
   <div class="ai-terminal">
     <div class="terminal-header">
-      <div class="terminal-icon">⚡</div>
+      <div class="terminal-icon">
+        <Zap :size="22" :stroke-width="1.75" />
+      </div>
       <div>
         <h2>AI Terminal</h2>
         <p>Paste meeting notes or updates — AI extracts tasks instantly</p>
@@ -62,7 +64,10 @@
 
       <button class="btn-primary" :disabled="!form.raw_text.trim() || loading" @click="parseNote">
         <span v-if="loading" class="spinner" />
-        <span v-else>⚡ Extract Tasks with AI</span>
+        <span v-else class="btn-with-icon">
+          <Zap :size="16" :stroke-width="2" />
+          Extract Tasks with AI
+        </span>
       </button>
     </div>
 
@@ -159,24 +164,37 @@
             </div>
           </div>
         </div>
-        <button class="btn-remove" @click="removeTask(i)" title="Remove task">✕</button>
+        <button class="btn-remove" type="button" @click="removeTask(i)" title="Remove task" aria-label="Remove task">
+          <X :size="16" :stroke-width="1.75" />
+        </button>
       </div>
 
       <div class="review-actions">
-        <button class="btn-secondary" @click="reset">← Start over</button>
+        <button class="btn-secondary btn-with-icon" type="button" @click="reset">
+          <ArrowLeft :size="15" :stroke-width="1.75" />
+          Start over
+        </button>
         <button class="btn-primary" :disabled="loading || extractedTasks.length === 0" @click="confirmTasks">
           <span v-if="loading" class="spinner" />
-          <span v-else>✓ Confirm & Save {{ extractedTasks.length }} Task{{ extractedTasks.length !== 1 ? 's' : '' }}</span>
+          <span v-else class="btn-with-icon">
+            <Check :size="16" :stroke-width="2" />
+            Confirm & Save {{ extractedTasks.length }} Task{{ extractedTasks.length !== 1 ? 's' : '' }}
+          </span>
         </button>
       </div>
     </div>
 
     <!-- Step 3: Success -->
     <div v-if="step === 'success'" class="card success-card">
-      <div class="success-icon">✓</div>
+      <div class="success-icon">
+        <Check :size="28" :stroke-width="2" />
+      </div>
       <h3>{{ lastCreatedCount }} task{{ lastCreatedCount !== 1 ? 's' : '' }} created</h3>
       <p>Your team has been assigned. Tasks are now live on the dashboard.</p>
-      <button class="btn-primary" @click="reset">⚡ Parse another note</button>
+      <button class="btn-primary btn-with-icon" type="button" @click="reset">
+        <Zap :size="16" :stroke-width="2" />
+        Parse another note
+      </button>
     </div>
 
     <!-- Error -->
@@ -185,6 +203,7 @@
 </template>
 
 <script setup>
+import { ArrowLeft, Check, X, Zap } from '@lucide/vue'
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { apiJson } from '@/api/client'
 import DatePicker from '@/components/DatePicker.vue'
@@ -553,7 +572,6 @@ function reset() {
 }
 
 .terminal-icon {
-  font-size: 1.5rem;
   background: var(--color-surface);
   color: var(--color-accent);
   border: 1px solid var(--color-border);
@@ -563,6 +581,13 @@ function reset() {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .terminal-header h2 {
@@ -778,13 +803,17 @@ textarea {
   border: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  font-size: 1rem;
   padding: 4px;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
 }
 
 .btn-remove:hover {
   color: var(--color-danger);
+  background: rgba(248, 113, 113, 0.1);
 }
 
 .review-actions {
@@ -811,7 +840,6 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.8rem;
   margin: 0 auto 1rem;
 }
 

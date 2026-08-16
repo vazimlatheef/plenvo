@@ -2,7 +2,13 @@
   <aside class="sidebar" :class="{ 'sidebar--open': mobileOpen }">
     <div class="sidebar-brand">
       <RouterLink to="/app/admin" class="brand-link" @click="closeMobile">
-        <span class="brand-mark">Plenvo</span>
+        <img
+          class="brand-logo"
+          src="/plenvo-logo-full-v2.svg"
+          alt="Plenvo"
+          width="148"
+          height="40"
+        />
       </RouterLink>
       <button type="button" class="sidebar-close" aria-label="Close menu" @click="closeMobile">
         <X :size="18" :stroke-width="1.75" />
@@ -43,6 +49,10 @@
         <UserRound class="nav-icon" :size="18" :stroke-width="1.75" />
         <span>Profile</span>
       </RouterLink>
+      <RouterLink to="/app/account" class="nav-item" @click="closeMobile">
+        <CreditCard class="nav-icon" :size="18" :stroke-width="1.75" />
+        <span>Account &amp; Subscription</span>
+      </RouterLink>
       <RouterLink to="/support" class="nav-item" @click="closeMobile">
         <CircleHelp class="nav-icon" :size="18" :stroke-width="1.75" />
         <span>Help</span>
@@ -62,6 +72,7 @@
 import {
   CalendarDays,
   CircleHelp,
+  CreditCard,
   FolderKanban,
   FolderPlus,
   LayoutDashboard,
@@ -135,10 +146,11 @@ function onLogout() {
   text-decoration: none;
 }
 
-.brand-mark {
-  font-family: var(--font-display);
-  font-size: 1.55rem;
-  letter-spacing: 0.04em;
+.brand-logo {
+  display: block;
+  height: 36px;
+  width: auto;
+  max-width: 168px;
 }
 
 .sidebar-close {

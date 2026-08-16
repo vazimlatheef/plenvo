@@ -1,7 +1,9 @@
 <template>
   <div v-if="open" class="modal-overlay" @click.self="emitClose">
     <div class="modal-panel">
-      <button type="button" class="modal-close" aria-label="Close" @click="emitClose">×</button>
+      <button type="button" class="modal-close" aria-label="Close" @click="emitClose">
+        <X :size="18" :stroke-width="1.75" />
+      </button>
       <h2>{{ mode === 'create' ? 'New task' : 'Edit task' }}</h2>
       <form class="field-stack" @submit.prevent="onSubmit">
         <label>
@@ -49,6 +51,7 @@
 </template>
 
 <script setup>
+import { X } from '@lucide/vue'
 import { reactive, watch } from 'vue'
 
 import DatePicker from '@/components/DatePicker.vue'

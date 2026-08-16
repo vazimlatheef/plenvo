@@ -20,7 +20,10 @@
     <section class="section">
       <div class="section-header">
         <h2>Recent Projects</h2>
-        <RouterLink to="/app/projects" class="link-button">View all →</RouterLink>
+        <RouterLink to="/app/projects" class="link-button">
+          View all
+          <ArrowRight :size="14" :stroke-width="1.75" />
+        </RouterLink>
       </div>
       <div v-if="loadingProjects" class="loading-state">Loading projects…</div>
       <div v-else-if="recentProjects.length === 0" class="empty-state">
@@ -30,7 +33,10 @@
         <div v-for="project in recentProjects" :key="project.id" class="project-preview-card">
           <h3>{{ project.title }}</h3>
           <p v-if="project.description" class="project-desc">{{ project.description }}</p>
-          <RouterLink :to="`/app/projects/${project.id}/tasks`" class="view-link">View tasks →</RouterLink>
+          <RouterLink :to="`/app/projects/${project.id}/tasks`" class="view-link">
+            View tasks
+            <ArrowRight :size="13" :stroke-width="1.75" />
+          </RouterLink>
         </div>
       </div>
     </section>
@@ -91,7 +97,10 @@
     <section class="section">
       <div class="section-header">
         <h2>Team</h2>
-        <RouterLink to="/app/team" class="link-button">Manage team →</RouterLink>
+        <RouterLink to="/app/team" class="link-button">
+          Manage team
+          <ArrowRight :size="14" :stroke-width="1.75" />
+        </RouterLink>
       </div>
       <div v-if="loadingTeam" class="loading-state">Loading team…</div>
       <div v-else-if="recentEmployees.length === 0" class="empty-state">
@@ -114,6 +123,7 @@
 import {
   AlertTriangle,
   ArrowDown,
+  ArrowRight,
   ArrowUp,
   Calendar,
   CheckSquare,
@@ -424,6 +434,9 @@ onMounted(fetchDashboardData)
 }
 
 .link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   font-size: 0.88rem;
   color: var(--color-accent);
   text-decoration: none;
@@ -486,6 +499,9 @@ onMounted(fetchDashboardData)
 }
 
 .view-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   font-size: 0.84rem;
   color: var(--color-accent);
   text-decoration: none;

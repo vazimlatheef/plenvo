@@ -1,7 +1,9 @@
 <template>
   <div class="training-page">
     <div class="panel">
-      <RouterLink to="/" class="logo">Plenvo</RouterLink>
+      <RouterLink to="/" class="logo" aria-label="Plenvo">
+        <img src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="140" height="38" />
+      </RouterLink>
 
       <p v-if="loading" class="muted">Loading your training…</p>
       <p v-else-if="error" class="alert error">{{ error }}</p>
@@ -139,12 +141,18 @@ onMounted(load)
 }
 
 .logo {
-  font-family: 'Instrument Serif', serif;
-  font-size: 1.5rem;
-  color: var(--color-accent);
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
-  display: inline-block;
+  line-height: 0;
   margin-bottom: 1.5rem;
+}
+
+.logo img {
+  display: block;
+  height: 32px;
+  width: auto;
+  max-width: 148px;
 }
 
 .eyebrow {

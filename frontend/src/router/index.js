@@ -28,6 +28,7 @@ import AdminTeamView from '@/views/AdminTeamView.vue'
 import CalendarView from '@/views/CalendarView.vue'
 import MyTasks from '@/views/MyTasks.vue'
 import ProfileView from '@/views/ProfileView.vue'
+import AccountView from '@/views/AccountView.vue'
 import TrainingView from '@/views/TrainingView.vue'
 
 
@@ -187,9 +188,14 @@ const router = createRouter({
           component: ProfileView,
           meta: { title: 'Profile' },
         },
+        {
+          path: 'account',
+          name: 'account',
+          component: AccountView,
+          meta: { title: 'Account & Subscription' },
+        },
       ],
-    },
-    { path: '/:pathMatch(.*)*', name: 'not-found', redirect: { name: 'landing' } },
+    },    { path: '/:pathMatch(.*)*', name: 'not-found', redirect: { name: 'landing' } },
   ],
 })
 

@@ -7,6 +7,9 @@
         <button type="button" class="menu-btn" aria-label="Open menu" @click="sidebarOpen = true">
           <Menu :size="20" :stroke-width="1.75" />
         </button>
+        <RouterLink to="/app/admin" class="topbar-brand" aria-label="Plenvo">
+          <img src="/plenvo-icon-v2.svg" alt="" width="28" height="28" />
+        </RouterLink>
         <span class="topbar-title">{{ pageTitle }}</span>
       </header>
       <AppHeader v-else />
@@ -86,6 +89,19 @@ watch(
   background: transparent;
   color: var(--color-text);
   cursor: pointer;
+}
+
+.topbar-brand {
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.topbar-brand img {
+  display: block;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
 }
 
 .topbar-title {

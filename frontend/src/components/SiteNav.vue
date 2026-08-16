@@ -1,7 +1,9 @@
 <template>
   <nav class="site-nav" aria-label="Site">
     <div class="nav-inner">
-      <RouterLink to="/" class="logo">Plenvo</RouterLink>
+      <RouterLink to="/" class="logo" aria-label="Plenvo">
+        <img src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="148" height="40" />
+      </RouterLink>
       <div class="nav-links">
         <RouterLink to="/about" class="nav-link">About</RouterLink>
         <RouterLink to="/security" class="nav-link">Security</RouterLink>
@@ -34,15 +36,20 @@
 }
 
 .logo {
-  font-family: var(--font-display);
-  font-size: 1.75rem;
-  color: var(--color-accent);
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
-  letter-spacing: 0.04em;
+  line-height: 0;
+}
+
+.logo img {
+  display: block;
+  height: 36px;
+  width: auto;
+  max-width: 168px;
 }
 
 .logo:hover {
-  color: var(--color-accent);
   text-decoration: none;
 }
 

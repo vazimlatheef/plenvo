@@ -2,7 +2,10 @@
   <div class="app-page">
     <div class="app-page-header">
       <h1>Projects</h1>
-      <button type="button" class="btn-primary" @click="showCreateModal = true">+ New project</button>
+      <button type="button" class="btn-primary btn-with-icon" @click="showCreateModal = true">
+        <Plus :size="16" :stroke-width="2" />
+        New project
+      </button>
     </div>
 
     <p v-if="loading" class="muted-line">Loading projects…</p>
@@ -10,7 +13,10 @@
 
     <div v-else-if="projects.length === 0" class="empty-panel">
       <p>No projects yet — create the first one</p>
-      <button type="button" class="btn-primary" @click="showCreateModal = true">Create project</button>
+      <button type="button" class="btn-primary btn-with-icon" @click="showCreateModal = true">
+        <Plus :size="16" :stroke-width="2" />
+        Create project
+      </button>
     </div>
 
     <ul v-else class="dense-list">
@@ -26,15 +32,18 @@
           <span class="project-desc">{{ project.description || 'No description' }}</span>
         </div>
         <span class="dense-row__due">{{ formatDate(project.created_at) }}</span>
-        <RouterLink :to="`/app/projects/${project.id}/tasks`" class="btn-outline link-btn">
-          View tasks →
+        <RouterLink :to="`/app/projects/${project.id}/tasks`" class="btn-outline link-btn btn-with-icon">
+          View tasks
+          <ArrowRight :size="14" :stroke-width="1.75" />
         </RouterLink>
       </li>
     </ul>
 
     <div v-if="showCreateModal" class="modal-overlay" @click.self="cancelCreate">
       <div class="modal-panel">
-        <button type="button" class="modal-close" aria-label="Close" @click="cancelCreate">×</button>
+        <button type="button" class="modal-close" aria-label="Close" @click="cancelCreate">
+          <X :size="18" :stroke-width="1.75" />
+        </button>
         <h2>Create new project</h2>
         <form class="field-stack" @submit.prevent="createProject">
           <label>
@@ -72,6 +81,7 @@
 </template>
 
 <script setup>
+import { ArrowRight, Plus, X } from '@lucide/vue'
 import { onMounted, ref } from 'vue'
 
 import { apiJson } from '@/api/client'
@@ -165,5 +175,11 @@ onMounted(fetchProjects)
 
 .link-btn:hover {
   text-decoration: none;
+}
+
+.btn-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 </style>

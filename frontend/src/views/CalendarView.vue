@@ -60,7 +60,7 @@
           <li
             v-for="task in group.tasks"
             :key="task.id"
-            class="dense-row"
+            class="dense-row dense-row--task"
             :class="{ 'dense-row--flash': flashId === task.id }"
           >
             <span
@@ -78,7 +78,14 @@
                 {{ projectLabel(task.project_id) }}
               </span>
             </div>
-            <span class="dense-row__due">{{ formatShortDate(task.due_date) }}</span>
+            <div class="dense-row__assignee" :title="assigneeName(task)">
+              <UserRound class="dense-row__assignee-icon" :size="13" :stroke-width="1.75" />
+              <span class="dense-row__assignee-name">{{ assigneeName(task) }}</span>
+            </div>
+            <span class="dense-row__due">
+              <Calendar class="dense-row__due-icon" :size="13" :stroke-width="1.75" />
+              {{ formatShortDate(task.due_date) }}
+            </span>
             <div class="dense-row__actions" />
             <span class="status-pill" :data-s="task.status">{{ statusLabel(task.status) }}</span>
           </li>
@@ -145,7 +152,7 @@
           <li
             v-for="task in selectedDayTasks"
             :key="task.id"
-            class="dense-row"
+            class="dense-row dense-row--task"
             :class="{ 'dense-row--flash': flashId === task.id }"
           >
             <span
@@ -163,6 +170,14 @@
                 {{ projectLabel(task.project_id) }}
               </span>
             </div>
+            <div class="dense-row__assignee" :title="assigneeName(task)">
+              <UserRound class="dense-row__assignee-icon" :size="13" :stroke-width="1.75" />
+              <span class="dense-row__assignee-name">{{ assigneeName(task) }}</span>
+            </div>
+            <span class="dense-row__due">
+              <Calendar class="dense-row__due-icon" :size="13" :stroke-width="1.75" />
+              {{ formatShortDate(task.due_date) }}
+            </span>
             <div class="dense-row__actions" />
             <span class="status-pill" :data-s="task.status">{{ statusLabel(task.status) }}</span>
           </li>
@@ -186,7 +201,7 @@
 </template>
 
 <script setup>
-import { CalendarDays, ChevronLeft, ChevronRight, List, Plus } from '@lucide/vue'
+import { Calendar, CalendarDays, ChevronLeft, ChevronRight, List, Plus, UserRound } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 
 import { apiJson } from '@/api/client'

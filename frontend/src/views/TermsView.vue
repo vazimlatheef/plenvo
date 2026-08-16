@@ -2,7 +2,9 @@
   <div class="page">
     <nav class="nav">
       <div class="nav-inner">
-        <RouterLink to="/" class="logo">Plenvo</RouterLink>
+        <RouterLink to="/" class="logo" aria-label="Plenvo">
+          <img src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="148" height="40" />
+        </RouterLink>
         <div class="nav-links">
           <RouterLink to="/about" class="nav-link">About</RouterLink>
           <RouterLink to="/security" class="nav-link">Security</RouterLink>
@@ -167,7 +169,9 @@
 
     <footer class="footer">
       <div class="footer-inner">
-        <span class="logo small">Plenvo</span>
+        <span class="logo small" aria-label="Plenvo">
+          <img src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="110" height="30" />
+        </span>
         <div class="footer-links">
           <RouterLink to="/about">About</RouterLink>
           <RouterLink to="/security">Security</RouterLink>
@@ -193,9 +197,10 @@
 
 .nav { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--color-border); background: rgba(15,18,16,0.95); backdrop-filter: blur(20px); }
 .nav-inner { max-width: 1160px; margin: 0 auto; padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
-.logo { font-family: 'Instrument Serif', serif; font-size: 1.75rem; color: var(--color-accent); text-decoration: none; letter-spacing: 0.04em; }
-.logo.small { font-size: 1.2rem; }
-.logo:hover { text-decoration: none; color: var(--color-accent); }
+.logo { display: inline-flex; align-items: center; text-decoration: none; line-height: 0; }
+.logo img { display: block; height: 36px; width: auto; max-width: 168px; }
+.logo.small img { height: 28px; }
+.logo:hover { text-decoration: none; }
 .nav-links { display: flex; align-items: center; gap: 1.75rem; }
 .nav-link { font-size: 0.85rem; color: var(--color-text-muted); text-decoration: none; transition: color 0.2s; }
 .nav-link:hover { color: var(--color-text); text-decoration: none; }

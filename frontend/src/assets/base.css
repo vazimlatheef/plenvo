@@ -123,7 +123,9 @@ p {
 }
 
 .app-back {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.82rem;
   color: var(--color-text-muted);
   text-decoration: none;
@@ -144,6 +146,10 @@ p {
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: filter 0.15s, border-color 0.15s, opacity 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
 }
 
 .btn-primary {
@@ -278,6 +284,30 @@ select.status-pill {
   transition: background-color 0.45s ease, box-shadow 0.45s ease;
 }
 
+.dense-row--task {
+  grid-template-columns: 28px minmax(0, 1.35fr) minmax(7.5rem, 0.85fr) auto auto auto;
+}
+
+.dense-row--head {
+  min-height: 0;
+  padding: 0.2rem 0.15rem 0.45rem;
+  border-bottom: 1px solid rgba(232, 228, 216, 0.18);
+  margin-bottom: 0.15rem;
+  opacity: 0.9;
+}
+
+.dense-head-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.dense-head-label--end {
+  text-align: right;
+}
+
 .dense-row--flash {
   background-color: var(--color-accent-soft);
   box-shadow: inset 3px 0 0 var(--color-accent);
@@ -310,9 +340,37 @@ button.dense-row__title:hover {
 }
 
 .dense-row__due {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.78rem;
   color: var(--color-text-muted);
   white-space: nowrap;
+}
+
+.dense-row__due-icon {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.dense-row__assignee {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.dense-row__assignee-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dense-row__assignee-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
 }
 
 .dense-row__meta {
@@ -364,6 +422,28 @@ button.dense-row__title:hover {
 .row-icon-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.group-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0.45rem;
+}
+
+.group-label:first-of-type {
+  margin-top: 0.35rem;
+}
+
+.group-label .count {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (hover: none) {
@@ -502,7 +582,13 @@ button.dense-row__title:hover {
     grid-template-columns: 28px minmax(0, 1fr) auto auto;
   }
 
-  .dense-row__due {
+  .dense-row--task {
+    grid-template-columns: 28px minmax(0, 1fr) auto auto;
+  }
+
+  .dense-row--head,
+  .dense-row__due,
+  .dense-row__assignee {
     display: none;
   }
 

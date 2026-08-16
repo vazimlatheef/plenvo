@@ -21,6 +21,26 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
 
+    frontend_url: str = "http://localhost:5173"
+
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_product_image_url: str = ""
+
+    # Price IDs per currency × plan (set in Stripe Dashboard / .env)
+    stripe_price_gbp_personal: str = ""
+    stripe_price_gbp_team: str = ""
+    stripe_price_gbp_enterprise: str = ""
+    stripe_price_eur_personal: str = ""
+    stripe_price_eur_team: str = ""
+    stripe_price_eur_enterprise: str = ""
+    stripe_price_usd_personal: str = ""
+    stripe_price_usd_team: str = ""
+    stripe_price_usd_enterprise: str = ""
+    stripe_price_inr_personal: str = ""
+    stripe_price_inr_team: str = ""
+    stripe_price_inr_enterprise: str = ""
+
     @field_validator("database_url", mode="before")
     @classmethod
     def validate_database_url(cls, v: object) -> str:
@@ -32,8 +52,6 @@ class Settings(BaseSettings):
             raise RuntimeError(
                 "DATABASE_URL is empty; DATABASE_URL must be set in the environment."
             )
-        # SQLAlchemy dialect+driver: "postgresql+psycopg://" is psycopg3; "postgresql+psycopg2://"
-        # is the older psycopg2 package. Plain "postgresql://" uses SQLAlchemy's default driver.
         allowed_prefixes = (
             "postgresql://",
             "postgresql+psycopg://",
