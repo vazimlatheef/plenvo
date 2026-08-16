@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -81,6 +81,8 @@ def list_tasks(
     project_id: Optional[int] = None,
     assignee_id: Optional[int] = None,
     status: Optional[str] = None,
+    due_from: Optional[date] = None,
+    due_to: Optional[date] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -93,7 +95,15 @@ def list_tasks(
         query = query.filter(Task.assignee_id == assignee_id)
     if status is not None:
         query = query.filter(Task.status == status)
+    if due_from is not None or due_to is not None:
+        query = query.filter(Task.due_date.isnot(None))
+        if due_from is not None:
+            query = query.filter(Task.due_date >= due_from)
+        if due_to is not None:
+            query = query.filter(Task.due_date <= due_to)
 
+    if due_from is not None or due_to is not None:
+        return query.order_by(Task.due_date.asc(), Task.created_at.desc()).all()
     return query.order_by(Task.created_at.desc()).all()
 
 

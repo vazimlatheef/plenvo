@@ -25,6 +25,7 @@ import TermsView from '@/views/TermsView.vue'
 import AdminProjectsView from '@/views/AdminProjectsView.vue'
 import AdminProjectTasksView from '@/views/AdminProjectTasksView.vue'
 import AdminTeamView from '@/views/AdminTeamView.vue'
+import CalendarView from '@/views/CalendarView.vue'
 import MyTasks from '@/views/MyTasks.vue'
 import ProfileView from '@/views/ProfileView.vue'
 import TrainingView from '@/views/TrainingView.vue'
@@ -173,6 +174,12 @@ const router = createRouter({
           name: 'admin-team',
           component: AdminTeamView,
           meta: { title: 'Team', adminOnly: true },
+        },
+        {
+          path: 'calendar',
+          name: 'calendar',
+          component: CalendarView,
+          meta: { title: 'Calendar', adminOnly: true },
         },
         {
           path: 'profile',

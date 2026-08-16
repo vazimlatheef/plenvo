@@ -60,6 +60,7 @@
 
 <script setup>
 import {
+  CalendarDays,
   CircleHelp,
   FolderKanban,
   FolderPlus,
@@ -86,6 +87,7 @@ const router = useRouter()
 const navItems = [
   { to: '/app/admin', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/app/projects', label: 'Projects', icon: FolderKanban },
+  { to: '/app/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/app/team', label: 'Team', icon: Users },
   { to: '/app/admin/ai-terminal', label: 'AI Terminal', icon: Sparkles },
 ]

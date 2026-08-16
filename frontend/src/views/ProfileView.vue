@@ -68,15 +68,19 @@
               :disabled="saving"
             />
           </label>
-          <label>
+          <label class="phone-field">
             Phone
-            <input
+            <VueTelInput
               v-model="form.phone"
-              type="tel"
-              maxlength="64"
-              placeholder="e.g. +44 7700 900123"
+              mode="international"
+              :auto-format="true"
+              :valid-characters-only="true"
               :disabled="saving"
-              :class="{ 'input-invalid': !!errors.phone }"
+              :preferred-countries="['gb', 'us', 'ie', 'pt', 'es', 'fr', 'de']"
+              :dropdown-options="phoneDropdownOptions"
+              :input-options="phoneInputOptions"
+              :style-classes="['profile-tel', errors.phone ? 'profile-tel--invalid' : '']"
+              @validate="onPhoneValidate"
               @blur="validateField('phone')"
             />
             <span v-if="errors.phone" class="field-error">{{ errors.phone }}</span>
@@ -111,18 +115,24 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { VueTelInput } from 'vue-tel-input'
+import 'vue-tel-input/vue-tel-input.css'
 
 import { apiJson } from '@/api/client'
 import { user } from '@/composables/session'
 
-const PHONE_RE = /^\+?[\d\s().-]{7,32}$/
 const LINKEDIN_RE = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[\w\-.%]+\/?$/i
+const E164_RE = /^\+[1-9]\d{6,14}$/
 
 const loading = ref(true)
 const loadError = ref('')
 const saving = ref(false)
 const saveError = ref('')
 const saveSuccess = ref('')
+
+/** E.164 value sent to the API (+countrycode…). */
+const phoneE164 = ref('')
+const phoneTouched = ref(false)
 
 const form = reactive({
   email: '',
@@ -140,7 +150,47 @@ const errors = reactive({
   linkedin_url: '',
 })
 
+const phoneDropdownOptions = {
+  showDialCodeInSelection: true,
+  showDialCodeInList: true,
+  showFlags: true,
+  showSearchBox: true,
+  searchBoxPlaceholder: 'Search country',
+}
+
+const phoneInputOptions = {
+  placeholder: 'Phone number',
+  showDialCode: true,
+  autocomplete: 'tel',
+  name: 'phone',
+  maxlength: 20,
+  styleClasses: 'profile-tel-input',
+}
+
 const hasClientErrors = computed(() => !!(errors.phone || errors.linkedin_url))
+
+function nationalDigits(phoneObject) {
+  const raw = phoneObject?.nationalNumber ?? ''
+  return String(raw).replace(/\D/g, '')
+}
+
+function onPhoneValidate(phoneObject) {
+  const digits = nationalDigits(phoneObject)
+  if (!digits) {
+    phoneE164.value = ''
+    if (phoneTouched.value) errors.phone = ''
+    return
+  }
+  if (phoneObject?.valid && phoneObject.number) {
+    phoneE164.value = phoneObject.number
+    errors.phone = ''
+    return
+  }
+  phoneE164.value = ''
+  if (phoneTouched.value) {
+    errors.phone = 'Enter a valid phone number for the selected country.'
+  }
+}
 
 function applyUser(u) {
   form.email = u.email || ''
@@ -149,14 +199,30 @@ function applyUser(u) {
   form.is_verified = !!u.is_verified
   form.job_title = u.job_title || ''
   form.company_name = u.company_name || ''
-  form.phone = u.phone || u.phone_number || ''
+  const existing = (u.phone || u.phone_number || '').trim()
+  form.phone = existing
+  phoneE164.value = E164_RE.test(existing) ? existing : ''
+  phoneTouched.value = false
+  errors.phone = ''
   form.linkedin_url = u.linkedin_url || ''
 }
 
 function validateField(field) {
   if (field === 'phone') {
-    const v = form.phone.trim()
-    errors.phone = !v || PHONE_RE.test(v) ? '' : 'Enter a valid phone number (international formats accepted).'
+    phoneTouched.value = true
+    const display = (form.phone || '').trim()
+    const digitsOnly = display.replace(/[^\d]/g, '')
+    // Dial-code-only / empty → clear
+    if (!display || digitsOnly.length <= 3) {
+      phoneE164.value = ''
+      errors.phone = ''
+      return
+    }
+    if (phoneE164.value && E164_RE.test(phoneE164.value)) {
+      errors.phone = ''
+      return
+    }
+    errors.phone = 'Enter a valid phone number for the selected country.'
   }
   if (field === 'linkedin_url') {
     const v = form.linkedin_url.trim()
@@ -200,7 +266,7 @@ async function saveProfile() {
         last_name: form.last_name.trim() || '',
         job_title: form.job_title.trim() || null,
         company_name: form.company_name.trim() || null,
-        phone: form.phone.trim() || null,
+        phone: phoneE164.value || null,
         linkedin_url: form.linkedin_url.trim() || null,
       }),
     })
@@ -308,5 +374,90 @@ onMounted(loadProfile)
   color: var(--status-done);
   font-size: 0.9rem;
   margin: 0;
+}
+
+.phone-field :deep(.vue-tel-input.profile-tel) {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  box-shadow: none;
+}
+
+.phone-field :deep(.vue-tel-input.profile-tel:focus-within) {
+  border-color: var(--color-accent);
+}
+
+.phone-field :deep(.vue-tel-input.profile-tel--invalid) {
+  border-color: var(--color-danger);
+}
+
+.phone-field :deep(.vti__dropdown) {
+  background: var(--color-bg);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  padding: 0 0.35rem 0 0.5rem;
+}
+
+.phone-field :deep(.vti__dropdown:hover),
+.phone-field :deep(.vti__dropdown.open) {
+  background: var(--color-surface);
+}
+
+.phone-field :deep(.vti__selection) {
+  font-size: 0.9rem;
+  color: var(--color-text);
+  gap: 0.35rem;
+}
+
+.phone-field :deep(.vti__dropdown-arrow) {
+  color: var(--color-text-muted);
+  border-top-color: var(--color-text-muted);
+}
+
+.phone-field :deep(.vti__dropdown-list) {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  max-height: 240px;
+  z-index: 30;
+}
+
+.phone-field :deep(.vti__dropdown-item) {
+  color: var(--color-text);
+  padding: 0.45rem 0.75rem;
+}
+
+.phone-field :deep(.vti__dropdown-item.highlighted),
+.phone-field :deep(.vti__dropdown-item:hover) {
+  background: rgba(196, 163, 90, 0.14);
+}
+
+.phone-field :deep(.vti__search_box) {
+  margin: 0.5rem;
+  width: calc(100% - 1rem);
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  padding: 0.45rem 0.55rem;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+}
+
+.phone-field :deep(.vti__input),
+.phone-field :deep(.profile-tel-input) {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--color-text) !important;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  padding: 0.55rem 0.65rem !important;
+}
+
+.phone-field :deep(.vti__input::placeholder) {
+  color: var(--color-text-muted);
 }
 </style>

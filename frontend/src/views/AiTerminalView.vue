@@ -93,7 +93,27 @@
                   {{ assigneeOptionLabel(opt) }}
                 </option>
               </select>
-              <span v-if="task.assignee_name" class="ai-hint">AI detected: {{ task.assignee_name }}</span>
+              <span v-if="task.assignee_name" class="ai-hint" :class="{ 'ai-hint--matched': task.assignee_matched && !!task.assignee_key }">
+                {{
+                  task.assignee_matched && task.assignee_key
+                    ? `Matched: ${task.assignee_name}`
+                    : `AI detected: ${task.assignee_name} — pick manually`
+                }}
+              </span>
+            </div>
+            <div class="field">
+              <label>Project</label>
+              <select v-model="task.project_id">
+                <option :value="null">No project</option>
+                <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.title }}</option>
+              </select>
+              <span v-if="task.project_name" class="ai-hint" :class="{ 'ai-hint--matched': !!task.project_matched }">
+                {{
+                  task.project_matched
+                    ? `Matched: ${task.project_name}`
+                    : `AI detected: ${task.project_name} — pick manually`
+                }}
+              </span>
             </div>
             <div class="field">
               <label>Due Date</label>
@@ -143,6 +163,7 @@ import {
   assigneeOptionLabel,
   buildAssigneeOptions,
   parseAssigneeKey,
+  taskAssigneeKey,
 } from '@/utils/assignee'
 
 const NEW_PROJECT_VALUE = '__new__'
@@ -269,7 +290,20 @@ async function parseNote() {
       }),
     })
     noteId.value = data.note_id
-    extractedTasks.value = data.extracted_tasks.map((t) => ({ ...t, assignee_key: null }))
+    extractedTasks.value = (data.extracted_tasks || []).map((t) => {
+      const assignee_key = taskAssigneeKey({
+        assignee_id: t.assignee_id,
+        assignee_contact_id: t.assignee_contact_id,
+      })
+      const matchedProject = t.project_id != null ? Number(t.project_id) : null
+      const noteProject = form.value.project_id != null ? Number(form.value.project_id) : null
+      return {
+        ...t,
+        assignee_key,
+        project_id: matchedProject ?? noteProject,
+        project_matched: Boolean(t.project_matched),
+      }
+    })
     step.value = 'review'
   } catch (e) {
     error.value = e?.message || 'Something went wrong. Please try again.'
@@ -291,7 +325,7 @@ async function confirmTasks() {
         assignee_contact_id,
         due_date: t.due_date || null,
         priority: t.priority,
-        project_id: form.value.project_id,
+        project_id: t.project_id ?? form.value.project_id ?? null,
       }
     })
     const data = await apiJson('/api/v1/ai/confirm-tasks', {
@@ -542,14 +576,18 @@ textarea {
 
 .row-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1.2fr 1.2fr 1fr 0.85fr;
   gap: 1rem;
 }
 
 .ai-hint {
   font-size: 0.75rem;
-  color: var(--color-accent);
+  color: var(--color-text-muted);
   font-style: italic;
+}
+
+.ai-hint--matched {
+  color: var(--color-accent);
 }
 
 .btn-remove {

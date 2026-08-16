@@ -13,7 +13,12 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.core.config import settings
-from app.models.models import Contact, Note, Task, User
+from app.models.models import Contact, Note, Project, Task, User
+from app.services.mention_match import (
+    build_person_candidates,
+    match_person,
+    match_project,
+)
 
 router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
 
@@ -33,8 +38,15 @@ class ExtractedTask(BaseModel):
     title: str
     description: str | None = None
     assignee_name: str | None = None
+    project_name: str | None = None
     due_date: str | None = None
     priority: str = "medium"
+    # Populated after conservative org directory match (null if none / ambiguous).
+    assignee_id: int | None = None
+    assignee_contact_id: int | None = None
+    project_id: int | None = None
+    assignee_matched: bool = False
+    project_matched: bool = False
 
 
 class ParseNoteResponse(BaseModel):
@@ -65,6 +77,44 @@ def _log_ai_error(context: str, exc: BaseException) -> None:
     traceback.print_exc()
 
 
+def _resolve_extracted_tasks(
+    tasks: list[ExtractedTask],
+    *,
+    users: list[User],
+    contacts: list[Contact],
+    projects: list[Project],
+    note_project_id: int | None,
+) -> list[ExtractedTask]:
+    people = build_person_candidates(users=users, contacts=contacts)
+    project_pairs = [(p.id, p.title) for p in projects]
+
+    resolved: list[ExtractedTask] = []
+    for task in tasks:
+        data = task.model_dump()
+        data["assignee_id"] = None
+        data["assignee_contact_id"] = None
+        data["project_id"] = note_project_id
+        data["assignee_matched"] = False
+        data["project_matched"] = False
+
+        person = match_person(task.assignee_name, people)
+        if person:
+            data["assignee_matched"] = True
+            if person.kind == "user":
+                data["assignee_id"] = person.id
+            else:
+                data["assignee_contact_id"] = person.id
+
+        # Per-task project mention wins over note-level only when uniquely matched.
+        matched_project = match_project(task.project_name, project_pairs)
+        if matched_project is not None:
+            data["project_id"] = matched_project
+            data["project_matched"] = True
+
+        resolved.append(ExtractedTask(**data))
+    return resolved
+
+
 async def call_claude(raw_text: str) -> list[ExtractedTask]:
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured.")
@@ -76,9 +126,12 @@ Return ONLY a JSON array of tasks. No explanation, no markdown, no preamble.
 Each task object must have:
 - title (string, concise action)
 - description (string or null, extra context)
-- assignee_name (string or null, person's name if mentioned)
+- assignee_name (string or null, person's name if mentioned — use the name as written)
+- project_name (string or null, project / initiative name if mentioned for this task)
 - due_date (string ISO format YYYY-MM-DD or null)
-- priority (string: "low", "medium", or "high" — infer from urgency language)"""
+- priority (string: "low", "medium", or "high" — infer from urgency language)
+
+Do not invent people or projects that are not in the notes. Leave assignee_name / project_name null when unclear."""
 
     payload = {
         "model": CLAUDE_MODEL,
@@ -134,7 +187,21 @@ Each task object must have:
         tasks_data = json.loads(raw_json)
         if not isinstance(tasks_data, list):
             raise ValueError("AI response JSON root must be an array of tasks")
-        return [ExtractedTask(**t) for t in tasks_data]
+        allowed = set(ExtractedTask.model_fields)
+        # Ignore model-invented id / match fields; we resolve matches server-side.
+        strip_keys = {
+            "assignee_id",
+            "assignee_contact_id",
+            "project_id",
+            "assignee_matched",
+            "project_matched",
+        }
+        cleaned = []
+        for t in tasks_data:
+            if not isinstance(t, dict):
+                continue
+            cleaned.append({k: v for k, v in t.items() if k in allowed and k not in strip_keys})
+        return [ExtractedTask(**t) for t in cleaned]
     except HTTPException:
         raise
     except Exception as exc:
@@ -177,6 +244,18 @@ async def parse_note(
             status_code=500,
             detail=f"AI parse failed ({type(exc).__name__}): {exc}",
         ) from exc
+
+    org_id = current_user.organisation_id
+    users = db.query(User).filter(User.organisation_id == org_id).all()
+    contacts = db.query(Contact).filter(Contact.organisation_id == org_id).all()
+    projects = db.query(Project).filter(Project.organisation_id == org_id).all()
+    extracted_tasks = _resolve_extracted_tasks(
+        extracted_tasks,
+        users=users,
+        contacts=contacts,
+        projects=projects,
+        note_project_id=body.project_id,
+    )
 
     return ParseNoteResponse(note_id=note.id, extracted_tasks=extracted_tasks)
 
