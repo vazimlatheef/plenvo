@@ -65,7 +65,7 @@ const navLinks = computed(() => {
       { to: '/app/admin', label: 'Dashboard' },
       { to: '/app/projects', label: 'Projects' },
       { to: '/app/team', label: 'Team' },
-      { to: '/app/admin/ai-terminal', label: 'AI Terminal' },
+      { to: '/app/admin/ai-terminal', label: 'Brief' },
     ]
   }
   return [

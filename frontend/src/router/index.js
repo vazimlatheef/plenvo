@@ -144,7 +144,7 @@ const router = createRouter({
           path: 'admin/ai-terminal',
           name: 'ai-terminal',
           component: AiTerminalView,
-          meta: { title: 'AI Terminal', adminOnly: true },
+          meta: { title: 'Brief', adminOnly: true },
         },
         {
           path: 'assignments',

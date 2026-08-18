@@ -40,7 +40,7 @@
       </RouterLink>
       <RouterLink to="/app/admin/ai-terminal" class="nav-item nav-item--action" @click="closeMobile">
         <Zap class="nav-icon" :size="18" :stroke-width="1.75" />
-        <span>AI Terminal</span>
+        <span>Brief</span>
       </RouterLink>
     </div>
 
@@ -100,7 +100,7 @@ const navItems = [
   { to: '/app/projects', label: 'Projects', icon: FolderKanban },
   { to: '/app/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/app/team', label: 'Team', icon: Users },
-  { to: '/app/admin/ai-terminal', label: 'AI Terminal', icon: Sparkles },
+  { to: '/app/admin/ai-terminal', label: 'Brief', icon: Sparkles },
 ]
 
 function closeMobile() {

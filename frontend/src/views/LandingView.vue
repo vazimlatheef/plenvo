@@ -22,9 +22,15 @@
 
           <RouterLink to="/support" class="nav-link">Support</RouterLink>
 
-          <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
+          <SiteAccountMenu v-if="signedIn" />
 
-          <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
+          <template v-else>
+
+            <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
+
+            <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
+
+          </template>
 
         </div>
 
@@ -42,7 +48,7 @@
 
         <div class="badge" :class="{ visible: show.badge }">
 
-          Your life. Organised. Free for 14 days.
+          {{ signedIn ? 'Your workspace' : 'Your life. Organised. Free for 14 days.' }}
 
         </div>
 
@@ -50,9 +56,21 @@
 
         <h1 class="hero-title" :class="{ visible: show.title }">
 
-          One place for everything<br />
+          <template v-if="signedIn">
 
-          <em class="accent">you need to do.</em>
+            Hello, {{ firstName }}.<br />
+
+            <em class="accent">{{ signedInHook }}</em>
+
+          </template>
+
+          <template v-else>
+
+            One place for everything<br />
+
+            <em class="accent">you need to do.</em>
+
+          </template>
 
         </h1>
 
@@ -60,9 +78,19 @@
 
         <p class="hero-sub" :class="{ visible: show.sub }">
 
-          Work tasks. Personal goals. Team projects. Family commitments.
+          <template v-if="signedIn">
 
-          Managed with AI that actually understands context.
+            Your projects, tasks, and people — already here. This is your organisation place.
+
+          </template>
+
+          <template v-else>
+
+            Work tasks. Personal goals. Team projects. Family commitments.
+
+            Managed with AI that actually understands context.
+
+          </template>
 
         </p>
 
@@ -70,7 +98,7 @@
 
         <ul class="bullets">
 
-          <li v-for="(b, i) in bullets" :key="b" class="bullet" :class="{ visible: show.bullets[i] }">
+          <li v-for="(b, i) in displayBullets" :key="b" class="bullet" :class="{ visible: show.bullets[i] }">
 
             <span>{{ b }}</span>
 
@@ -82,7 +110,9 @@
 
         <div class="hero-ctas" :class="{ visible: show.cta }">
 
-          <RouterLink to="/signup" class="btn-primary">Start for free — takes 60 seconds →</RouterLink>
+          <RouterLink v-if="signedIn" :to="workspaceTo" class="btn-primary">Open your workspace →</RouterLink>
+
+          <RouterLink v-else to="/signup" class="btn-primary">Start for free — takes 60 seconds →</RouterLink>
 
           <a href="#demo" class="btn-ghost" @click.prevent="scrollToDemo">See how it works ↓</a>
 
@@ -90,7 +120,7 @@
 
 
 
-        <div class="trust-bar" :class="{ visible: show.trust }">
+        <div v-if="!signedIn" class="trust-bar" :class="{ visible: show.trust }">
 
           <span>✓ No charge for 14 days · No card required</span>
 
@@ -122,7 +152,7 @@
 
       <div class="demo-inner" :class="{ visible: show.demo }">
 
-        <p class="section-eyebrow">Plenvo Terminal</p>
+        <p class="section-eyebrow">Brief</p>
 
         <h2 class="demo-title">Type your day.<br />We handle the rest.</h2>
 
@@ -132,7 +162,7 @@
 
             <span class="dot r"/><span class="dot a"/><span class="dot g"/>
 
-            <span class="demo-bar-title">Plenvo · AI Terminal</span>
+            <span class="demo-bar-title">Plenvo · Brief</span>
 
           </div>
 
@@ -288,7 +318,7 @@
 
     <!-- PRICING -->
 
-    <section class="pricing-section" ref="pricingRef">
+    <section v-if="!signedIn" class="pricing-section" ref="pricingRef">
 
       <div class="section-inner">
 
@@ -356,7 +386,21 @@
 
     <!-- FINAL CTA -->
 
-    <section class="final-cta" ref="ctaRef">
+    <section v-if="signedIn" class="final-cta" ref="ctaRef">
+
+      <div class="cta-inner" :class="{ visible: show.finalCta }">
+
+        <h2>Back to your board.</h2>
+
+        <p>Projects, tasks, and people — waiting in your workspace.</p>
+
+        <RouterLink :to="workspaceTo" class="btn-primary large">Open workspace →</RouterLink>
+
+      </div>
+
+    </section>
+
+    <section v-else class="final-cta" ref="ctaRef">
 
       <div class="cta-inner" :class="{ visible: show.finalCta }">
 
@@ -432,11 +476,25 @@
 
 import { ref, reactive, computed, onMounted } from 'vue'
 
+import SiteAccountMenu from '@/components/SiteAccountMenu.vue'
+import { appHomeRoute, loadSessionUser, user } from '@/composables/session'
 import { useCurrency } from '@/composables/useCurrency'
 
 
 
 const { symbol, currencyLabel, personalPrice, teamPrice, enterprisePrice } = useCurrency()
+
+const signedIn = computed(() => !!user.value)
+const firstName = computed(() => user.value?.first_name || 'there')
+const workspaceTo = computed(() => appHomeRoute())
+
+const signedInHook = computed(() => {
+  const h = new Date().getHours()
+  if (h < 12) return 'The morning is yours.'
+  if (h < 17) return "Let's get to work."
+  if (h < 21) return 'Finish what matters.'
+  return 'One last look at the board.'
+})
 
 
 
@@ -498,6 +556,20 @@ const bullets = computed(() => [
 
 ])
 
+const signedInBullets = [
+
+  '✓ Your projects and tasks — already in one place',
+
+  '✓ Work, study, and life — same board',
+
+  '✓ AI that reads context, not just keywords',
+
+  '✓ Private. Encrypted. Yours.',
+
+]
+
+const displayBullets = computed(() => (signedIn.value ? signedInBullets : bullets.value))
+
 
 
 const features = [
@@ -506,9 +578,9 @@ const features = [
 
     icon: '⚡',
 
-    title: 'Plenvo Terminal',
+    title: 'Brief',
 
-    desc: 'Type or paste anything — meetings, goals, reminders. Plenvo reads it and creates structured tasks instantly.',
+    desc: 'Dump notes, add people, or ask what’s next. Plenvo captures work and briefs you on how the team is tracking.',
 
   },
 
@@ -594,7 +666,7 @@ const displayPlans = computed(() => [
 
       'Unlimited projects & tasks',
 
-      'Plenvo Terminal (AI)',
+      'Brief',
 
       'Calendar view',
 
@@ -808,7 +880,9 @@ function scrollToDemo() {
 
 
 
-onMounted(() => {
+onMounted(async () => {
+
+  await loadSessionUser()
 
   const delays = [100, 260, 420]
 
@@ -836,7 +910,7 @@ onMounted(() => {
 
   observe(secRef.value, 'security')
 
-  observe(pricingRef.value, 'pricing')
+  if (pricingRef.value) observe(pricingRef.value, 'pricing')
 
   observe(ctaRef.value, 'finalCta')
 

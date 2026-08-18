@@ -34,8 +34,13 @@ export async function loadSessionUser() {
   }
 }
 
-export function logoutAndRedirect(router) {
+export function appHomeRoute(u = user.value) {
+  if (!u) return { name: 'login' }
+  return u.role === 'admin' ? { name: 'admin-dashboard' } : { name: 'employee-assignments' }
+}
+
+export function logoutAndRedirect(router, dest = { name: 'landing' }) {
   authLogout()
   clearSessionUser()
-  router.push({ name: 'login' })
+  router.push(dest)
 }

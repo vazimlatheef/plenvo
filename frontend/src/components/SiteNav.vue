@@ -8,12 +8,22 @@
         <RouterLink to="/about" class="nav-link">About</RouterLink>
         <RouterLink to="/security" class="nav-link">Security</RouterLink>
         <RouterLink to="/support" class="nav-link">Support</RouterLink>
-        <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
-        <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
+        <template v-if="user">
+          <SiteAccountMenu />
+        </template>
+        <template v-else>
+          <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
+          <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
+        </template>
       </div>
     </div>
   </nav>
 </template>
+
+<script setup>
+import SiteAccountMenu from '@/components/SiteAccountMenu.vue'
+import { user } from '@/composables/session'
+</script>
 
 <style scoped>
 .site-nav {

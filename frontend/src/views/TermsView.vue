@@ -9,8 +9,11 @@
           <RouterLink to="/about" class="nav-link">About</RouterLink>
           <RouterLink to="/security" class="nav-link">Security</RouterLink>
           <RouterLink to="/support" class="nav-link">Support</RouterLink>
-          <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
-          <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
+          <SiteAccountMenu v-if="user" />
+          <template v-else>
+            <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
+            <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
+          </template>
         </div>
       </div>
     </nav>
@@ -187,7 +190,8 @@
 </template>
 
 <script setup>
-// No JavaScript needed for static page
+import SiteAccountMenu from '@/components/SiteAccountMenu.vue'
+import { user } from '@/composables/session'
 </script>
 
 <style scoped>

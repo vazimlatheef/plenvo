@@ -37,6 +37,10 @@
           {{ loading ? 'Signing in…' : 'Continue' }}
         </button>
       </form>
+      <p class="foot">
+        Don’t have an account?
+        <RouterLink to="/signup">Start for free</RouterLink>
+      </p>
     </div>
   </div>
 </template>
@@ -194,5 +198,22 @@ async function onSubmit() {
 .btn:disabled {
   cursor: not-allowed;
   opacity: 0.75;
+}
+
+.foot {
+  margin: 1.25rem 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.foot a {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.foot a:hover {
+  text-decoration: underline;
 }
 </style>

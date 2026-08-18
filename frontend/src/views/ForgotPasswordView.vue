@@ -6,7 +6,13 @@
       <p class="lede">Enter your work email and we'll send a reset link if an account exists.</p>
 
       <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <p v-if="done" class="success" role="status">{{ done }}</p>
+      <div v-if="done" class="success-block" role="status">
+        <p class="success">{{ done }}</p>
+        <p class="hint">
+          Didn’t get it? Check your spam or junk folder — reset emails sometimes land there.
+          The link expires in 1 hour.
+        </p>
+      </div>
 
       <form v-if="!done" class="form" @submit.prevent="onSubmit">
         <label class="field">
@@ -23,6 +29,7 @@
         <button type="submit" class="btn" :disabled="loading || !email.trim()">
           {{ loading ? 'Sending…' : 'Send reset link' }}
         </button>
+        <p class="hint">If you don’t see the email within a few minutes, check spam or junk.</p>
       </form>
 
       <p class="foot">
@@ -106,6 +113,27 @@ h1 {
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
   font-size: 0.85rem;
+}
+
+.success-block {
+  margin: 0 0 1rem;
+}
+
+.success-block .success {
+  margin: 0 0 0.65rem;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.form .hint {
+  margin-top: -0.25rem;
 }
 
 .error {

@@ -21,6 +21,7 @@ from app.services.mention_match import (
 )
 from app.services.plan_limits import assert_can_add_team_members
 from app.services.relative_dates import resolve_task_due_date
+from app.services.workspace_context import build_workspace_snapshot
 
 router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
 
@@ -59,6 +60,8 @@ class ExtractedTask(BaseModel):
 
 class ParseNoteResponse(BaseModel):
     note_id: int
+    intent: str = "capture"
+    briefing: str | None = None
     extracted_tasks: list[ExtractedTask]
     today: str | None = None
 
@@ -175,48 +178,67 @@ def _resolve_extracted_tasks(
     return resolved
 
 
-async def call_claude(raw_text: str, *, today: date) -> list[ExtractedTask]:
+async def call_claude(raw_text: str, *, today: date, snapshot: str) -> tuple[str, str | None, list[ExtractedTask]]:
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured.")
 
     today_iso = today.isoformat()
     today_label = today.strftime("%A, %d %B %Y")
 
-    system_prompt = f"""You are an AI assistant for Plenvo, a management platform.
-Your job is to extract actionable tasks from meeting notes or team updates.
+    system_prompt = f"""You are Plenvo Brief — a calm workspace adjutant, not a chatbot and not a hype-y "AI assistant".
+You help managers and individual operators run one place for their work: people, projects, tasks.
 
-Today's date is {today_iso} ({today_label}). Use this as "now" for all date reasoning.
+Today is {today_iso} ({today_label}).
 
-Return ONLY a JSON array of tasks. No explanation, no markdown, no preamble.
-Each task object must have:
-- title (string, concise action — for meetings/events use a clear title like "Team standup")
-- description (string or null, extra context e.g. time "9am", location, agenda)
-- assignee_name (string or null, person's name if mentioned — use the name as written)
-- project_name (string or null, project / initiative name if mentioned for this task)
-- due_date (string ISO format YYYY-MM-DD or null)
-- priority (string: "low", "medium", or "high" — infer from urgency language)
+You receive:
+1) The user's message (notes, a question, or both)
+2) A LIVE SNAPSHOT of their organisation (people, projects, tasks). Trust the snapshot. Do not invent people, projects, dates, or completion stats that are not in it.
 
-Date rules (critical):
-- Convert EVERY relative or weekday phrase to an absolute YYYY-MM-DD using today's date above.
-  Examples: "tomorrow", "Thursday", "next Monday", "in 2 weeks", "by Friday", "end of week".
-- "Thursday" / "by Thursday" means the upcoming Thursday (including today if today is Thursday).
-- "next Monday" means the Monday after this week's Monday.
-- Never leave due_date null when the notes mention a day, date, or relative deadline for that item.
-- If only a time is mentioned with a day (e.g. "Monday 9am"), still set due_date to that day's date; put the time in description.
+Return ONLY a JSON object (no markdown fence unless you wrap the whole JSON — prefer raw JSON):
+{{
+  "intent": "capture" | "briefing" | "mixed",
+  "briefing": string or null,
+  "tasks": array of task objects
+}}
 
-What to extract (do NOT skip):
-- Classic action items ("John to finish the report by Friday")
-- Calendar / meeting / standup / sync / call / workshop / demo items
-  (e.g. "Team standup Monday 9am", "recurring weekly sync on Wednesdays", "client call next Tuesday")
-- Recurring or event-style mentions — capture them as tasks with the next/mentioned due_date
-- Soft commitments that imply work ("need to prepare slides for Thursday's review")
+intent:
+- "capture" — they dumped notes / asked you to add work or people. Fill tasks. briefing may be a short confirmation (1-3 sentences) or null.
+- "briefing" — they asked a question (what's next, how is X doing, team review, my performance). Fill briefing. tasks is [] unless they also asked to create work.
+- "mixed" — both: e.g. "add these tasks and tell me who is overloaded".
 
-Do not invent people or projects that are not in the notes. Leave assignee_name / project_name null when unclear.
-Do not drop meeting or calendar-style lines — they are valid tasks."""
+Task object fields:
+- title (string, concise action)
+- description (string or null)
+- assignee_name (string or null — name as written)
+- project_name (string or null)
+- due_date (string ISO YYYY-MM-DD or null)
+- priority ("low" | "medium" | "high")
+
+Date rules:
+- Convert relative phrases using today: tomorrow, Thursday, next Monday, in 2 weeks, by Friday.
+- Never leave due_date null when a day/date is mentioned.
+
+What to capture as tasks (do not skip):
+- Action items, meetings, calls, standups
+- "Add Maya / new designer / intern" as a task assigned to that person (or unassigned titled "Add Maya to the team") — the product can create a contact on confirm
+- Assigning existing work to someone
+
+Briefing rules (critical):
+- Ground every claim in the snapshot. If data is thin, say so in one line — do not fabricate a personality review.
+- Performance = load (open tasks), overdue, priorities, recently completed. Not hours, attitude, or talent.
+- "What's the most important thing next?" — pick 1-3 open items using overdue + high priority + due soon. Name the person if assigned.
+- Team / employee review: compare load fairly; flag overload vs idle; name specific tasks.
+- Own performance: only the asker's tasks.
+- Be concise, professional, kind. No cheerleading. No "As an AI".
+- Use short paragraphs or bullets. No tables.
+
+LIVE SNAPSHOT:
+{snapshot}
+"""
 
     payload = {
         "model": CLAUDE_MODEL,
-        "max_tokens": 2000,
+        "max_tokens": 4000,
         "system": system_prompt,
         "messages": [{"role": "user", "content": raw_text}],
     }
@@ -264,12 +286,29 @@ Do not drop meeting or calendar-style lines — they are valid tasks."""
             raw_json = raw_json.split("```")[1]
             if raw_json.startswith("json"):
                 raw_json = raw_json[4:]
+            raw_json = raw_json.rsplit("```", 1)[0].strip()
 
-        tasks_data = json.loads(raw_json)
-        if not isinstance(tasks_data, list):
-            raise ValueError("AI response JSON root must be an array of tasks")
+        parsed = json.loads(raw_json)
+        intent = "capture"
+        briefing = None
+        tasks_data: list = []
+
+        if isinstance(parsed, list):
+            tasks_data = parsed
+        elif isinstance(parsed, dict):
+            intent = str(parsed.get("intent") or "capture").strip().lower()
+            if intent not in {"capture", "briefing", "mixed"}:
+                intent = "capture"
+            briefing = parsed.get("briefing")
+            if briefing is not None:
+                briefing = str(briefing).strip() or None
+            tasks_data = parsed.get("tasks") or []
+            if not isinstance(tasks_data, list):
+                tasks_data = []
+        else:
+            raise ValueError("AI response JSON must be an object or array")
+
         allowed = set(ExtractedTask.model_fields)
-        # Ignore model-invented id / match fields; we resolve matches server-side.
         strip_keys = {
             "assignee_id",
             "assignee_contact_id",
@@ -286,7 +325,7 @@ Do not drop meeting or calendar-style lines — they are valid tasks."""
             if not isinstance(t, dict):
                 continue
             cleaned.append({k: v for k, v in t.items() if k in allowed and k not in strip_keys})
-        return [ExtractedTask(**t) for t in cleaned]
+        return intent, briefing, [ExtractedTask(**t) for t in cleaned]
     except HTTPException:
         raise
     except Exception as exc:
@@ -322,7 +361,15 @@ async def parse_note(
     db.refresh(note)
 
     try:
-        extracted_tasks = await call_claude(body.raw_text, today=today)
+        snapshot = build_workspace_snapshot(
+            db,
+            org_id=current_user.organisation_id,
+            asker=current_user,
+            today=today,
+        )
+        intent, briefing, extracted_tasks = await call_claude(
+            body.raw_text, today=today, snapshot=snapshot
+        )
     except HTTPException:
         raise
     except Exception as exc:
@@ -347,6 +394,8 @@ async def parse_note(
 
     return ParseNoteResponse(
         note_id=note.id,
+        intent=intent,
+        briefing=briefing,
         extracted_tasks=extracted_tasks,
         today=today.isoformat(),
     )

@@ -2,19 +2,19 @@
   <div class="ai-terminal">
     <div class="terminal-header">
       <div class="terminal-icon">
-        <Zap :size="22" :stroke-width="1.75" />
+        <Sparkles :size="22" :stroke-width="1.75" />
       </div>
       <div>
-        <h2>AI Terminal</h2>
-        <p>Paste meeting notes or updates — AI extracts tasks instantly</p>
+        <h2>Brief</h2>
+        <p>Tell Plenvo what happened — or ask how the work is going.</p>
       </div>
     </div>
 
     <!-- Step 1: Input -->
     <div v-if="step === 'input'" class="card">
       <div class="field">
-        <label>Note Title <span class="optional">(optional)</span></label>
-        <input v-model="form.title" placeholder="e.g. Weekly Sync — 25 Apr" />
+        <label>Note title <span class="optional">(optional)</span></label>
+        <input v-model="form.title" placeholder="e.g. Monday standup" />
       </div>
 
       <div class="field">
@@ -54,28 +54,61 @@
       </div>
 
       <div class="field">
-        <label>Paste your notes *</label>
+        <label>What do you want to capture or ask?</label>
         <textarea
           v-model="form.raw_text"
-          placeholder="e.g. John to finish Q3 report by Friday. Sarah to schedule client call with Acme. Urgent: fix login bug before Monday."
+          placeholder="Paste notes, add people and work, or ask a question — e.g. what’s next, how the team is tracking."
           rows="8"
         />
+      </div>
+
+      <div class="example-row" aria-label="Example briefs">
+        <button
+          v-for="ex in examples"
+          :key="ex.label"
+          type="button"
+          class="example-chip"
+          @click="form.raw_text = ex.text"
+        >
+          {{ ex.label }}
+        </button>
       </div>
 
       <button class="btn-primary" :disabled="!form.raw_text.trim() || loading" @click="parseNote">
         <span v-if="loading" class="spinner" />
         <span v-else class="btn-with-icon">
-          <Zap :size="16" :stroke-width="2" />
-          Extract Tasks with AI
+          <Sparkles :size="16" :stroke-width="2" />
+          Send to Plenvo
         </span>
       </button>
     </div>
 
+    <!-- Insight-only -->
+    <div v-if="step === 'briefing'" class="card">
+      <div class="review-header">
+        <h3>Briefing</h3>
+        <p>Based on live tasks, people, and projects in your workspace.</p>
+      </div>
+      <div class="briefing-body">{{ briefing }}</div>
+      <div class="review-actions">
+        <button class="btn-secondary btn-with-icon" type="button" @click="reset">
+          <ArrowLeft :size="15" :stroke-width="1.75" />
+          New brief
+        </button>
+      </div>
+    </div>
+
     <!-- Step 2: Review extracted tasks -->
     <div v-if="step === 'review'" class="card">
+      <div v-if="briefing" class="briefing-panel">
+        <h3>Briefing</h3>
+        <div class="briefing-body">{{ briefing }}</div>
+      </div>
       <div class="review-header">
-        <h3>AI extracted {{ extractedTasks.length }} task{{ extractedTasks.length !== 1 ? 's' : '' }}</h3>
-        <p>Review, edit, assign users — then confirm to save.</p>
+        <h3>
+          {{ extractedTasks.length }} item{{ extractedTasks.length !== 1 ? 's' : '' }} to confirm
+        </h3>
+        <p>Review people, projects, and dates — then save to the board.</p>
       </div>
 
       <div v-for="(task, i) in extractedTasks" :key="i" class="task-card">
@@ -189,11 +222,11 @@
       <div class="success-icon">
         <Check :size="28" :stroke-width="2" />
       </div>
-      <h3>{{ lastCreatedCount }} task{{ lastCreatedCount !== 1 ? 's' : '' }} created</h3>
-      <p>Your team has been assigned. Tasks are now live on the dashboard.</p>
+      <h3>{{ lastCreatedCount }} item{{ lastCreatedCount !== 1 ? 's' : '' }} on the board</h3>
+      <p>Assigned work is live. Ask Brief anytime how the team is tracking.</p>
       <button class="btn-primary btn-with-icon" type="button" @click="reset">
-        <Zap :size="16" :stroke-width="2" />
-        Parse another note
+        <Sparkles :size="16" :stroke-width="2" />
+        New brief
       </button>
     </div>
 
@@ -203,7 +236,7 @@
 </template>
 
 <script setup>
-import { ArrowLeft, Check, X, Zap } from '@lucide/vue'
+import { ArrowLeft, Check, Sparkles, X } from '@lucide/vue'
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { apiJson } from '@/api/client'
 import DatePicker from '@/components/DatePicker.vue'
@@ -227,6 +260,27 @@ const lastCreatedCount = ref(0)
 
 const form = ref({ title: '', raw_text: '', project_id: null })
 const extractedTasks = ref([])
+const briefing = ref('')
+const intent = ref('capture')
+
+const examples = [
+  {
+    label: 'Capture notes',
+    text: 'Maya joins as designer. Add her. Homepage mockups by Friday. Alex to review API docs Thursday. Standup Monday 9am.',
+  },
+  {
+    label: 'What’s next',
+    text: 'What’s the most important thing I should tackle next?',
+  },
+  {
+    label: 'Team pulse',
+    text: 'How is the team tracking this week? Who is overloaded, who has slack?',
+  },
+  {
+    label: 'Someone’s work',
+    text: 'How is Alex doing? What’s done, what’s late, what should I follow up on?',
+  },
+]
 const projects = ref([])
 const teamMembers = ref([])
 const contacts = ref([])
@@ -457,6 +511,8 @@ async function parseNote() {
       }),
     })
     noteId.value = data.note_id
+    briefing.value = (data.briefing || '').trim()
+    intent.value = data.intent || 'capture'
     extractedTasks.value = (data.extracted_tasks || []).map((t) => {
       const assignee_key = taskAssigneeKey({
         assignee_id: t.assignee_id,
@@ -481,7 +537,13 @@ async function parseNote() {
           suggestedContact && !matchedAssignee && canAddMembers.value ? suggestedContact : null,
       }
     })
-    step.value = 'review'
+    if (extractedTasks.value.length > 0) {
+      step.value = 'review'
+    } else if (briefing.value) {
+      step.value = 'briefing'
+    } else {
+      error.value = 'Nothing to capture or report — try a note or a question.'
+    }
   } catch (e) {
     error.value = e?.message || 'Something went wrong. Please try again.'
   } finally {
@@ -551,6 +613,8 @@ function reset() {
   step.value = 'input'
   form.value = { title: '', raw_text: '', project_id: form.value.project_id }
   extractedTasks.value = []
+  briefing.value = ''
+  intent.value = 'capture'
   noteId.value = null
   error.value = null
   cancelInlineCreate()
@@ -588,6 +652,50 @@ function reset() {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
+}
+
+.example-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: -0.35rem 0 1rem;
+}
+
+.example-chip {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.example-chip:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.briefing-panel {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.briefing-panel h3,
+.review-header h3 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 400;
+}
+
+.briefing-body {
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--color-text);
 }
 
 .terminal-header h2 {

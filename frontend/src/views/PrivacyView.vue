@@ -9,8 +9,11 @@
           <RouterLink to="/about" class="nav-link">About</RouterLink>
           <RouterLink to="/security" class="nav-link">Security</RouterLink>
           <RouterLink to="/support" class="nav-link">Support</RouterLink>
-          <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
-          <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
+          <SiteAccountMenu v-if="user" />
+          <template v-else>
+            <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
+            <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
+          </template>
         </div>
       </div>
     </nav>
@@ -19,7 +22,7 @@
       <div class="content">
         <p class="eyebrow">Privacy Policy</p>
         <h1>How we handle<br /><em class="accent">your data.</em></h1>
-        <p class="updated">Last updated: May 5, 2026</p>
+        <p class="updated">Last updated: August 18, 2026</p>
 
         <section class="section">
           <h2>What we collect</h2>
@@ -27,7 +30,7 @@
           <ul>
             <li><strong>Account information:</strong> Your name, email address, company name, and position when you sign up.</li>
             <li><strong>Usage data:</strong> Information about how you use Plenvo — projects created, tasks assigned, training completed — to provide the service.</li>
-            <li><strong>Payment information:</strong> Handled exclusively by Stripe. We never see or store your card details. Stripe is PCI DSS Level 1 certified.</li>
+            <li><strong>Payment information:</strong> Card details are handled by a PCI-certified payment processor. We never see or store your full card number.</li>
             <li><strong>Technical data:</strong> IP address, browser type, and device information for security and service improvement.</li>
           </ul>
         </section>
@@ -89,19 +92,18 @@
         </section>
 
         <section class="section">
-          <h2>Third-party services</h2>
-          <p>We use these trusted partners:</p>
+          <h2>Service providers</h2>
+          <p>
+            We use third-party providers to operate Plenvo. They only process data as needed to provide
+            their service to us, and only for the purposes described in this policy. Typical categories include:
+          </p>
           <ul>
-            <li><strong>Stripe:</strong> Payment processing (PCI DSS Level 1 certified)</li>
-            <li><strong>Render:</strong> Cloud hosting in Frankfurt, EU</li>
-            <li><strong>Anthropic:</strong> AI processing for the AI Terminal feature</li>
+            <li><strong>Hosting and infrastructure</strong> — to run the app and store your data</li>
+            <li><strong>Payment processing</strong> — to handle subscriptions (we do not store card numbers)</li>
+            <li><strong>Email delivery</strong> — to send account, security, and (if you opt in) product emails</li>
+            <li><strong>AI processing</strong> — when you use Brief (notes, questions, and workspace summaries)</li>
           </ul>
-          <p>These partners process data only as instructed and under strict data processing agreements.</p>
-        </section>
-
-        <section class="section">
-          <h2>Children's privacy</h2>
-          <p>Plenvo is not intended for anyone under 16 years old. We do not knowingly collect data from children.</p>
+          <p>We do not sell your data. Providers may change as the product evolves; this policy describes the categories, not a fixed vendor list.</p>
         </section>
 
         <section class="section">
@@ -141,7 +143,8 @@
 </template>
 
 <script setup>
-// No JavaScript needed for static page
+import SiteAccountMenu from '@/components/SiteAccountMenu.vue'
+import { user } from '@/composables/session'
 </script>
 
 <style scoped>
