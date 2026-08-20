@@ -1,7 +1,7 @@
 <template>
   <aside class="sidebar" :class="{ 'sidebar--open': mobileOpen }">
     <div class="sidebar-brand">
-      <RouterLink to="/app/admin" class="brand-link" @click="closeMobile">
+      <RouterLink to="/" class="brand-link" @click="closeMobile">
         <img
           class="brand-logo"
           src="/plenvo-logo-full-v2.svg"
@@ -40,7 +40,7 @@
       </RouterLink>
       <RouterLink to="/app/admin/ai-terminal" class="nav-item nav-item--action" @click="closeMobile">
         <Zap class="nav-icon" :size="18" :stroke-width="1.75" />
-        <span>Brief</span>
+        <span>Plenvo AI</span>
       </RouterLink>
     </div>
 
@@ -75,6 +75,7 @@ import {
   CreditCard,
   FolderKanban,
   FolderPlus,
+  Home,
   LayoutDashboard,
   LogOut,
   Sparkles,
@@ -96,11 +97,12 @@ const emit = defineEmits(['close'])
 const router = useRouter()
 
 const navItems = [
+  { to: '/', label: 'Home', icon: Home },
   { to: '/app/admin', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/app/projects', label: 'Projects', icon: FolderKanban },
   { to: '/app/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/app/team', label: 'Team', icon: Users },
-  { to: '/app/admin/ai-terminal', label: 'Brief', icon: Sparkles },
+  { to: '/app/admin/ai-terminal', label: 'Plenvo AI', icon: Sparkles },
 ]
 
 function closeMobile() {

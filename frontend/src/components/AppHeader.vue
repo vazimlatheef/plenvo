@@ -56,7 +56,7 @@ const router = useRouter()
 const menuOpen = ref(false)
 const menuRoot = ref(null)
 
-const homeLink = computed(() => (user.value?.role === 'admin' ? '/app/admin' : '/app/assignments'))
+const homeLink = computed(() => '/')
 
 const navLinks = computed(() => {
   if (!user.value) return []
@@ -65,7 +65,7 @@ const navLinks = computed(() => {
       { to: '/app/admin', label: 'Dashboard' },
       { to: '/app/projects', label: 'Projects' },
       { to: '/app/team', label: 'Team' },
-      { to: '/app/admin/ai-terminal', label: 'Brief' },
+      { to: '/app/admin/ai-terminal', label: 'Plenvo AI' },
     ]
   }
   return [

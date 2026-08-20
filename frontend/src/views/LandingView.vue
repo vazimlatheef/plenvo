@@ -48,7 +48,7 @@
 
         <div class="badge" :class="{ visible: show.badge }">
 
-          {{ signedIn ? 'Your workspace' : 'Your life. Organised. Free for 14 days.' }}
+          {{ signedIn ? 'Plenvo AI · Your workspace' : 'Plenvo AI · Free for 14 days' }}
 
         </div>
 
@@ -60,15 +60,15 @@
 
             Hello, {{ firstName }}.<br />
 
-            <em class="accent">{{ signedInHook }}</em>
+            <em class="accent">Capture anything. Ask anything.</em>
 
           </template>
 
           <template v-else>
 
-            One place for everything<br />
+            Type your day.<br />
 
-            <em class="accent">you need to do.</em>
+            <em class="accent">We handle the rest.</em>
 
           </template>
 
@@ -80,15 +80,13 @@
 
           <template v-if="signedIn">
 
-            Your projects, tasks, and people — already here. This is your organisation place.
+            Paste notes, assign work, or ask how the team is tracking — Plenvo AI reads context and keeps your board current.
 
           </template>
 
           <template v-else>
 
-            Work tasks. Personal goals. Team projects. Family commitments.
-
-            Managed with AI that actually understands context.
+            Paste meeting notes, personal todos, or a messy brain dump. Plenvo AI turns it into tasks, people, and deadlines — work and life in one place.
 
           </template>
 
@@ -110,11 +108,21 @@
 
         <div class="hero-ctas" :class="{ visible: show.cta }">
 
-          <RouterLink v-if="signedIn" :to="workspaceTo" class="btn-primary">Open your workspace →</RouterLink>
+          <template v-if="signedIn">
 
-          <RouterLink v-else to="/signup" class="btn-primary">Start for free — takes 60 seconds →</RouterLink>
+            <RouterLink v-if="user?.role === 'admin'" to="/app/admin/ai-terminal" class="btn-primary">Open Plenvo AI →</RouterLink>
 
-          <a href="#demo" class="btn-ghost" @click.prevent="scrollToDemo">See how it works ↓</a>
+            <RouterLink :to="workspaceTo" class="btn-ghost">Open workspace</RouterLink>
+
+          </template>
+
+          <template v-else>
+
+            <RouterLink to="/signup" class="btn-primary">Start for free — takes 60 seconds →</RouterLink>
+
+            <a href="#demo" class="btn-ghost" @click.prevent="scrollToDemo">See Plenvo AI in action ↓</a>
+
+          </template>
 
         </div>
 
@@ -152,9 +160,9 @@
 
       <div class="demo-inner" :class="{ visible: show.demo }">
 
-        <p class="section-eyebrow">Brief</p>
+        <p class="section-eyebrow">Plenvo AI</p>
 
-        <h2 class="demo-title">Type your day.<br />We handle the rest.</h2>
+        <h2 class="demo-title">Watch it read your day.<br />Then try it yourself.</h2>
 
         <div class="demo-window">
 
@@ -162,7 +170,7 @@
 
             <span class="dot r"/><span class="dot a"/><span class="dot g"/>
 
-            <span class="demo-bar-title">Plenvo · Brief</span>
+            <span class="demo-bar-title">Plenvo · AI Capture</span>
 
           </div>
 
@@ -209,6 +217,12 @@
             </div>
 
           </div>
+
+        </div>
+
+        <div v-if="signedIn && user?.role === 'admin'" class="demo-cta-row">
+
+          <RouterLink to="/app/admin/ai-terminal" class="btn-primary">Open Plenvo AI →</RouterLink>
 
         </div>
 
@@ -390,11 +404,17 @@
 
       <div class="cta-inner" :class="{ visible: show.finalCta }">
 
-        <h2>Back to your board.</h2>
+        <h2>Welcome back, {{ firstName }}.</h2>
 
-        <p>Projects, tasks, and people — waiting in your workspace.</p>
+        <p>Your workspace is ready — capture something in Plenvo AI or jump straight to your board.</p>
 
-        <RouterLink :to="workspaceTo" class="btn-primary large">Open workspace →</RouterLink>
+        <div class="cta-row">
+
+          <RouterLink v-if="user?.role === 'admin'" to="/app/admin/ai-terminal" class="btn-primary large">Open Plenvo AI →</RouterLink>
+
+          <RouterLink :to="workspaceTo" class="btn-ghost large">Open workspace →</RouterLink>
+
+        </div>
 
       </div>
 
@@ -487,14 +507,9 @@ const { symbol, currencyLabel, personalPrice, teamPrice, enterprisePrice } = use
 const signedIn = computed(() => !!user.value)
 const firstName = computed(() => user.value?.first_name || 'there')
 const workspaceTo = computed(() => appHomeRoute())
-
-const signedInHook = computed(() => {
-  const h = new Date().getHours()
-  if (h < 12) return 'The morning is yours.'
-  if (h < 17) return "Let's get to work."
-  if (h < 21) return 'Finish what matters.'
-  return 'One last look at the board.'
-})
+const aiRoute = computed(() =>
+  user.value?.role === 'admin' ? '/app/admin/ai-terminal' : '/app/tasks',
+)
 
 
 
@@ -558,11 +573,11 @@ const bullets = computed(() => [
 
 const signedInBullets = [
 
-  '✓ Your projects and tasks — already in one place',
+  '✓ Plenvo AI — capture notes or ask how work is tracking',
 
-  '✓ Work, study, and life — same board',
+  '✓ Projects, tasks, and team — one workspace',
 
-  '✓ AI that reads context, not just keywords',
+  '✓ Work, study, and life on the same board',
 
   '✓ Private. Encrypted. Yours.',
 
@@ -578,9 +593,9 @@ const features = [
 
     icon: '⚡',
 
-    title: 'Brief',
+    title: 'Plenvo AI',
 
-    desc: 'Dump notes, add people, or ask what’s next. Plenvo captures work and briefs you on how the team is tracking.',
+    desc: 'Paste notes, assign work, or ask what’s next. Plenvo reads context — then tasks, people, and a live briefing appear instantly.',
 
   },
 
@@ -666,7 +681,7 @@ const displayPlans = computed(() => [
 
       'Unlimited projects & tasks',
 
-      'Brief',
+      'Plenvo AI',
 
       'Calendar view',
 
@@ -890,13 +905,13 @@ onMounted(async () => {
 
   keys.forEach((k, i) => setTimeout(() => { show[k] = true }, delays[i]))
 
-  for (let i = 0; i < show.bullets.length; i++) {
+  for (let i = 0; i < displayBullets.value.length; i++) {
 
     setTimeout(() => { show.bullets[i] = true }, 560 + i * 140)
 
   }
 
-  const base = 560 + show.bullets.length * 140
+  const base = 560 + displayBullets.value.length * 140
 
   setTimeout(() => { show.cta = true }, base + 100)
 
@@ -1032,23 +1047,17 @@ onMounted(async () => {
 
 
 
-/* Fade-up animation base */
+/* Hero — always visible; scroll sections animate in */
 
 .badge, .hero-title, .hero-sub, .bullet, .hero-ctas, .trust-bar {
 
-  opacity: 0; transform: translateY(22px);
+  opacity: 1;
 
-  transition: opacity 0.65s cubic-bezier(.22,1,.36,1), transform 0.65s cubic-bezier(.22,1,.36,1);
-
-}
-
-.badge.visible, .hero-title.visible, .hero-sub.visible,
-
-.bullet.visible, .hero-ctas.visible, .trust-bar.visible {
-
-  opacity: 1; transform: translateY(0);
+  transform: translateY(0);
 
 }
+
+/* Fade-up animation for below-the-fold sections */
 
 @media (prefers-reduced-motion: reduce) {
 
@@ -1167,6 +1176,8 @@ onMounted(async () => {
 .btn-primary.full { display: block; text-align: center; width: 100%; }
 
 .btn-primary.large { padding: 0.9rem 2.25rem; font-size: 1rem; }
+
+.btn-ghost.large { padding: 0.9rem 2.25rem; font-size: 1rem; }
 
 
 
@@ -1345,6 +1356,37 @@ onMounted(async () => {
 }
 
 
+
+.demo-cta-row {
+  margin-top: 1.75rem;
+  text-align: center;
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.cta-row .btn-outline.large {
+  display: inline-block;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.9rem 2.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  text-decoration: none;
+  background: none;
+}
+
+.cta-row .btn-outline.large:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  text-decoration: none;
+}
 
 /* FEATURES */
 

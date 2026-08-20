@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import { loadSessionUser, user } from '@/composables/session'
+import { appHomeRoute, loadSessionUser, user } from '@/composables/session'
 import { getToken } from '@/services/auth'
 import AppLayout from '@/layouts/AppLayout.vue'
 import AdminAssignView from '@/views/AdminAssignView.vue'
@@ -36,6 +36,11 @@ import TrainingView from '@/views/TrainingView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  scrollBehavior(to, _from, savedPosition) {
+    if (savedPosition) return savedPosition
+    if (to.hash) return { el: to.hash, behavior: 'smooth', top: 80 }
+    return { top: 0 }
+  },
   routes: [
     {
       path: '/',
@@ -144,7 +149,7 @@ const router = createRouter({
           path: 'admin/ai-terminal',
           name: 'ai-terminal',
           component: AiTerminalView,
-          meta: { title: 'Brief', adminOnly: true },
+          meta: { title: 'Plenvo AI', adminOnly: true },
         },
         {
           path: 'assignments',
@@ -204,13 +209,16 @@ router.beforeEach(async (to) => {
   const isPublic = to.meta.public === true
   const needsAuth = to.matched.some((r) => r.meta.requiresAuth)
 
-  if (isPublic && (to.name === 'login' || to.name === 'landing' || to.name === 'signup' || to.name === 'training-magic-link')) {
-    if (token && to.name !== 'landing') {
+  if (isPublic && to.name === 'landing' && token) {
+    await loadSessionUser()
+    return true
+  }
+
+  if (isPublic && (to.name === 'login' || to.name === 'signup' || to.name === 'training-magic-link')) {
+    if (token) {
       await loadSessionUser()
       if (user.value) {
-        return {
-          name: user.value.role === 'admin' ? 'admin-dashboard' : 'employee-assignments',
-        }
+        return appHomeRoute(user.value)
       }
     }
     return true

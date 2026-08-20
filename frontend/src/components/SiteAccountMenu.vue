@@ -13,6 +13,9 @@
         <span class="chev" aria-hidden="true">▾</span>
       </button>
       <div v-if="menuOpen" class="user-dropdown" role="menu">
+        <RouterLink to="/" class="menu-item" role="menuitem" @click="menuOpen = false">
+          Home
+        </RouterLink>
         <RouterLink :to="workspaceTo" class="menu-item" role="menuitem" @click="menuOpen = false">
           Dashboard
         </RouterLink>

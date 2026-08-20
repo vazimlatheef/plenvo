@@ -7,7 +7,7 @@
         <button type="button" class="menu-btn" aria-label="Open menu" @click="sidebarOpen = true">
           <Menu :size="20" :stroke-width="1.75" />
         </button>
-        <RouterLink to="/app/admin" class="topbar-brand" aria-label="Plenvo">
+        <RouterLink to="/" class="topbar-brand" aria-label="Plenvo home">
           <img src="/plenvo-icon-v2.svg" alt="" width="28" height="28" />
         </RouterLink>
         <span class="topbar-title">{{ pageTitle }}</span>

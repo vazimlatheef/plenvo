@@ -5,8 +5,8 @@
         <Sparkles :size="22" :stroke-width="1.75" />
       </div>
       <div>
-        <h2>Brief</h2>
-        <p>Tell Plenvo what happened — or ask how the work is going.</p>
+        <h2>Plenvo AI</h2>
+        <p>Paste notes, assign work, or ask how things are tracking — Plenvo reads your workspace and responds.</p>
       </div>
     </div>
 
@@ -265,20 +265,20 @@ const intent = ref('capture')
 
 const examples = [
   {
-    label: 'Capture notes',
-    text: 'Maya joins as designer. Add her. Homepage mockups by Friday. Alex to review API docs Thursday. Standup Monday 9am.',
+    label: 'Monday dump',
+    text: 'Standup 9am Monday. API docs due Thursday — high priority. Call mum this weekend. Side project: refresh landing copy. Gym Tuesday 6pm.',
   },
   {
-    label: 'What’s next',
-    text: 'What’s the most important thing I should tackle next?',
+    label: 'Add someone + work',
+    text: 'Maya starts Monday as designer — add her. Homepage mockups by Friday. Alex reviews API docs Thursday.',
+  },
+  {
+    label: 'What’s next?',
+    text: 'What’s the single most important thing I should tackle today?',
   },
   {
     label: 'Team pulse',
-    text: 'How is the team tracking this week? Who is overloaded, who has slack?',
-  },
-  {
-    label: 'Someone’s work',
-    text: 'How is Alex doing? What’s done, what’s late, what should I follow up on?',
+    text: 'How is the team tracking this week? Who’s overloaded and who has slack?',
   },
 ]
 const projects = ref([])
