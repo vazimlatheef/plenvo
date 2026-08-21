@@ -38,6 +38,10 @@ export function canUsePerformanceView({ plan_tier: tier } = {}) {
   return (tier || '').toLowerCase() === 'enterprise'
 }
 
+export function canUseTeamPriorityInsights({ plan_tier: tier } = {}) {
+  return (tier || '').toLowerCase() === 'enterprise'
+}
+
 /** Roster rows aligned with Team page (contacts + employees not duplicated by email). */
 export function buildTeamRoster(contacts = [], employees = []) {
   const list = []
@@ -169,4 +173,16 @@ export function sortFocusTasks(tasks) {
 export function focusTasksForUser(tasks, userId, contactId = null, limit = 3) {
   const mine = tasks.filter((t) => taskAssignedToUser(t, userId, contactId))
   return sortFocusTasks(mine).slice(0, limit)
+}
+
+export function focusTaskForMember(tasks, member) {
+  const mine = tasks.filter((t) => taskMatchesMember(t, member) && isTaskOpen(t))
+  return sortFocusTasks(mine)[0] || null
+}
+
+export function buildTeamPriorityRows(tasks, roster) {
+  return roster.map((member) => ({
+    ...member,
+    topTask: focusTaskForMember(tasks, member),
+  }))
 }

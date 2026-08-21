@@ -131,6 +131,56 @@
             </tbody>
           </table>
         </div>
+
+        <section class="priority-section">
+          <h2 class="priority-heading">Team priority insights</h2>
+          <p v-if="!canTeamPriority" class="priority-upsell">
+            See each person's top-priority open task — available on Enterprise.
+            <RouterLink to="/app/account" class="inline-upgrade">Upgrade to Enterprise →</RouterLink>
+          </p>
+          <template v-else>
+            <p v-if="insightsLoading" class="muted-line">Loading priority insights…</p>
+            <div v-else-if="teamPriorityRows.length === 0" class="empty-panel compact">
+              <p>Add team members to see priority insights.</p>
+            </div>
+            <div v-else class="insights-table-wrap">
+              <table class="insights-table priority-table">
+                <thead>
+                  <tr>
+                    <th>Member</th>
+                    <th>Top priority task</th>
+                    <th>Due</th>
+                    <th>Priority</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in teamPriorityRows" :key="`p-${row.key}`">
+                    <td>
+                      <span class="insights-name">{{ row.name }}</span>
+                      <span class="insights-sub">{{ row.role }}</span>
+                    </td>
+                    <td>
+                      <span v-if="row.topTask" :class="{ 'cell-alert': isTaskOverdue(row.topTask) }">
+                        {{ row.topTask.title }}
+                      </span>
+                      <span v-else class="insights-muted">No open tasks</span>
+                    </td>
+                    <td class="date-cell">{{ formatTaskDue(row.topTask) }}</td>
+                    <td>
+                      <span v-if="row.topTask" class="priority-pill" :data-p="row.topTask.priority">
+                        {{ row.topTask.priority }}
+                      </span>
+                      <span v-else class="insights-muted">—</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="insights-footnote">
+                Sorted by overdue first, then due date, then priority — same logic as your dashboard focus list.
+              </p>
+            </div>
+          </template>
+        </section>
       </template>
     </template>
 
@@ -283,10 +333,13 @@ import { user } from '@/composables/session'
 import { avatarTone, getInitials } from '@/utils/ui'
 import {
   buildPerformanceRows,
+  buildTeamPriorityRows,
   buildTeamRoster,
   buildWorkloadRows,
   canUsePerformanceView,
+  canUseTeamPriorityInsights,
   canUseWorkloadView,
+  isTaskOverdue,
 } from '@/utils/taskInsights'
 
 const roleOptions = ['Member', 'Manager', 'Contractor', 'Client', 'Other']
@@ -335,10 +388,12 @@ const canAddMembers = computed(() => teamLimits.value?.can_add_members !== false
 
 const canWorkload = computed(() => canUseWorkloadView(teamLimits.value))
 const canPerformance = computed(() => canUsePerformanceView(teamLimits.value))
+const canTeamPriority = computed(() => canUseTeamPriorityInsights(teamLimits.value))
 
 const roster = computed(() => buildTeamRoster(contacts.value, employees.value))
 
 const workloadRows = computed(() => buildWorkloadRows(tasks.value, roster.value))
+const teamPriorityRows = computed(() => buildTeamPriorityRows(tasks.value, roster.value))
 
 const performanceRows = computed(() => buildPerformanceRows(tasks.value, roster.value, perfRange.value))
 
@@ -395,6 +450,11 @@ function formatDate(dateString) {
   if (!dateString) return ''
   const date = new Date(dateString)
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function formatTaskDue(task) {
+  if (!task?.due_date) return 'No due date'
+  return formatDate(task.due_date)
 }
 
 async function loadTeamLimits() {
@@ -768,6 +828,65 @@ onMounted(async () => {
 .insights-footnote {
   margin: 0.75rem 0 0;
   font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.priority-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.priority-heading {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 400;
+  margin: 0 0 0.75rem;
+}
+
+.priority-upsell {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.empty-panel.compact {
+  padding: 1.25rem;
+}
+
+.insights-muted {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.date-cell {
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.priority-pill {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+}
+
+.priority-pill[data-p='high'] {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.priority-pill[data-p='medium'] {
+  color: var(--color-accent);
+  border-color: rgba(196, 163, 90, 0.35);
+}
+
+.priority-pill[data-p='low'] {
   color: var(--color-text-muted);
 }
 </style>

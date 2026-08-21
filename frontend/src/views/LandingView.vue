@@ -46,14 +46,6 @@
 
       <div class="hero-inner">
 
-        <div class="badge" :class="{ visible: show.badge }">
-
-          {{ signedIn ? 'Plenvo AI · Your workspace' : 'Plenvo AI · Free for 14 days' }}
-
-        </div>
-
-
-
         <h1 class="hero-title" :class="{ visible: show.title }">
 
           <template v-if="signedIn">
@@ -66,9 +58,9 @@
 
           <template v-else>
 
-            Type your day.<br />
+            Say it.<br />
 
-            <em class="accent">We handle the rest.</em>
+            <em class="accent">Plenvo sorts it.</em>
 
           </template>
 
@@ -86,7 +78,7 @@
 
           <template v-else>
 
-            Paste meeting notes, personal todos, or a messy brain dump. Plenvo AI turns it into tasks, people, and deadlines — work and life in one place.
+            Meeting notes, personal tasks, team assignments — organized the moment you write them.
 
           </template>
 
@@ -142,7 +134,7 @@
 
           <span class="sep">·</span>
 
-          <span>✓ Used by engineers at SKAO, ESA projects</span>
+          <span>✓ Stop losing tasks in notes, chats & your head</span>
 
         </div>
 
@@ -792,7 +784,7 @@ const displayPlans = computed(() => [
 
       'Calendar view',
 
-      'AI priority recommendations',
+      'Smart task prioritization',
 
       'Mobile ready',
 
@@ -850,7 +842,7 @@ const displayPlans = computed(() => [
 
       'Performance reviews',
 
-      'Employee AI recommendations',
+      'Team priority insights',
 
       'Dedicated support',
 
@@ -868,7 +860,7 @@ const displayPlans = computed(() => [
 
 const show = reactive({
 
-  badge: false, title: false, sub: false,
+  title: false, sub: false,
 
   bullets: [false, false, false, false, false],
 
@@ -1000,9 +992,9 @@ onMounted(async () => {
 
   await loadBilling()
 
-  const delays = [100, 260, 420]
+  const delays = [100, 260]
 
-  const keys = ['badge', 'title', 'sub']
+  const keys = ['title', 'sub']
 
   keys.forEach((k, i) => setTimeout(() => { show[k] = true }, delays[i]))
 
