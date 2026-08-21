@@ -17,6 +17,8 @@ from app.schemas.training_token import (
     TrainingTokenStatusUpdate,
 )
 from app.services.assignment_service import (
+    _split_name,
+    assignment_list_item_fields,
     create_assignments,
     get_training_by_token,
     list_assignments_for_user,
@@ -33,27 +35,7 @@ def list_assignments(
     current_user: User = Depends(get_current_user),
 ) -> AssignmentListResponse:
     rows = list_assignments_for_user(db, current_user=current_user)
-    items = [
-        AssignmentListItem(
-            id=a.id,
-            training_id=a.training_id,
-            training_title=a.training.title,
-            training_description=a.training.description,
-            content_type=a.training.content_type,
-            youtube_video_id=a.training.youtube_video_id,
-            external_url=a.training.external_url,
-            storage_key=a.training.storage_key,
-            status=a.status,
-            started_at=a.started_at,
-            completed_at=a.completed_at,
-            due_date=a.due_date,
-            assignee_email=a.assignee.email,
-            assignee_full_name=a.assignee.full_name,
-            assigned_by_full_name=a.assigned_by.full_name,
-            created_at=a.created_at,
-        )
-        for a in rows
-    ]
+    items = [AssignmentListItem(**assignment_list_item_fields(a)) for a in rows]
     return AssignmentListResponse(items=items, total=len(items))
 
 
@@ -67,6 +49,8 @@ def create_assignment_batch(
         db,
         training_id=payload.training_id,
         assignee_emails=[str(e) for e in payload.assignee_emails],
+        assignee_user_ids=payload.assignee_user_ids,
+        assignee_contact_ids=payload.assignee_contact_ids,
         assigned_by_id=current_user.id,
         organisation_id=current_user.organisation_id,
     )
@@ -99,8 +83,16 @@ def update_assignment_progress_endpoint(
 def get_training_token_public(token: str, db: Session = Depends(get_db)) -> TrainingTokenPublicResponse:
     token_row, assignment = get_training_by_token(db, token)
     training = assignment.training
-    assignee = assignment.assignee
     assigned_by = assignment.assigned_by
+    if assignment.assignee is not None:
+        assignee_first_name = assignment.assignee.first_name
+        assignee_last_name = assignment.assignee.last_name
+        assignee_email = assignment.assignee.email
+    elif assignment.assignee_contact is not None:
+        assignee_first_name, assignee_last_name = _split_name(assignment.assignee_contact.name)
+        assignee_email = assignment.assignee_contact.email
+    else:
+        assignee_first_name, assignee_last_name, assignee_email = "Team", "Member", ""
     return TrainingTokenPublicResponse(
         assignment_id=assignment.id,
         status=assignment.status,
@@ -109,9 +101,9 @@ def get_training_token_public(token: str, db: Session = Depends(get_db)) -> Trai
         content_type=training.content_type,
         youtube_video_id=training.youtube_video_id,
         external_url=training.external_url,
-        assignee_first_name=assignee.first_name,
-        assignee_last_name=assignee.last_name,
-        assignee_email=assignee.email,
+        assignee_first_name=assignee_first_name,
+        assignee_last_name=assignee_last_name,
+        assignee_email=assignee_email,
         assigned_by_full_name=assigned_by.full_name,
         started_at=assignment.started_at,
         completed_at=assignment.completed_at,

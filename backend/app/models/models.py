@@ -139,6 +139,9 @@ class Contact(Base):
     tasks_assigned: Mapped[list[Task]] = relationship(
         back_populates="assignee_contact", foreign_keys="Task.assignee_contact_id"
     )
+    assignments_as_assignee: Mapped[list["Assignment"]] = relationship(
+        back_populates="assignee_contact", foreign_keys="Assignment.assignee_contact_id"
+    )
 
 
 class Project(Base):
@@ -261,11 +264,19 @@ class Training(Base):
 
 class Assignment(Base):
     __tablename__ = "assignments"
-    __table_args__ = (UniqueConstraint("training_id", "assignee_user_id", name="uq_assignments_training_assignee"),)
+    __table_args__ = (
+        UniqueConstraint("training_id", "assignee_user_id", name="uq_assignments_training_user"),
+        UniqueConstraint("training_id", "assignee_contact_id", name="uq_assignments_training_contact"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     training_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("trainings.id", ondelete="CASCADE"), nullable=False, index=True)
-    assignee_user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    assignee_user_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    assignee_contact_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("contacts.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     assigned_by_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="not_started")
@@ -278,7 +289,12 @@ class Assignment(Base):
     )
 
     training: Mapped[Training] = relationship(back_populates="assignments")
-    assignee: Mapped[User] = relationship(back_populates="assignments_as_assignee", foreign_keys=[assignee_user_id])
+    assignee: Mapped[User | None] = relationship(
+        back_populates="assignments_as_assignee", foreign_keys=[assignee_user_id]
+    )
+    assignee_contact: Mapped[Contact | None] = relationship(
+        back_populates="assignments_as_assignee", foreign_keys=[assignee_contact_id]
+    )
     assigned_by: Mapped[User] = relationship(back_populates="assignments_as_assigner", foreign_keys=[assigned_by_id])
     tokens: Mapped[list[TrainingToken]] = relationship(back_populates="assignment")
 

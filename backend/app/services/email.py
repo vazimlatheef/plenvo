@@ -49,6 +49,10 @@ def build_reset_password_url(token: str) -> str:
     return f"{FRONTEND_URL}/reset-password?token={quote(token, safe='')}"
 
 
+def build_training_magic_link_url(token: str) -> str:
+    return f"{FRONTEND_URL}/training/{quote(token, safe='')}"
+
+
 def build_unsubscribe_url(token: str) -> str:
     return f"{API_BASE_URL}/api/v1/email/unsubscribe?token={quote(token, safe='')}"
 
@@ -268,7 +272,7 @@ def send_training_magic_link_email(
     magic_url: str,
 ) -> bool:
     """Send employee a magic link to complete assigned training without logging in."""
-    subject = f"Training assigned: {training_title}"
+    subject = f"{assigned_by_name} assigned you: {training_title}"
     body_html = f"""
       <p style="margin:0 0 14px;">Hello {_esc(employee_name)},</p>
       <p style="margin:0 0 14px;">

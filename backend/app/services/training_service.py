@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models import Assignment, Training
 from app.schemas.training import TrainingAssignmentRow, TrainingCreate, TrainingSummary, TrainingUpdate
+from app.services.assignment_service import _assignment_assignee_email, _assignment_assignee_name
 
 
 def _validate_training_content(t: Training) -> None:
@@ -108,15 +109,18 @@ def get_training_assignment_summary(db: Session, training_id: int, *, organisati
     assign_rows = list(
         db.scalars(
             select(Assignment)
-            .options(joinedload(Assignment.assignee))
+            .options(
+                joinedload(Assignment.assignee),
+                joinedload(Assignment.assignee_contact),
+            )
             .where(Assignment.training_id == training_id)
         ).all()
     )
-    assign_rows.sort(key=lambda a: (a.assignee.first_name.lower(), a.assignee.last_name.lower()))
+    assign_rows.sort(key=lambda a: _assignment_assignee_name(a).lower())
     detail_rows = [
         TrainingAssignmentRow(
-            assignee_full_name=a.assignee.full_name,
-            assignee_email=a.assignee.email,
+            assignee_full_name=_assignment_assignee_name(a),
+            assignee_email=_assignment_assignee_email(a),
             status=a.status,
             started_at=a.started_at,
             completed_at=a.completed_at,

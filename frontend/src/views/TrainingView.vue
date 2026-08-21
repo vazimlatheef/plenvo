@@ -33,6 +33,13 @@
           Status: <span class="pill">{{ statusLabel }}</span>
         </p>
 
+        <p v-if="postActionPrompt" class="post-action-prompt" role="status">
+          Marked as {{ postActionPrompt }}.
+          <RouterLink to="/signup" class="post-action-prompt__link">
+            Create a free Plenvo account to keep a record of your training and tasks →
+          </RouterLink>
+        </p>
+
         <div v-if="!done" class="actions">
           <button
             type="button"
@@ -52,11 +59,6 @@
           </button>
         </div>
         <p v-else class="success">✓ Training complete. Thank you!</p>
-
-        <div class="cta-box">
-          <p>Manage all your work in Plenvo — 1 month free →</p>
-          <RouterLink to="/signup" class="btn-cta">Start for free →</RouterLink>
-        </div>
       </template>
     </div>
   </div>
@@ -75,6 +77,12 @@ const error = ref('')
 const data = ref(null)
 const busy = ref(false)
 const done = ref(false)
+const postActionPrompt = ref('')
+
+const STATUS_PROMPT_LABELS = {
+  in_progress: 'in progress',
+  completed: 'complete',
+}
 
 const youtubeId = computed(() =>
   data.value?.youtube_video_id ? extractYoutubeId(data.value.youtube_video_id) : null
@@ -108,6 +116,7 @@ async function setStatus(status) {
     })
     data.value = { ...data.value, status: res.status, started_at: res.started_at, completed_at: res.completed_at }
     if (res.status === 'completed') done.value = true
+    postActionPrompt.value = STATUS_PROMPT_LABELS[res.status] || res.status.replaceAll('_', ' ')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Could not save progress'
   } finally {
@@ -153,6 +162,28 @@ onMounted(load)
   height: 32px;
   width: auto;
   max-width: 148px;
+}
+
+.post-action-prompt {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  background: rgba(196, 163, 90, 0.08);
+  border: 1px solid rgba(196, 163, 90, 0.22);
+  border-radius: 8px;
+}
+
+.post-action-prompt__link {
+  display: inline;
+  color: var(--color-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.post-action-prompt__link:hover {
+  text-decoration: underline;
 }
 
 .eyebrow {
@@ -259,30 +290,6 @@ h1 {
 .success {
   color: #4ade80;
   margin-bottom: 1.5rem;
-}
-
-.cta-box {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--color-border);
-  text-align: center;
-}
-
-.cta-box p {
-  margin: 0 0 0.75rem;
-  color: var(--color-text-muted);
-  font-size: 0.9rem;
-}
-
-.btn-cta {
-  display: inline-block;
-  padding: 0.65rem 1.25rem;
-  border-radius: 999px;
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  text-decoration: none;
-  font-weight: 600;
-  border: 1px solid var(--color-border);
 }
 
 .muted {
