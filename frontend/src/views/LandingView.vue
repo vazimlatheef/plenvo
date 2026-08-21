@@ -332,11 +332,16 @@
 
     <!-- PRICING -->
 
-    <section v-if="!signedIn" class="pricing-section" ref="pricingRef">
+    <section v-if="showPublicPricing" class="pricing-section" ref="pricingRef">
 
       <div class="section-inner">
 
         <p class="section-eyebrow">Pricing</p>
+
+        <p v-if="signedIn && billing?.on_trial" class="pricing-trial-note">
+          You're on a free trial{{ trialDaysLeft != null ? ` — ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left` : '' }}.
+          Pick a plan below{{ canManageBilling ? '' : ' (ask your admin to upgrade)' }}.
+        </p>
 
         <h2 class="section-heading" :class="{ visible: show.pricing }">
 
@@ -372,10 +377,18 @@
 
             </ul>
 
-            <RouterLink v-if="plan.cta === 'trial'" to="/signup" :class="plan.featured ? 'btn-primary full' : 'btn-outline full'">
+            <RouterLink
+              v-if="plan.cta === 'trial' && pricingPlanCta"
+              :to="pricingPlanCta.to"
+              :class="plan.featured ? 'btn-primary full' : 'btn-outline full'"
+            >
+              {{ pricingPlanCta.label }}
+            </RouterLink>
 
+            <span v-else-if="plan.cta === 'trial' && signedIn" class="plan-note">Ask your admin to upgrade in Account</span>
+
+            <RouterLink v-else-if="plan.cta === 'trial'" to="/signup" :class="plan.featured ? 'btn-primary full' : 'btn-outline full'">
               Start for free →
-
             </RouterLink>
 
             <a v-else href="mailto:hi@plenvo.io" :class="plan.featured ? 'btn-primary full' : 'btn-outline full'">
@@ -400,7 +413,7 @@
 
     <!-- FINAL CTA -->
 
-    <section v-if="signedIn" class="final-cta" ref="ctaRef">
+    <section v-if="signedIn && !showPublicPricing" class="final-cta" ref="ctaRefPaid">
 
       <div class="cta-inner" :class="{ visible: show.finalCta }">
 
@@ -420,7 +433,29 @@
 
     </section>
 
-    <section v-else class="final-cta" ref="ctaRef">
+    <section v-else-if="signedIn && showPublicPricing" class="final-cta" ref="ctaRefTrial">
+
+      <div class="cta-inner" :class="{ visible: show.finalCta }">
+
+        <h2>Your trial is active.</h2>
+
+        <p>Explore Plenvo AI and your workspace — choose a plan when you're ready.</p>
+
+        <div class="cta-row">
+
+          <RouterLink v-if="canManageBilling" to="/app/account" class="btn-primary large">Upgrade in Account →</RouterLink>
+
+          <RouterLink v-if="user?.role === 'admin'" to="/app/admin/ai-terminal" class="btn-ghost large">Open Plenvo AI →</RouterLink>
+
+          <RouterLink :to="workspaceTo" class="btn-ghost large">Open workspace →</RouterLink>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <section v-else class="final-cta" ref="ctaRefSignup">
 
       <div class="cta-inner" :class="{ visible: show.finalCta }">
 
@@ -494,8 +529,9 @@
 
 <script setup>
 
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 
+import { apiJson } from '@/api/client'
 import SiteAccountMenu from '@/components/SiteAccountMenu.vue'
 import { appHomeRoute, loadSessionUser, user } from '@/composables/session'
 import { useCurrency } from '@/composables/useCurrency'
@@ -507,9 +543,26 @@ const { symbol, currencyLabel, personalPrice, teamPrice, enterprisePrice } = use
 const signedIn = computed(() => !!user.value)
 const firstName = computed(() => user.value?.first_name || 'there')
 const workspaceTo = computed(() => appHomeRoute())
-const aiRoute = computed(() =>
-  user.value?.role === 'admin' ? '/app/admin/ai-terminal' : '/app/tasks',
-)
+
+const billing = ref(null)
+const billingLoaded = ref(false)
+
+const hasPaidSubscription = computed(() => Boolean(billing.value?.has_paid_subscription))
+
+/** Show public pricing: logged out, on trial, or trial expired — hide for active paid subs. */
+const showPublicPricing = computed(() => {
+  if (!signedIn.value) return true
+  if (!billingLoaded.value) return false
+  return !hasPaidSubscription.value
+})
+
+const canManageBilling = computed(() => Boolean(billing.value?.can_manage_billing))
+
+const pricingPlanCta = computed(() => {
+  if (!signedIn.value) return { to: '/signup', label: 'Start for free →' }
+  if (canManageBilling.value) return { to: '/app/account', label: 'Choose plan →' }
+  return null
+})
 
 
 
@@ -521,7 +574,11 @@ const secRef = ref(null)
 
 const pricingRef = ref(null)
 
-const ctaRef = ref(null)
+const ctaRefPaid = ref(null)
+
+const ctaRefTrial = ref(null)
+
+const ctaRefSignup = ref(null)
 
 
 
@@ -584,6 +641,56 @@ const signedInBullets = [
 ]
 
 const displayBullets = computed(() => (signedIn.value ? signedInBullets : bullets.value))
+
+const trialDaysLeft = computed(() => {
+  const iso = billing.value?.trial_ends_at
+  if (!iso) return null
+  const end = new Date(iso)
+  if (Number.isNaN(end.getTime())) return null
+  const days = Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  return Math.max(0, days)
+})
+
+async function loadBilling() {
+  if (!signedIn.value) {
+    billing.value = null
+    billingLoaded.value = true
+    return
+  }
+  billingLoaded.value = false
+  try {
+    billing.value = await apiJson('/api/v1/billing/account')
+  } catch {
+    billing.value = null
+  } finally {
+    billingLoaded.value = true
+  }
+}
+
+function revealPricingSection() {
+  if (!showPublicPricing.value) {
+    show.pricing = false
+    return
+  }
+  nextTick(() => {
+    show.pricing = true
+    const el = pricingRef.value
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    if (rect.top >= window.innerHeight || rect.bottom <= 0) {
+      observe(el, 'pricing')
+    }
+  })
+}
+
+watch(showPublicPricing, () => {
+  revealPricingSection()
+})
+
+watch(signedIn, async () => {
+  await loadBilling()
+  revealPricingSection()
+})
 
 
 
@@ -693,8 +800,6 @@ const displayPlans = computed(() => [
 
     cta: 'trial',
 
-    note: '14 days free · No card required',
-
     featured: false,
 
   },
@@ -725,8 +830,6 @@ const displayPlans = computed(() => [
 
     cta: 'trial',
 
-    note: '14 days free · No card required',
-
     featured: true,
 
   },
@@ -749,15 +852,11 @@ const displayPlans = computed(() => [
 
       'Employee AI recommendations',
 
-      'API access',
-
       'Dedicated support',
 
     ],
 
     cta: 'trial',
-
-    note: '14 days free · No card required',
 
     featured: false,
 
@@ -899,6 +998,8 @@ onMounted(async () => {
 
   await loadSessionUser()
 
+  await loadBilling()
+
   const delays = [100, 260, 420]
 
   const keys = ['badge', 'title', 'sub']
@@ -925,9 +1026,11 @@ onMounted(async () => {
 
   observe(secRef.value, 'security')
 
-  if (pricingRef.value) observe(pricingRef.value, 'pricing')
+  revealPricingSection()
 
-  observe(ctaRef.value, 'finalCta')
+  const ctaEl = ctaRefPaid.value || ctaRefTrial.value || ctaRefSignup.value
+
+  if (ctaEl) observe(ctaEl, 'finalCta')
 
 })
 
@@ -1453,6 +1556,15 @@ onMounted(async () => {
 /* PRICING */
 
 .pricing-section { padding: 6rem 1.5rem; }
+
+.pricing-trial-note {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--color-accent);
+  margin: -0.5rem auto 1.5rem;
+  max-width: 520px;
+  line-height: 1.55;
+}
 
 .pricing-grid {
 

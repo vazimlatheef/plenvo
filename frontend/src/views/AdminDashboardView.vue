@@ -19,6 +19,45 @@
 
     <section class="section">
       <div class="section-header">
+        <h2>Recommended focus</h2>
+        <RouterLink to="/app/tasks" class="link-button">
+          View all tasks
+          <ArrowRight :size="14" :stroke-width="1.75" />
+        </RouterLink>
+      </div>
+      <div v-if="loadingFocus" class="loading-state">Loading tasks…</div>
+      <div v-else-if="focusTasks.length === 0" class="empty-state">
+        <p>No open tasks assigned to you. <RouterLink to="/app/tasks">Browse tasks</RouterLink></p>
+      </div>
+      <div v-else class="tasks-list">
+        <div
+          v-for="task in focusTasks"
+          :key="task.id"
+          class="task-item"
+          :class="{ overdue: isFocusOverdue(task) }"
+        >
+          <div class="task-info">
+            <h4>{{ task.title }}</h4>
+            <div class="task-meta">
+              <span v-if="task.due_date" class="meta-text">
+                <Calendar :size="13" :stroke-width="1.75" />
+                Due {{ formatDueDate(task.due_date) }}
+              </span>
+              <span v-else class="meta-text">No due date</span>
+            </div>
+          </div>
+          <div class="task-side">
+            <span class="priority-badge" :class="task.priority">
+              <component :is="priorityIcon(task.priority)" :size="12" :stroke-width="2" />
+              {{ task.priority }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
         <h2>Recent Projects</h2>
         <RouterLink to="/app/projects" class="link-button">
           View all
@@ -140,6 +179,7 @@ import { useRouter } from 'vue-router'
 import { apiJson } from '@/api/client'
 import { getToken } from '@/services/auth'
 import { user } from '@/composables/session'
+import { focusTasksForUser, isTaskOverdue } from '@/utils/taskInsights'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -154,12 +194,14 @@ const stats = ref({
 })
 
 const recentProjects = ref([])
+const allTasks = ref([])
 const overdueTasks = ref([])
 const recentEmployees = ref([])
 const employees = ref([])
 const contacts = ref([])
 
 const loadingProjects = ref(true)
+const loadingFocus = ref(true)
 const loadingTeam = ref(true)
 
 const userName = computed(() => user.value?.first_name || 'there')
@@ -176,6 +218,11 @@ const statCards = computed(() => [
   { label: 'Team Members', value: stats.value.employees, icon: Users, alert: false },
   { label: 'Overdue Tasks', value: stats.value.overdue, icon: AlertTriangle, alert: stats.value.overdue > 0 },
 ])
+
+const focusTasks = computed(() => {
+  const myContact = contacts.value.find((c) => c.user_id === user.value?.id)
+  return focusTasksForUser(allTasks.value, user.value?.id, myContact?.id ?? null, 3)
+})
 
 function priorityIcon(priority) {
   if (priority === 'high') return ArrowUp
@@ -204,14 +251,19 @@ async function fetchDashboardData() {
       headers: { Authorization: `Bearer ${token}` },
     })
     const tasks = tasksRes.data
+    allTasks.value = tasks
     stats.value.tasks = tasks.length
     const now = new Date()
     overdueTasks.value = tasks
       .filter((t) => t.due_date && new Date(t.due_date) < now && t.status !== 'completed')
       .slice(0, 5)
-    stats.value.overdue = overdueTasks.value.length
+    stats.value.overdue = tasks.filter(
+      (t) => t.due_date && new Date(t.due_date) < now && t.status !== 'completed',
+    ).length
   } catch (err) {
     console.error('Failed to load tasks:', err)
+  } finally {
+    loadingFocus.value = false
   }
 
   try {
@@ -305,6 +357,15 @@ function formatDate(dateString) {
   if (diffDays === 0) return 'today'
   if (diffDays === 1) return 'yesterday'
   return `${diffDays} days ago`
+}
+
+function formatDueDate(dateString) {
+  if (!dateString) return ''
+  return new Date(dateString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+function isFocusOverdue(task) {
+  return isTaskOverdue(task)
 }
 
 onMounted(fetchDashboardData)

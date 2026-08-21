@@ -19,53 +19,180 @@
       <RouterLink to="/app/account" class="inline-upgrade">Open Account</RouterLink>
     </p>
 
-    <p v-if="loading" class="muted-line">Loading team…</p>
-    <p v-else-if="error" class="error-line">{{ error }}</p>
-
-    <div v-else-if="rows.length === 0" class="empty-panel">
-      <p>No team members yet — add someone with name and email (no account needed)</p>
-      <button type="button" class="btn-primary" :disabled="!canAddMembers" @click="openAddModal">
-        <Plus :size="16" :stroke-width="2" />
-        Add team member
+    <div class="team-tabs" role="tablist" aria-label="Team sections">
+      <button
+        type="button"
+        role="tab"
+        :class="['team-tab', { active: activeTab === 'members' }]"
+        :aria-selected="activeTab === 'members'"
+        @click="activeTab = 'members'"
+      >
+        Members
       </button>
-      <p v-if="!canAddMembers && teamLimits.limit_message" class="error-line" style="margin-top: 0.75rem">
-        {{ teamLimits.limit_message }}
-      </p>
+      <button
+        type="button"
+        role="tab"
+        :class="['team-tab', { active: activeTab === 'workload' }]"
+        :aria-selected="activeTab === 'workload'"
+        @click="activeTab = 'workload'"
+      >
+        Workload
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :class="['team-tab', { active: activeTab === 'performance' }]"
+        :aria-selected="activeTab === 'performance'"
+        @click="activeTab = 'performance'"
+      >
+        Performance
+      </button>
     </div>
 
-    <ul v-else class="dense-list">
-      <li v-for="row in rows" :key="row.key" class="dense-row team-row">
-        <span
-          class="avatar avatar--lg"
-          :class="`avatar-tone-${avatarTone(row.seed)}`"
-        >
-          {{ getInitials(row.name) }}
-        </span>
-        <div class="dense-row__meta team-meta">
-          <span class="dense-row__title">{{ row.name }}</span>
-          <span class="team-sub">
-            {{ row.role }}{{ row.company ? ` · ${row.company}` : '' }} · {{ row.email }}
+    <template v-if="activeTab === 'members'">
+      <p v-if="loading" class="muted-line">Loading team…</p>
+      <p v-else-if="error" class="error-line">{{ error }}</p>
+
+      <div v-else-if="rows.length === 0" class="empty-panel">
+        <p>No team members yet — add someone with name and email (no account needed)</p>
+        <button type="button" class="btn-primary" :disabled="!canAddMembers" @click="openAddModal">
+          <Plus :size="16" :stroke-width="2" />
+          Add team member
+        </button>
+        <p v-if="!canAddMembers && teamLimits.limit_message" class="error-line" style="margin-top: 0.75rem">
+          {{ teamLimits.limit_message }}
+        </p>
+      </div>
+
+      <ul v-else class="dense-list">
+        <li v-for="row in rows" :key="row.key" class="dense-row team-row">
+          <span class="avatar avatar--lg" :class="`avatar-tone-${avatarTone(row.seed)}`">
+            {{ getInitials(row.name) }}
           </span>
+          <div class="dense-row__meta team-meta">
+            <span class="dense-row__title">{{ row.name }}</span>
+            <span class="team-sub">
+              {{ row.role }}{{ row.company ? ` · ${row.company}` : '' }} · {{ row.email }}
+            </span>
+          </div>
+          <div class="team-actions">
+            <span v-if="row.hasAccount" class="team-badge">On Plenvo</span>
+            <template v-else-if="row.contactId">
+              <button
+                type="button"
+                class="btn-outline btn-sm"
+                :disabled="invitingId === row.contactId"
+                @click="inviteContact(row)"
+              >
+                {{ invitingId === row.contactId ? 'Sending…' : 'Invite to Plenvo' }}
+              </button>
+            </template>
+            <span class="dense-row__due">{{ row.meta }}</span>
+          </div>
+        </li>
+      </ul>
+
+      <p v-if="actionError" class="error-line">{{ actionError }}</p>
+      <p v-if="actionSuccess" class="success-line">{{ actionSuccess }}</p>
+    </template>
+
+    <template v-else-if="activeTab === 'workload'">
+      <div v-if="!canWorkload" class="plan-gate">
+        <h2>Member workload view</h2>
+        <p class="app-lede">See open, overdue, and completed tasks per team member on Team and Enterprise plans.</p>
+        <RouterLink to="/app/account" class="btn-primary">Upgrade plan →</RouterLink>
+      </div>
+      <template v-else>
+        <p v-if="insightsLoading" class="muted-line">Loading workload…</p>
+        <p v-else-if="insightsError" class="error-line">{{ insightsError }}</p>
+        <div v-else-if="workloadRows.length === 0" class="empty-panel">
+          <p>Add team members to see workload breakdowns.</p>
         </div>
-        <div class="team-actions">
-          <span v-if="row.hasAccount" class="team-badge">On Plenvo</span>
-          <template v-else-if="row.contactId">
+        <div v-else class="insights-table-wrap">
+          <table class="insights-table">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Open</th>
+                <th>Overdue</th>
+                <th>Completed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in workloadRows" :key="row.key">
+                <td>
+                  <span class="insights-name">{{ row.name }}</span>
+                  <span class="insights-sub">{{ row.role }}</span>
+                </td>
+                <td>{{ row.stats.open }}</td>
+                <td :class="{ 'cell-alert': row.stats.overdue > 0 }">{{ row.stats.overdue }}</td>
+                <td>{{ row.stats.completed }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+    </template>
+
+    <template v-else-if="activeTab === 'performance'">
+      <div v-if="!canPerformance" class="plan-gate">
+        <h2>Performance summary</h2>
+        <p class="app-lede">Review-style task breakdowns by person — available on Enterprise.</p>
+        <RouterLink to="/app/account" class="btn-primary">Upgrade to Enterprise →</RouterLink>
+      </div>
+      <template v-else>
+        <div class="perf-toolbar">
+          <span class="perf-label">Period</span>
+          <div class="perf-filters">
             <button
               type="button"
-              class="btn-outline btn-sm"
-              :disabled="invitingId === row.contactId"
-              @click="inviteContact(row)"
+              :class="['filter-chip', { active: perfRange === 'week' }]"
+              @click="perfRange = 'week'"
             >
-              {{ invitingId === row.contactId ? 'Sending…' : 'Invite to Plenvo' }}
+              This week
             </button>
-          </template>
-          <span class="dense-row__due">{{ row.meta }}</span>
+            <button
+              type="button"
+              :class="['filter-chip', { active: perfRange === 'month' }]"
+              @click="perfRange = 'month'"
+            >
+              This month
+            </button>
+          </div>
         </div>
-      </li>
-    </ul>
-
-    <p v-if="actionError" class="error-line">{{ actionError }}</p>
-    <p v-if="actionSuccess" class="success-line">{{ actionSuccess }}</p>
+        <p v-if="insightsLoading" class="muted-line">Loading performance summary…</p>
+        <p v-else-if="insightsError" class="error-line">{{ insightsError }}</p>
+        <div v-else-if="performanceRows.length === 0" class="empty-panel">
+          <p>Add team members to build a performance summary.</p>
+        </div>
+        <div v-else class="insights-table-wrap">
+          <table class="insights-table">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Completed</th>
+                <th>Overdue</th>
+                <th>Assigned (open)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in performanceRows" :key="row.key">
+                <td>
+                  <span class="insights-name">{{ row.name }}</span>
+                  <span class="insights-sub">{{ row.role }}</span>
+                </td>
+                <td>{{ row.stats.completedInPeriod }}</td>
+                <td :class="{ 'cell-alert': row.stats.overdueNow > 0 }">{{ row.stats.overdueNow }}</td>
+                <td>{{ row.stats.assignedOpen }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="insights-footnote">
+            Completed counts tasks marked done in the selected period. Overdue and assigned reflect today.
+          </p>
+        </div>
+      </template>
+    </template>
 
     <div v-if="showAddModal" class="modal-overlay" @click.self="cancelAdd">
       <div class="modal-panel">
@@ -149,11 +276,18 @@
 
 <script setup>
 import { Plus, X } from '@lucide/vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { apiJson } from '@/api/client'
 import { user } from '@/composables/session'
 import { avatarTone, getInitials } from '@/utils/ui'
+import {
+  buildPerformanceRows,
+  buildTeamRoster,
+  buildWorkloadRows,
+  canUsePerformanceView,
+  canUseWorkloadView,
+} from '@/utils/taskInsights'
 
 const roleOptions = ['Member', 'Manager', 'Contractor', 'Client', 'Other']
 
@@ -176,7 +310,14 @@ const teamLimits = ref({
   member_limit: null,
   member_count: 0,
   plan_tier: 'team',
+  on_trial: false,
 })
+
+const activeTab = ref('members')
+const tasks = ref([])
+const insightsLoading = ref(false)
+const insightsError = ref('')
+const perfRange = ref('week')
 
 const showAddModal = ref(false)
 const form = ref({ name: '', email: '', role: 'Member', company: '', linkedin_url: '' })
@@ -191,6 +332,15 @@ const formLinkedInError = computed(() => {
 })
 
 const canAddMembers = computed(() => teamLimits.value?.can_add_members !== false)
+
+const canWorkload = computed(() => canUseWorkloadView(teamLimits.value))
+const canPerformance = computed(() => canUsePerformanceView(teamLimits.value))
+
+const roster = computed(() => buildTeamRoster(contacts.value, employees.value))
+
+const workloadRows = computed(() => buildWorkloadRows(tasks.value, roster.value))
+
+const performanceRows = computed(() => buildPerformanceRows(tasks.value, roster.value, perfRange.value))
 
 const invitingId = ref(null)
 const showTeamSizeModal = ref(false)
@@ -255,6 +405,39 @@ async function loadTeamLimits() {
     console.error('[AdminTeam] failed to load team limits', err)
   }
 }
+
+async function loadTaskInsights() {
+  if (!canWorkload.value && !canPerformance.value) return
+  insightsLoading.value = true
+  insightsError.value = ''
+  try {
+    const data = await apiJson('/api/v1/tasks')
+    tasks.value = Array.isArray(data) ? data : []
+  } catch (err) {
+    console.error('[AdminTeam] task insights failed', err)
+    insightsError.value = err.message || 'Failed to load task data'
+    tasks.value = []
+  } finally {
+    insightsLoading.value = false
+  }
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'workload' && canWorkload.value && tasks.value.length === 0 && !insightsLoading.value) {
+    loadTaskInsights()
+  }
+  if (tab === 'performance' && canPerformance.value && tasks.value.length === 0 && !insightsLoading.value) {
+    loadTaskInsights()
+  }
+})
+
+watch(canWorkload, (allowed) => {
+  if (allowed && activeTab.value === 'workload' && tasks.value.length === 0) loadTaskInsights()
+})
+
+watch(canPerformance, (allowed) => {
+  if (allowed && activeTab.value === 'performance' && tasks.value.length === 0) loadTaskInsights()
+})
 
 async function loadTeam() {
   try {
@@ -381,7 +564,12 @@ async function sendInvite(contactId, teamSize = null) {
   }
 }
 
-onMounted(loadTeam)
+onMounted(async () => {
+  await loadTeam()
+  if (canWorkload.value || canPerformance.value) {
+    await loadTaskInsights()
+  }
+})
 </script>
 
 <style scoped>
@@ -454,5 +642,132 @@ onMounted(loadTeam)
 
 .inline-upgrade:hover {
   filter: brightness(1.1);
+}
+
+.team-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.team-tab {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.team-tab.active {
+  border-color: rgba(196, 163, 90, 0.45);
+  background: rgba(196, 163, 90, 0.12);
+  color: var(--color-accent);
+}
+
+.plan-gate {
+  padding: 2rem 1.5rem;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  text-align: center;
+  max-width: 420px;
+}
+
+.plan-gate h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  margin: 0 0 0.5rem;
+}
+
+.insights-table-wrap {
+  overflow-x: auto;
+}
+
+.insights-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.insights-table th,
+.insights-table td {
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.insights-table th {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.insights-name {
+  display: block;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.insights-sub {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.cell-alert {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.perf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.perf-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.perf-filters {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.filter-chip {
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.filter-chip.active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: rgba(196, 163, 90, 0.1);
+}
+
+.insights-footnote {
+  margin: 0.75rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 </style>

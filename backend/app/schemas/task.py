@@ -52,4 +52,5 @@ class TaskResponse(BaseModel):
     assignee_id: Optional[int]
     assignee_contact_id: Optional[int] = None
     organisation_id: int
+    completed_at: Optional[datetime] = None
     created_at: datetime
