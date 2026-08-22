@@ -101,6 +101,24 @@
         </div>
       </section>
 
+      <section class="profile-section">
+        <h2>Notifications</h2>
+        <p class="section-lede">Control which emails Plenvo sends you.</p>
+        <label class="toggle-row">
+          <input
+            v-model="form.overdue_email_enabled"
+            type="checkbox"
+            :disabled="savingOverduePref"
+            @change="saveOverduePref"
+          />
+          <span class="toggle-label">
+            Email me when my tasks are overdue
+            <span class="toggle-hint">One email per task when it first becomes overdue.</span>
+          </span>
+        </label>
+        <p v-if="overduePrefError" class="error-line">{{ overduePrefError }}</p>
+      </section>
+
       <p v-if="saveError" class="error-line">{{ saveError }}</p>
       <p v-if="saveSuccess" class="success-line">{{ saveSuccess }}</p>
 
@@ -127,6 +145,8 @@ const E164_RE = /^\+[1-9]\d{6,14}$/
 const loading = ref(true)
 const loadError = ref('')
 const saving = ref(false)
+const savingOverduePref = ref(false)
+const overduePrefError = ref('')
 const saveError = ref('')
 const saveSuccess = ref('')
 
@@ -143,6 +163,7 @@ const form = reactive({
   company_name: '',
   phone: '',
   linkedin_url: '',
+  overdue_email_enabled: true,
 })
 
 const errors = reactive({
@@ -205,6 +226,7 @@ function applyUser(u) {
   phoneTouched.value = false
   errors.phone = ''
   form.linkedin_url = u.linkedin_url || ''
+  form.overdue_email_enabled = u.overdue_email_enabled !== false
 }
 
 function validateField(field) {
@@ -249,6 +271,25 @@ async function loadProfile() {
     loadError.value = err.message || 'Failed to load profile'
   } finally {
     loading.value = false
+  }
+}
+
+async function saveOverduePref() {
+  overduePrefError.value = ''
+  savingOverduePref.value = true
+  try {
+    const updated = await apiJson('/api/v1/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ overdue_email_enabled: form.overdue_email_enabled }),
+    })
+    applyUser(updated)
+    if (user.value) user.value = { ...user.value, ...updated }
+  } catch (err) {
+    console.error('[Profile] overdue pref save failed', err)
+    overduePrefError.value = err.message || 'Failed to save notification preference'
+    form.overdue_email_enabled = !form.overdue_email_enabled
+  } finally {
+    savingOverduePref.value = false
   }
 }
 
@@ -459,5 +500,32 @@ onMounted(loadProfile)
 
 .phone-field :deep(.vti__input::placeholder) {
   color: var(--color-text-muted);
+}
+
+.toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  cursor: pointer;
+  font-size: 0.92rem;
+  color: var(--color-text);
+}
+
+.toggle-row input {
+  margin-top: 0.2rem;
+  accent-color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.toggle-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.toggle-hint {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-weight: 400;
 }
 </style>

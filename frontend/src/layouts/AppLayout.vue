@@ -23,12 +23,13 @@
 
 <script setup>
 import { Menu } from '@lucide/vue'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import AdminSidebar from '@/components/AdminSidebar.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import { user } from '@/composables/session'
+import { maybeCheckOverdueTasks } from '@/services/overdueNotifications'
 
 const route = useRoute()
 const sidebarOpen = ref(false)
@@ -43,6 +44,10 @@ watch(
     sidebarOpen.value = false
   },
 )
+
+onMounted(() => {
+  maybeCheckOverdueTasks()
+})
 </script>
 
 <style scoped>

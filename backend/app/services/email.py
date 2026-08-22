@@ -53,6 +53,10 @@ def build_training_magic_link_url(token: str) -> str:
     return f"{FRONTEND_URL}/training/{quote(token, safe='')}"
 
 
+def build_my_tasks_url() -> str:
+    return f"{FRONTEND_URL}/app/tasks"
+
+
 def build_unsubscribe_url(token: str) -> str:
     return f"{API_BASE_URL}/api/v1/email/unsubscribe?token={quote(token, safe='')}"
 
@@ -316,6 +320,47 @@ def send_manager_training_complete_email(
         f"{_footer_text()}"
     )
     return _send_email(to_email, manager_name, subject, plain_text, html_content)
+
+
+def send_overdue_tasks_email(
+    to_email: str,
+    user_name: str,
+    tasks: list,
+) -> bool:
+    """Notify assignee about tasks that just became overdue (one email per batch)."""
+    count = len(tasks)
+    if count == 0:
+        return False
+
+    noun = "task" if count == 1 else "tasks"
+    subject = f"You have {count} overdue {noun}"
+    tasks_url = build_my_tasks_url()
+
+    rows_html = []
+    rows_text = []
+    for task in tasks:
+        title = getattr(task, "title", "Task")
+        due = task.due_date.strftime("%d %b %Y") if getattr(task, "due_date", None) else "No due date"
+        rows_html.append(
+            f'<li style="margin:0 0 8px;"><strong>{_esc(title)}</strong> — due {_esc(due)}</li>'
+        )
+        rows_text.append(f"- {title} (due {due})")
+
+    body_html = f"""
+      <p style="margin:0 0 14px;">Hello {_esc(user_name)},</p>
+      <p style="margin:0 0 14px;">You have {count} overdue {noun}:</p>
+      <ul style="margin:0 0 14px;padding-left:20px;">{''.join(rows_html)}</ul>
+      {_cta_button(tasks_url, "Open My Tasks")}
+    """
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
+    plain_text = (
+        f"Hello {user_name},\n\n"
+        f"You have {count} overdue {noun}:\n\n"
+        f"{chr(10).join(rows_text)}\n\n"
+        f"Open My Tasks: {tasks_url}\n\n"
+        f"{_footer_text()}"
+    )
+    return _send_email(to_email, user_name, subject, plain_text, html_content)
 
 
 def _send_email(to_email: str, name: str, subject: str, plain_text: str, html_content: str) -> bool:

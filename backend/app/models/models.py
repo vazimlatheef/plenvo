@@ -67,6 +67,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=true())
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
     do_not_email: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+    overdue_email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=true())
     email_unsubscribe_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
     verification_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
     verification_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -194,6 +195,7 @@ class Task(Base):
         BigInteger, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    overdue_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False

@@ -1,5 +1,6 @@
 import { apiJson } from '@/api/client'
 import { ACCESS_TOKEN_KEY } from '@/constants'
+import { maybeCheckOverdueTasks } from '@/services/overdueNotifications'
 
 export function getToken() {
   return localStorage.getItem(ACCESS_TOKEN_KEY)
@@ -33,7 +34,9 @@ export async function login(email, password) {
     throw new Error('Invalid login response')
   }
   setToken(data.access_token)
-  return fetchMe()
+  const me = await fetchMe()
+  maybeCheckOverdueTasks()
+  return me
 }
 
 export function logout() {

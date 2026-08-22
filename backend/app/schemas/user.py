@@ -36,6 +36,7 @@ class UserUpdate(BaseModel):
     country: str | None = None
     team_size: str | None = None
     timezone: str | None = None
+    overdue_email_enabled: bool | None = None
 
     @field_validator("job_title", "company_name", "position", mode="before")
     @classmethod
@@ -85,6 +86,7 @@ class UserPublic(BaseModel):
     organisation_id: int | None = None
     is_active: bool
     is_verified: bool = False
+    overdue_email_enabled: bool = True
     created_at: datetime
     updated_at: datetime
 

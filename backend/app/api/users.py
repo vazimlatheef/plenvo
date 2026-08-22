@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -7,9 +8,14 @@ from app.core.security import hash_password
 from app.models import User
 from app.models.models import Organisation
 from app.schemas.user import UserCreate, UserPublic, UserUpdate
+from app.services.overdue_notifications import check_and_send_overdue_notifications
 from app.services.plan_limits import assert_can_add_team_members
 
 router = APIRouter(tags=["users"])
+
+
+class OverdueCheckResponse(BaseModel):
+    notified: int
 
 
 @router.get("/me", response_model=UserPublic)
@@ -49,11 +55,23 @@ def update_me(
         current_user.team_size = data["team_size"]
     if "timezone" in data:
         current_user.timezone = data["timezone"]
+    if "overdue_email_enabled" in data and data["overdue_email_enabled"] is not None:
+        current_user.overdue_email_enabled = bool(data["overdue_email_enabled"])
 
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+@router.post("/me/check-overdue-tasks", response_model=OverdueCheckResponse)
+def check_overdue_tasks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> OverdueCheckResponse:
+    """Check for newly overdue assigned tasks and email once per task (non-blocking for client)."""
+    notified = check_and_send_overdue_notifications(db, current_user)
+    return OverdueCheckResponse(notified=notified)
 
 
 @router.post("/", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
