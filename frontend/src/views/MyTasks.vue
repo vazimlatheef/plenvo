@@ -56,6 +56,8 @@
               <span v-if="projectLabel(task.project_id)" class="project-tag">
                 {{ projectLabel(task.project_id) }}
               </span>
+              <p v-if="task.description" class="task-notes">{{ task.description }}</p>
+              <LinksList :links="task.links" compact class="task-links" />
             </div>
             <div class="dense-row__assignee" :title="assigneeName(task)">
               <UserRound class="dense-row__assignee-icon" :size="13" :stroke-width="1.75" />
@@ -125,6 +127,7 @@ import { computed, onMounted, ref } from 'vue'
 
 import { apiJson } from '@/api/client'
 import TaskEditModal from '@/components/TaskEditModal.vue'
+import LinksList from '@/components/LinksList.vue'
 import { user } from '@/composables/session'
 import {
   buildAssigneeOptions,
@@ -158,6 +161,8 @@ const saving = ref(false)
 const formError = ref('')
 const modalInitial = ref({
   title: '',
+  description: '',
+  links: [],
   assignee_key: null,
   due_date: '',
   status: 'pending',
@@ -210,6 +215,8 @@ function openEdit(task) {
   editingTaskId.value = task.id
   modalInitial.value = {
     title: task.title || '',
+    description: task.description || '',
+    links: task.links || [],
     assignee_key: taskAssigneeKey(task),
     due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
     status: task.status || 'pending',
@@ -221,7 +228,7 @@ function openEdit(task) {
 function closeModal() {
   showModal.value = false
   editingTaskId.value = null
-  modalInitial.value = { title: '', assignee_key: null, due_date: '', status: 'pending' }
+  modalInitial.value = { title: '', description: '', links: [], assignee_key: null, due_date: '', status: 'pending' }
   formError.value = ''
 }
 
@@ -296,6 +303,8 @@ async function saveFromModal(payload) {
     const { assignee_id, assignee_contact_id } = parseAssigneeKey(payload.assignee_key)
     const body = {
       title: payload.title.trim(),
+      description: payload.description,
+      links: payload.links,
       status: payload.status || 'pending',
       due_date: payload.due_date || null,
     }

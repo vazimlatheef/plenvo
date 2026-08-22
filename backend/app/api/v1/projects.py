@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.models.models import Project, User
-from app.schemas.project import ProjectCreate, ProjectResponse
+from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
+from app.schemas.link import normalize_links
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
 
@@ -29,6 +30,7 @@ def create_project(
     project = Project(
         title=project_in.title.strip(),
         description=project_in.description.strip() if project_in.description else None,
+        links=normalize_links([l.model_dump() for l in project_in.links] if project_in.links else None),
         organisation_id=org_id,
         manager_id=current_user.id,
     )
@@ -62,6 +64,34 @@ def get_project(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project or project.organisation_id != org_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return project
+
+
+@router.patch("/{project_id}", response_model=ProjectResponse)
+def update_project(
+    project_id: int,
+    project_in: ProjectUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can update projects")
+
+    org_id = _require_org(current_user)
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project or project.organisation_id != org_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    data = project_in.model_dump(exclude_unset=True)
+    if "title" in data and data["title"] is not None:
+        project.title = data["title"].strip()
+    if "description" in data:
+        project.description = data["description"].strip() if data["description"] else None
+    if "links" in data:
+        project.links = normalize_links(data["links"])
+
+    db.commit()
+    db.refresh(project)
     return project
 
 

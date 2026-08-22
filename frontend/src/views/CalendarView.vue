@@ -122,6 +122,8 @@
               <span v-if="projectLabel(task.project_id)" class="project-tag">
                 {{ projectLabel(task.project_id) }}
               </span>
+              <p v-if="task.description" class="task-notes">{{ task.description }}</p>
+              <LinksList :links="task.links" compact class="task-links" />
             </div>
             <div class="dense-row__assignee" :title="assigneeName(task)">
               <UserRound class="dense-row__assignee-icon" :size="13" :stroke-width="1.75" />
@@ -240,6 +242,8 @@
                 <span v-if="projectLabel(task.project_id)" class="day-task__project">
                   {{ projectLabel(task.project_id) }}
                 </span>
+                <p v-if="task.description" class="day-task__notes task-notes">{{ task.description }}</p>
+                <LinksList :links="task.links" compact class="day-task__links task-links" />
               </span>
             </button>
             <div class="day-task__footer">
@@ -275,6 +279,7 @@ import { computed, ref, watch } from 'vue'
 
 import { apiJson } from '@/api/client'
 import TaskEditModal from '@/components/TaskEditModal.vue'
+import LinksList from '@/components/LinksList.vue'
 import { user } from '@/composables/session'
 import {
   buildAssigneeOptions,
@@ -319,6 +324,8 @@ const saving = ref(false)
 const formError = ref('')
 const modalInitial = ref({
   title: '',
+  description: '',
+  links: [],
   assignee_key: null,
   due_date: '',
   status: 'pending',
@@ -632,6 +639,8 @@ function openEdit(task) {
   editingTaskId.value = task.id
   modalInitial.value = {
     title: task.title || '',
+    description: task.description || '',
+    links: task.links || [],
     assignee_key: taskAssigneeKey(task),
     due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
     status: task.status || 'pending',
@@ -646,6 +655,8 @@ function openCreate(isoDate) {
   editingTaskId.value = null
   modalInitial.value = {
     title: '',
+    description: '',
+    links: [],
     assignee_key: null,
     due_date: isoDate || selectedDate.value || '',
     status: 'pending',
@@ -669,6 +680,8 @@ async function saveFromModal(payload) {
     if (modalMode.value === 'create') {
       const body = {
         title: payload.title,
+        description: payload.description,
+        links: payload.links,
         status: payload.status,
         due_date: payload.due_date,
         project_id: payload.project_id,
@@ -685,6 +698,8 @@ async function saveFromModal(payload) {
     } else {
       const body = {
         title: payload.title,
+        description: payload.description,
+        links: payload.links,
         status: payload.status,
         due_date: payload.due_date,
       }
@@ -1208,6 +1223,14 @@ watch(
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.day-task__notes {
+  margin-top: 0.15rem;
+}
+
+.day-task__links {
+  margin-top: 0.2rem;
 }
 
 .day-task__footer {

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, String, Text, UniqueConstraint, false, func, true
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, JSON, String, Text, UniqueConstraint, false, func, true
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -154,6 +154,7 @@ class Project(Base):
     )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    links: Mapped[list | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="active")
     deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
     manager_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
@@ -178,6 +179,7 @@ class Task(Base):
     )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    links: Mapped[list | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pending")
     priority: Mapped[str] = mapped_column(String(20), nullable=False, server_default="medium")
     source: Mapped[str] = mapped_column(String(20), nullable=False, server_default="manual")

@@ -8,11 +8,18 @@
         </RouterLink>
         <h1>{{ project?.title || 'Project tasks' }}</h1>
         <p v-if="project?.description" class="app-lede">{{ project.description }}</p>
+        <LinksList v-if="project?.links?.length" :links="project.links" class="project-links" />
       </div>
-      <button type="button" class="btn-primary" @click="openCreate">
+      <div class="header-actions">
+        <button type="button" class="btn-outline btn-with-icon" @click="openProjectEdit">
+          <Pencil :size="15" :stroke-width="1.75" />
+          Edit details
+        </button>
+        <button type="button" class="btn-primary" @click="openCreate">
         <Plus :size="16" :stroke-width="2" />
         New task
       </button>
+      </div>
     </div>
 
     <p v-if="loading" class="muted-line">Loading tasks…</p>
@@ -59,6 +66,8 @@
               <button type="button" class="dense-row__title" @click="openEdit(task)">
                 {{ task.title }}
               </button>
+              <p v-if="task.description" class="task-notes">{{ task.description }}</p>
+              <LinksList :links="task.links" compact class="task-links" />
             </div>
             <div class="dense-row__assignee" :title="assigneeName(task)">
               <UserRound class="dense-row__assignee-icon" :size="13" :stroke-width="1.75" />
@@ -117,16 +126,50 @@
       @close="closeModal"
       @save="saveFromModal"
     />
+
+    <div v-if="showProjectModal" class="modal-overlay" @click.self="closeProjectEdit">
+      <div class="modal-panel">
+        <button type="button" class="modal-close" aria-label="Close" @click="closeProjectEdit">
+          <X :size="18" :stroke-width="1.75" />
+        </button>
+        <h2>Project details</h2>
+        <form class="field-stack" @submit.prevent="saveProjectDetails">
+          <label>
+            Description
+            <textarea
+              v-model="projectForm.description"
+              placeholder="Brief description (optional)"
+              rows="3"
+              maxlength="500"
+              :disabled="savingProject"
+            />
+          </label>
+          <LinksEditor v-model="projectForm.links" :disabled="savingProject" />
+          <p v-if="projectFormError" class="error-line">{{ projectFormError }}</p>
+          <div class="modal-actions">
+            <button type="button" class="btn-outline" :disabled="savingProject" @click="closeProjectEdit">
+              Cancel
+            </button>
+            <button type="submit" class="btn-primary" :disabled="savingProject">
+              {{ savingProject ? 'Saving…' : 'Save changes' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ArrowLeft, Calendar, ClipboardList, Pencil, Plus, Trash2, UserRound } from '@lucide/vue'
+import { ArrowLeft, Calendar, ClipboardList, Pencil, Plus, Trash2, UserRound, X } from '@lucide/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { apiJson } from '@/api/client'
 import TaskEditModal from '@/components/TaskEditModal.vue'
+import LinksEditor from '@/components/LinksEditor.vue'
+import LinksList from '@/components/LinksList.vue'
+import { linksForApi } from '@/utils/links'
 import { user } from '@/composables/session'
 import {
   buildAssigneeOptions,
@@ -162,10 +205,17 @@ const saving = ref(false)
 const formError = ref('')
 const modalInitial = ref({
   title: '',
+  description: '',
+  links: [],
   assignee_key: null,
   due_date: '',
   status: 'pending',
 })
+
+const showProjectModal = ref(false)
+const savingProject = ref(false)
+const projectFormError = ref('')
+const projectForm = ref({ description: '', links: [] })
 
 const projectId = computed(() => {
   const id = Number(route.params.projectId)
@@ -208,9 +258,53 @@ function triggerFlash(taskId) {
 }
 
 function resetForm() {
-  modalInitial.value = { title: '', assignee_key: null, due_date: '', status: 'pending' }
+  modalInitial.value = {
+    title: '',
+    description: '',
+    links: [],
+    assignee_key: null,
+    due_date: '',
+    status: 'pending',
+  }
   formError.value = ''
   editingTaskId.value = null
+}
+
+function openProjectEdit() {
+  if (!project.value) return
+  projectForm.value = {
+    description: project.value.description || '',
+    links: Array.isArray(project.value.links) ? project.value.links.map((l) => ({ ...l })) : [],
+  }
+  projectFormError.value = ''
+  showProjectModal.value = true
+}
+
+function closeProjectEdit() {
+  showProjectModal.value = false
+  projectFormError.value = ''
+}
+
+async function saveProjectDetails() {
+  if (!projectId.value) return
+  savingProject.value = true
+  projectFormError.value = ''
+  try {
+    const updated = await apiJson(`/api/v1/projects/${projectId.value}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        description: projectForm.value.description.trim() || null,
+        links: linksForApi(projectForm.value.links),
+      }),
+    })
+    project.value = { ...project.value, ...updated }
+    closeProjectEdit()
+  } catch (err) {
+    console.error('[AdminProjectTasks] project save failed', err)
+    projectFormError.value = err.message || 'Failed to save project'
+  } finally {
+    savingProject.value = false
+  }
 }
 
 function openCreate() {
@@ -222,6 +316,8 @@ function openEdit(task) {
   editingTaskId.value = task.id
   modalInitial.value = {
     title: task.title || '',
+    description: task.description || '',
+    links: task.links || [],
     assignee_key: taskAssigneeKey(task),
     due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
     status: task.status || 'pending',
@@ -326,6 +422,8 @@ async function saveFromModal(payload) {
         method: 'PATCH',
         body: JSON.stringify({
           title: payload.title.trim(),
+          description: payload.description,
+          links: payload.links,
           status: payload.status || 'pending',
           due_date: payload.due_date || null,
           ...assigneePayload,
@@ -341,6 +439,8 @@ async function saveFromModal(payload) {
         method: 'POST',
         body: JSON.stringify({
           title: payload.title.trim(),
+          description: payload.description,
+          links: payload.links,
           project_id: projectId.value,
           status: payload.status || 'pending',
           due_date: payload.due_date || null,
@@ -386,6 +486,23 @@ watch(projectId, (id, prev) => {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.project-links {
+  margin-top: 0.45rem;
+}
+
+.btn-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .btn-primary {

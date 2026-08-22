@@ -30,6 +30,24 @@
               />
             </div>
 
+            <div class="task-drawer__field">
+              <label for="task-description">
+                <AlignLeft :size="14" :stroke-width="1.75" />
+                Notes
+              </label>
+              <textarea
+                id="task-description"
+                v-model="form.description"
+                rows="4"
+                maxlength="500"
+                :disabled="saving"
+                placeholder="Add context or details (optional)"
+                class="task-drawer__textarea"
+              />
+            </div>
+
+            <LinksEditor v-model="form.links" :disabled="saving" />
+
             <div class="task-drawer__grid">
               <div class="task-drawer__field">
                 <label for="task-status">
@@ -92,11 +110,13 @@
 </template>
 
 <script setup>
-import { Calendar, CircleDot, FolderKanban, UserRound, X } from '@lucide/vue'
+import { AlignLeft, Calendar, CircleDot, FolderKanban, UserRound, X } from '@lucide/vue'
 import { computed, reactive, watch, onUnmounted } from 'vue'
 
 import DatePicker from '@/components/DatePicker.vue'
+import LinksEditor from '@/components/LinksEditor.vue'
 import { assigneeOptionLabel } from '@/utils/assignee'
+import { linksForApi } from '@/utils/links'
 import { STATUS_OPTIONS } from '@/utils/ui'
 
 const props = defineProps({
@@ -111,6 +131,8 @@ const props = defineProps({
     type: Object,
     default: () => ({
       title: '',
+      description: '',
+      links: [],
       assignee_key: null,
       due_date: '',
       status: 'pending',
@@ -123,6 +145,8 @@ const emit = defineEmits(['close', 'save'])
 
 const form = reactive({
   title: '',
+  description: '',
+  links: [],
   assignee_key: null,
   due_date: '',
   status: 'pending',
@@ -151,6 +175,8 @@ watch(
     if (!props.open) return
     const init = props.initial || {}
     form.title = init.title || ''
+    form.description = init.description || ''
+    form.links = Array.isArray(init.links) ? init.links.map((l) => ({ ...l })) : []
     form.assignee_key = init.assignee_key ?? null
     form.due_date = init.due_date || ''
     form.status = init.status || 'pending'
@@ -167,6 +193,8 @@ function onSubmit() {
   if (!form.title.trim()) return
   emit('save', {
     title: form.title.trim(),
+    description: form.description.trim() || null,
+    links: linksForApi(form.links),
     assignee_key: form.assignee_key,
     due_date: form.due_date || null,
     status: form.status || 'pending',
@@ -311,6 +339,7 @@ function onSubmit() {
 }
 
 .task-drawer__select,
+.task-drawer__textarea,
 .task-drawer__field :deep(input) {
   font-family: var(--font-body);
   font-size: 0.95rem;
@@ -322,7 +351,14 @@ function onSubmit() {
   transition: border-color 0.2s;
 }
 
+.task-drawer__textarea {
+  resize: vertical;
+  min-height: 5.5rem;
+  line-height: 1.5;
+}
+
 .task-drawer__select:focus,
+.task-drawer__textarea:focus,
 .task-drawer__field :deep(input:focus) {
   outline: none;
   border-color: rgba(196, 163, 90, 0.55);

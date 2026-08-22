@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.models.models import Contact, Project, Task, User
+from app.schemas.link import normalize_links
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
 
 router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
@@ -61,6 +62,7 @@ def create_task(
     task = Task(
         title=task_in.title,
         description=task_in.description,
+        links=normalize_links([l.model_dump() for l in task_in.links] if task_in.links else None),
         status=task_in.status or "pending",
         priority=task_in.priority or "medium",
         due_date=task_in.due_date,
@@ -145,6 +147,8 @@ def update_task(
             task.title = data["title"]
         if "description" in data:
             task.description = data["description"]
+        if "links" in data:
+            task.links = normalize_links(data["links"])
         if "status" in data and data["status"] is not None:
             task.status = data["status"]
             if data["status"] == "completed":

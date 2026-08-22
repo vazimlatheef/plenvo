@@ -30,6 +30,7 @@
         <div class="dense-row__meta project-meta">
           <span class="dense-row__title">{{ project.title }}</span>
           <span class="project-desc">{{ project.description || 'No description' }}</span>
+          <LinksList v-if="project.links?.length" :links="project.links" compact class="project-row-links" />
         </div>
         <span class="dense-row__due">{{ formatDate(project.created_at) }}</span>
         <RouterLink :to="`/app/projects/${project.id}/tasks`" class="btn-outline link-btn btn-with-icon">
@@ -67,6 +68,7 @@
               :disabled="creating"
             />
           </label>
+          <LinksEditor v-model="newProject.links" :disabled="creating" />
           <p v-if="createError" class="error-line">{{ createError }}</p>
           <div class="modal-actions">
             <button type="button" class="btn-outline" :disabled="creating" @click="cancelCreate">Cancel</button>
@@ -85,6 +87,9 @@ import { ArrowRight, Plus, X } from '@lucide/vue'
 import { onMounted, ref } from 'vue'
 
 import { apiJson } from '@/api/client'
+import LinksEditor from '@/components/LinksEditor.vue'
+import LinksList from '@/components/LinksList.vue'
+import { linksForApi } from '@/utils/links'
 import { avatarTone, getInitials } from '@/utils/ui'
 
 const projects = ref([])
@@ -92,7 +97,7 @@ const loading = ref(true)
 const error = ref('')
 
 const showCreateModal = ref(false)
-const newProject = ref({ title: '', description: '' })
+const newProject = ref({ title: '', description: '', links: [] })
 const creating = ref(false)
 const createError = ref('')
 
@@ -126,6 +131,7 @@ async function createProject() {
       body: JSON.stringify({
         title: newProject.value.title.trim(),
         description: newProject.value.description.trim() || null,
+        links: linksForApi(newProject.value.links),
       }),
     })
     projects.value.unshift(created)
@@ -140,7 +146,7 @@ async function createProject() {
 
 function cancelCreate() {
   showCreateModal.value = false
-  newProject.value = { title: '', description: '' }
+  newProject.value = { title: '', description: '', links: [] }
   createError.value = ''
 }
 
@@ -165,6 +171,10 @@ onMounted(fetchProjects)
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+}
+
+.project-row-links {
+  width: 100%;
 }
 
 .link-btn {

@@ -1,12 +1,15 @@
 from datetime import date, datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, model_validator
+
+from app.schemas.link import LinkItem
 
 
 class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
+    links: Optional[List[LinkItem]] = None
     status: Optional[str] = "pending"
     priority: Optional[str] = "medium"
     due_date: Optional[date] = None
@@ -24,6 +27,7 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    links: Optional[List[LinkItem]] = None
     status: Optional[str] = None
     priority: Optional[str] = None
     due_date: Optional[date] = None
@@ -45,6 +49,7 @@ class TaskResponse(BaseModel):
     id: int
     title: str
     description: Optional[str]
+    links: Optional[List[LinkItem]] = None
     status: str
     priority: str
     due_date: Optional[date]

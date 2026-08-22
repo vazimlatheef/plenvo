@@ -207,6 +207,8 @@ const savingTask = ref(false)
 const taskFormError = ref('')
 const taskModalInitial = ref({
   title: '',
+  description: '',
+  links: [],
   assignee_key: null,
   due_date: '',
   status: 'pending',
@@ -358,6 +360,8 @@ function openEditTask(task) {
   editingTaskId.value = task.id
   taskModalInitial.value = {
     title: task.title || '',
+    description: task.description || '',
+    links: task.links || [],
     assignee_key: taskAssigneeKey(task),
     due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
     status: task.status || 'pending',
@@ -391,6 +395,8 @@ async function saveTaskFromModal(payload) {
     const { assignee_id, assignee_contact_id } = parseAssigneeKey(payload.assignee_key)
     const body = {
       title: payload.title.trim(),
+      description: payload.description,
+      links: payload.links,
       status: payload.status || 'pending',
       due_date: payload.due_date || null,
       project_id: payload.project_id ?? null,
