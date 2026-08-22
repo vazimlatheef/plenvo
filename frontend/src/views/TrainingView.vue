@@ -2,7 +2,7 @@
   <div class="training-page">
     <div class="panel">
       <RouterLink to="/" class="logo" aria-label="Plenvo">
-        <img src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="140" height="38" />
+        <PlenvoLogo tag="span" variant="lockup" compact />
       </RouterLink>
 
       <p v-if="loading" class="muted">Loading your training…</p>
@@ -69,6 +69,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { apiJson } from '@/api/client'
+import PlenvoLogo from '@/components/PlenvoLogo.vue'
 import { extractYoutubeId } from '@/utils/youtube'
 
 const route = useRoute()
@@ -153,15 +154,7 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   text-decoration: none;
-  line-height: 0;
   margin-bottom: 1.5rem;
-}
-
-.logo img {
-  display: block;
-  height: 32px;
-  width: auto;
-  max-width: 148px;
 }
 
 .post-action-prompt {

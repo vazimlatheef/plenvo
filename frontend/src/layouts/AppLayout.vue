@@ -103,15 +103,8 @@ onMounted(() => {
 
 .topbar-brand {
   display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
-  line-height: 0;
-}
-
-.topbar-brand img {
-  display: block;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
 }
 
 .topbar-title {

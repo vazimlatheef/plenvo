@@ -281,19 +281,21 @@ onBeforeUnmount(() => {
 
 .dp-trigger {
   width: 100%;
+  min-height: var(--control-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
   font-family: var(--font-body);
   font-size: 0.95rem;
-  padding: 0.55rem 0.65rem;
+  padding: 0.65rem 0.9rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: var(--color-bg);
   color: var(--color-text);
   cursor: pointer;
   text-align: left;
+  box-sizing: border-box;
 }
 
 .dp-trigger:hover:not(:disabled) {

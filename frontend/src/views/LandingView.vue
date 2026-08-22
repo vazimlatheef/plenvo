@@ -1081,19 +1081,9 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
-  line-height: 0;
-}
-
-.logo img {
-  display: block;
-  height: 36px;
-  width: auto;
-  max-width: 168px;
 }
 
 .logo:hover { text-decoration: none; }
-
-.logo.small img { height: 28px; }
 
 .nav-links { display: flex; align-items: center; gap: 1.75rem; }
 

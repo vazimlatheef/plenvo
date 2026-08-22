@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Plenvo">
   <rect width="128" height="128" rx="28" fill="#171b18" stroke="rgba(232,228,216,0.14)" stroke-width="1.5"/>
   <path
-    d="M42 98V30h30c16.5 0 30 13.5 30 30S88.5 90 72 90H56"
+    d="M37 98V30h30c16.5 0 30 13.5 30 30S83.5 90 67 90H51"
     fill="none"
     stroke="#c4a35a"
     stroke-width="15"

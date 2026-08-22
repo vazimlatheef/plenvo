@@ -24,7 +24,7 @@ FULL_SRC = ASSETS_SRC / (
 ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Plenvo">
   <rect width="128" height="128" rx="28" fill="#14170f"/>
   <path
-    d="M42 98V30h30c16.5 0 30 13.5 30 30S88.5 90 72 90H56"
+    d="M37 98V30h30c16.5 0 30 13.5 30 30S83.5 90 67 90H51"
     fill="none"
     stroke="#c4a35a"
     stroke-width="15"
@@ -38,7 +38,7 @@ ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role
 FULL_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 112" role="img" aria-label="Plenvo">
   <rect width="112" height="112" rx="24" fill="#14170f"/>
   <path
-    d="M36.75 85.75V26.25h26.25c14.45 0 26.25 11.8 26.25 26.25S77.45 78.75 63 78.75H49"
+    d="M37 85.75V26.25h26.25c14.45 0 26.25 11.8 26.25 26.25S77.45 78.75 63 78.75H49"
     fill="none"
     stroke="#c4a35a"
     stroke-width="13.125"

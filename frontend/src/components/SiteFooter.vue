@@ -42,14 +42,6 @@ import PlenvoLogo from '@/components/PlenvoLogo.vue'
   display: inline-flex;
   align-items: center;
   text-decoration: none;
-  line-height: 0;
-}
-
-.logo img {
-  display: block;
-  height: 28px;
-  width: auto;
-  max-width: 132px;
 }
 
 .logo:hover {

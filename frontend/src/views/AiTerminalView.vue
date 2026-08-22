@@ -123,7 +123,7 @@
             <input v-model="task.description" placeholder="Optional context" />
           </div>
           <div class="row-fields">
-            <div class="field">
+            <div class="field field--flush">
               <label>Assign to</label>
               <select
                 :value="taskAssigneeSelectValue(task)"
@@ -148,17 +148,17 @@
                 </option>
               </select>
               <span
-                v-if="task.assignee_name || task.create_contact_name"
                 class="ai-hint"
                 :class="{
                   'ai-hint--matched':
                     (task.assignee_matched && !!task.assignee_key) || !!task.create_contact_name,
+                  'ai-hint--empty': !assigneeHint(task),
                 }"
               >
-                {{ assigneeHint(task) }}
+                {{ assigneeHint(task) || '\u00a0' }}
               </span>
             </div>
-            <div class="field">
+            <div class="field field--flush">
               <label>Project</label>
               <select
                 :value="taskProjectSelectValue(task)"
@@ -174,26 +174,28 @@
                 </option>
               </select>
               <span
-                v-if="task.project_name || task.create_project_title"
                 class="ai-hint"
                 :class="{
                   'ai-hint--matched': !!task.project_matched || !!task.create_project_title,
+                  'ai-hint--empty': !projectHint(task),
                 }"
               >
-                {{ projectHint(task) }}
+                {{ projectHint(task) || '\u00a0' }}
               </span>
             </div>
-            <div class="field">
+            <div class="field field--flush">
               <label>Due Date</label>
               <DatePicker v-model="task.due_date" />
+              <span class="ai-hint ai-hint--empty" aria-hidden="true">&nbsp;</span>
             </div>
-            <div class="field">
+            <div class="field field--flush">
               <label>Priority</label>
               <select v-model="task.priority">
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
               </select>
+              <span class="ai-hint ai-hint--empty" aria-hidden="true">&nbsp;</span>
             </div>
           </div>
         </div>
@@ -726,12 +728,18 @@ function reset() {
   margin-bottom: 1.2rem;
 }
 
+.field--flush {
+  margin-bottom: 0;
+}
+
 .field label {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  line-height: 1.25;
+  min-height: 0.95rem;
 }
 
 .optional {
@@ -860,9 +868,10 @@ textarea {
 }
 
 .task-card {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 32px;
+  gap: 0.75rem 1rem;
+  align-items: start;
   padding: 1.2rem;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
@@ -882,28 +891,46 @@ textarea {
   font-size: 0.8rem;
   font-weight: 700;
   flex-shrink: 0;
-  margin-top: 4px;
+  margin-top: calc(0.95rem + 6px);
 }
 
 .task-fields {
-  flex: 1;
   min-width: 0;
+}
+
+.task-fields > .field:last-child {
+  margin-bottom: 0;
 }
 
 .row-fields {
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 1fr 0.85fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
+  align-items: start;
+}
+
+.row-fields .field {
+  margin-bottom: 0;
+  min-width: 0;
 }
 
 .ai-hint {
+  display: block;
+  min-height: 2.5rem;
+  padding-top: 0.2rem;
   font-size: 0.75rem;
+  line-height: 1.35;
   color: var(--color-text-muted);
   font-style: italic;
 }
 
+.ai-hint--empty {
+  visibility: hidden;
+}
+
 .ai-hint--matched {
   color: var(--color-accent);
+  font-style: normal;
 }
 
 .btn-remove {
@@ -911,12 +938,14 @@ textarea {
   border: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  padding: 4px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
+  margin-top: calc(0.95rem + 6px);
 }
 
 .btn-remove:hover {
@@ -987,6 +1016,12 @@ textarea {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 900px) {
+  .row-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

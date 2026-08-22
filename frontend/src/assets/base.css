@@ -12,7 +12,8 @@
   --color-accent-soft: rgba(196, 163, 90, 0.18);
   --color-danger: #f87171;
 
-  /* Type */
+  /* Form controls — shared height for aligned rows */
+  --control-height: 2.625rem;
   --font-display: 'Instrument Serif', Georgia, serif;
   --font-body: 'Inter', system-ui, -apple-system, sans-serif;
 
@@ -43,6 +44,11 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+select {
+  min-height: var(--control-height);
 }
 
 html {

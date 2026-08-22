@@ -86,8 +86,8 @@
       </div>
     </div>
 
-    <p v-if="loading" class="muted-line">Loading tasks…</p>
-    <p v-else-if="error" class="error-line">{{ error }}</p>
+    <p v-if="loading && mode === 'list'" class="muted-line">Loading tasks…</p>
+    <p v-else-if="error && mode === 'list'" class="error-line">{{ error }}</p>
 
     <!-- List mode -->
     <div v-else-if="mode === 'list'">
@@ -139,10 +139,11 @@
     </div>
 
     <!-- Calendar mode -->
-    <div v-else class="cal-layout">
+    <div v-else class="cal-layout" :class="{ 'cal-layout--refreshing': refreshing }">
+      <p v-if="error" class="error-line cal-error">{{ error }}</p>
       <div
         class="cal-grid"
-        :class="{ 'cal-grid--week': gridSpan === 'week' }"
+        :class="{ 'cal-grid--week': gridSpan === 'week', 'cal-grid--loading': loading }"
         role="grid"
         :aria-label="periodLabel"
         :style="calGridStyle"
@@ -194,49 +195,60 @@
         <div class="day-panel-header">
           <div>
             <h3>{{ selectedDayLabel }}</h3>
-            <p class="muted-line">{{ selectedDayTasks.length }} task{{ selectedDayTasks.length === 1 ? '' : 's' }}</p>
+            <p class="muted-line">
+              <template v-if="(loading || refreshing) && !selectedDayTasks.length">Loading tasks…</template>
+              <template v-else>
+                {{ selectedDayTasks.length }} task{{ selectedDayTasks.length === 1 ? '' : 's' }}
+                <span v-if="refreshing" class="day-panel-refresh-hint">· updating</span>
+              </template>
+            </p>
           </div>
-          <button type="button" class="btn-primary btn-compact" @click="openCreate(selectedDate)">
+          <button
+            type="button"
+            class="btn-primary btn-compact"
+            :disabled="loading"
+            @click="openCreate(selectedDate)"
+          >
             <Plus :size="15" :stroke-width="2" />
             Add task
           </button>
         </div>
 
-        <div v-if="!selectedDayTasks.length" class="empty-panel day-empty">
+        <div v-if="(loading || refreshing) && !selectedDayTasks.length" class="empty-panel day-empty">
+          <p>Loading tasks for this day…</p>
+        </div>
+        <div v-else-if="!selectedDayTasks.length" class="empty-panel day-empty">
           <p>No tasks on this day.</p>
         </div>
-        <ul v-else class="dense-list">
+        <ul v-else class="day-task-list">
           <li
             v-for="task in selectedDayTasks"
             :key="task.id"
-            class="dense-row dense-row--task"
-            :class="{ 'dense-row--flash': flashId === task.id }"
+            class="day-task"
+            :class="{ 'day-task--flash': flashId === task.id }"
           >
-            <span
-              class="avatar"
-              :class="`avatar-tone-${avatarTone(assigneeSeed(task))}`"
-              :title="assigneeName(task)"
-            >
-              {{ getInitials(assigneeName(task)) }}
-            </span>
-            <div class="dense-row__meta">
-              <button type="button" class="dense-row__title" @click="openEdit(task)">
-                {{ task.title }}
-              </button>
-              <span v-if="projectLabel(task.project_id)" class="project-tag">
-                {{ projectLabel(task.project_id) }}
+            <button type="button" class="day-task__main" @click="openEdit(task)">
+              <span
+                class="avatar day-task__avatar"
+                :class="`avatar-tone-${avatarTone(assigneeSeed(task))}`"
+                :title="assigneeName(task)"
+              >
+                {{ getInitials(assigneeName(task)) }}
+              </span>
+              <span class="day-task__copy">
+                <span class="day-task__title">{{ task.title }}</span>
+                <span v-if="projectLabel(task.project_id)" class="day-task__project">
+                  {{ projectLabel(task.project_id) }}
+                </span>
+              </span>
+            </button>
+            <div class="day-task__footer">
+              <span class="status-pill" :data-s="task.status">{{ statusLabel(task.status) }}</span>
+              <span class="day-task__assignee" :title="assigneeName(task)">
+                <UserRound :size="12" :stroke-width="1.75" />
+                {{ assigneeName(task) }}
               </span>
             </div>
-            <div class="dense-row__assignee" :title="assigneeName(task)">
-              <UserRound class="dense-row__assignee-icon" :size="13" :stroke-width="1.75" />
-              <span class="dense-row__assignee-name">{{ assigneeName(task) }}</span>
-            </div>
-            <span class="dense-row__due">
-              <Calendar class="dense-row__due-icon" :size="13" :stroke-width="1.75" />
-              {{ formatShortDate(task.due_date) }}
-            </span>
-            <div class="dense-row__actions" />
-            <span class="status-pill" :data-s="task.status">{{ statusLabel(task.status) }}</span>
           </li>
         </ul>
       </aside>
@@ -284,7 +296,9 @@ const ZOOM_HEIGHTS = [72, 104, 148]
 const ZOOM_CHIPS = [2, 4, 8]
 const zoomLabels = ['Compact', 'Standard', 'Comfortable']
 const loading = ref(true)
+const refreshing = ref(false)
 const error = ref('')
+let loadGeneration = 0
 const tasks = ref([])
 const projects = ref([])
 const projectsById = ref({})
@@ -714,16 +728,19 @@ function upsertTask(task) {
 }
 
 async function loadMonth() {
-  loading.value = true
+  const generation = ++loadGeneration
+  const isInitialLoad = loading.value
+  if (!isInitialLoad) refreshing.value = true
   error.value = ''
   try {
     const { due_from, due_to } = range.value
     const [taskList, projectList, users, contactList] = await Promise.all([
-      apiJson(`/api/v1/tasks?due_from=${due_from}&due_to=${due_to}`),
+      apiJson(`/api/v1/tasks?due_from=${encodeURIComponent(due_from)}&due_to=${encodeURIComponent(due_to)}`),
       apiJson('/api/v1/projects').catch(() => []),
       apiJson('/api/v1/users').catch(() => []),
       apiJson('/api/v1/contacts').catch(() => []),
     ])
+    if (generation !== loadGeneration) return
     tasks.value = Array.isArray(taskList) ? taskList : []
     projects.value = Array.isArray(projectList) ? projectList : []
     const pMap = {}
@@ -738,10 +755,13 @@ async function loadMonth() {
     for (const c of contacts.value) cMap[c.id] = c
     contactsById.value = cMap
   } catch (err) {
+    if (generation !== loadGeneration) return
     console.error('[Calendar] load failed', err)
     error.value = err.message || 'Failed to load calendar'
   } finally {
+    if (generation !== loadGeneration) return
     loading.value = false
+    refreshing.value = false
   }
 }
 
@@ -915,6 +935,20 @@ watch(
   align-items: start;
 }
 
+.cal-layout--refreshing .cal-grid {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.cal-error {
+  grid-column: 1 / -1;
+  margin: 0 0 0.35rem;
+}
+
+.cal-grid--loading {
+  opacity: 0.55;
+}
+
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -1086,6 +1120,11 @@ watch(
   font-size: 0.82rem;
 }
 
+.day-panel-refresh-hint {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
 .btn-compact {
   display: inline-flex;
   align-items: center;
@@ -1098,6 +1137,97 @@ watch(
 .day-empty {
   margin: 0;
   padding: 1rem;
+}
+
+.day-task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.day-task {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  overflow: hidden;
+  transition:
+    background-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.day-task--flash {
+  background-color: var(--color-accent-soft);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.day-task__main {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.65rem 0.7rem 0.45rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.day-task__main:hover .day-task__title {
+  color: var(--color-accent);
+}
+
+.day-task__avatar {
+  width: 26px !important;
+  height: 26px !important;
+  font-size: 0.62rem !important;
+  flex-shrink: 0;
+}
+
+.day-task__copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.day-task__title {
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--color-text);
+}
+
+.day-task__project {
+  font-size: 0.72rem;
+  color: var(--color-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.day-task__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.7rem 0.6rem;
+}
+
+.day-task__assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (max-width: 900px) {
