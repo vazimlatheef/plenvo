@@ -299,6 +299,7 @@ def invite_employee(
         employee_name=user.full_name,
         temp_password=temp_password,
         organisation_name=org.name if org else None,
+        inviter_name=current_user.full_name,
     )
     if not email_sent:
         print(f"⚠️ Warning: Failed to send invite email to {user.email}")

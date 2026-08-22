@@ -187,8 +187,8 @@
     <template v-else-if="activeTab === 'performance'">
       <div v-if="!canPerformance" class="plan-gate">
         <h2>Performance summary</h2>
-        <p class="app-lede">Review-style task breakdowns by person — available on Enterprise.</p>
-        <RouterLink to="/app/account" class="btn-primary">Upgrade to Enterprise →</RouterLink>
+        <p class="app-lede">Review-style task breakdowns by person — available on Team and Enterprise.</p>
+        <RouterLink to="/app/account" class="btn-primary">Upgrade plan →</RouterLink>
       </div>
       <template v-else>
         <div class="perf-toolbar">

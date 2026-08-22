@@ -227,23 +227,30 @@ def send_invite_email(
     employee_name: str,
     temp_password: str,
     organisation_name: Optional[str] = None,
+    inviter_name: Optional[str] = None,
     unsubscribe_token: str | None = None,
 ) -> bool:
     """Invite with login credentials (operational). Unsubscribe optional for preference footer."""
-    org_label = f" ({organisation_name})" if organisation_name else ""
-    subject = f"Your Plenvo account{org_label}"
+    org_name = (organisation_name or "your team").strip()
+    inviter = (inviter_name or "Your manager").strip()
+    subject = f"{inviter} invited you to join {org_name} on Plenvo"
     unsub_url = build_unsubscribe_url(unsubscribe_token) if unsubscribe_token else None
     login_url = f"{FRONTEND_URL}/login"
+    signup_url = f"{FRONTEND_URL}/signup"
 
     body_html = f"""
       <p style="margin:0 0 14px;">Hello {_esc(employee_name)},</p>
       <p style="margin:0 0 14px;">
-        You have been added to Plenvo{(' for ' + _esc(organisation_name)) if organisation_name else ''}.
+        <strong>{_esc(inviter)}</strong> invited you to join <strong>{_esc(org_name)}</strong> on Plenvo.
         Use the credentials below to sign in, then change your password.
       </p>
       <p style="margin:0 0 8px;"><strong>Email:</strong> {_esc(to_email)}</p>
       <p style="margin:0 0 14px;"><strong>Temporary password:</strong> {_esc(temp_password)}</p>
-      {_cta_button(login_url, "Sign in")}
+      {_cta_button(login_url, "Sign in to Plenvo")}
+      <p style="margin:0 0 14px;font-size:13px;color:#555555;">
+        New to Plenvo? You can also <a href="{_esc(signup_url)}" style="color:#1a1a1a;">create an account</a>
+        with this email if you prefer.
+      </p>
       <p style="margin:0;font-size:13px;color:#555555;">
         If you were not expecting this message, contact your manager or hi@plenvo.io.
       </p>
@@ -253,13 +260,14 @@ def send_invite_email(
 
     plain_text_content = f"""Hello {employee_name},
 
-You have been added to Plenvo{(' for ' + organisation_name) if organisation_name else ''}.
+{inviter} invited you to join {org_name} on Plenvo.
 Use the credentials below to sign in, then change your password.
 
 Email: {to_email}
 Temporary password: {temp_password}
 
 Sign in: {login_url}
+Create an account: {signup_url}
 
 If you were not expecting this message, contact your manager or hi@plenvo.io.
 

@@ -34,8 +34,10 @@ export function canUseWorkloadView({ plan_tier: tier, on_trial: onTrial } = {}) 
   return t === 'team' || t === 'enterprise'
 }
 
-export function canUsePerformanceView({ plan_tier: tier } = {}) {
-  return (tier || '').toLowerCase() === 'enterprise'
+export function canUsePerformanceView({ plan_tier: tier, on_trial: onTrial } = {}) {
+  if (onTrial) return true
+  const t = (tier || '').toLowerCase()
+  return t === 'team' || t === 'enterprise'
 }
 
 export function canUseTeamPriorityInsights({ plan_tier: tier } = {}) {

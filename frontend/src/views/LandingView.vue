@@ -816,6 +816,8 @@ const displayPlans = computed(() => [
 
       'Member workload view',
 
+      'Performance summary',
+
       'Priority support',
 
     ],
@@ -839,8 +841,6 @@ const displayPlans = computed(() => [
       'Everything in Team',
 
       'Unlimited team members',
-
-      'Performance reviews',
 
       'Team priority insights',
 
