@@ -11,7 +11,7 @@
       <div class="nav-inner">
 
         <RouterLink to="/" class="logo" aria-label="Plenvo">
-          <img src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="148" height="40" />
+          <PlenvoLogo tag="span" variant="lockup" />
         </RouterLink>
 
         <div class="nav-links">
@@ -478,7 +478,7 @@
         <div class="footer-brand">
 
           <span class="logo" aria-label="Plenvo">
-            <img src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="140" height="38" />
+            <PlenvoLogo tag="span" variant="lockup" compact />
           </span>
 
           <p>Work. Life. Team. All in one place.</p>
@@ -525,6 +525,7 @@ import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 
 import { apiJson } from '@/api/client'
 import SiteAccountMenu from '@/components/SiteAccountMenu.vue'
+import PlenvoLogo from '@/components/PlenvoLogo.vue'
 import { appHomeRoute, loadSessionUser, user } from '@/composables/session'
 import { useCurrency } from '@/composables/useCurrency'
 

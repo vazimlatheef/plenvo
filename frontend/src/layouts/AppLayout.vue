@@ -8,14 +8,18 @@
           <Menu :size="20" :stroke-width="1.75" />
         </button>
         <RouterLink to="/" class="topbar-brand" aria-label="Plenvo home">
-          <img src="/plenvo-icon-v2.svg" alt="" width="28" height="28" />
+          <PlenvoLogo tag="span" variant="icon" compact />
         </RouterLink>
         <span class="topbar-title">{{ pageTitle }}</span>
       </header>
       <AppHeader v-else />
 
       <main class="main" :class="{ 'main--admin': isAdmin }">
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <Transition name="page" mode="out-in">
+            <component :is="Component" />
+          </Transition>
+        </router-view>
       </main>
     </div>
   </div>
@@ -28,6 +32,7 @@ import { useRoute } from 'vue-router'
 
 import AdminSidebar from '@/components/AdminSidebar.vue'
 import AppHeader from '@/components/AppHeader.vue'
+import PlenvoLogo from '@/components/PlenvoLogo.vue'
 import { user } from '@/composables/session'
 import { maybeCheckOverdueTasks } from '@/services/overdueNotifications'
 

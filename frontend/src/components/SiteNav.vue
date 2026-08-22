@@ -2,7 +2,7 @@
   <nav class="site-nav" aria-label="Site">
     <div class="nav-inner">
       <RouterLink to="/" class="logo" aria-label="Plenvo">
-        <img src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="148" height="40" />
+        <PlenvoLogo tag="span" variant="lockup" />
       </RouterLink>
       <div class="nav-links">
         <RouterLink to="/about" class="nav-link">About</RouterLink>
@@ -22,6 +22,7 @@
 
 <script setup>
 import SiteAccountMenu from '@/components/SiteAccountMenu.vue'
+import PlenvoLogo from '@/components/PlenvoLogo.vue'
 import { user } from '@/composables/session'
 </script>
 

@@ -48,6 +48,11 @@ class TrainingPublic(BaseModel):
     updated_at: datetime
 
 
+class TrainingListItem(TrainingPublic):
+    total_assigned: int = 0
+    completed: int = 0
+
+
 class TrainingSummary(BaseModel):
     training_id: int
     training_title: str

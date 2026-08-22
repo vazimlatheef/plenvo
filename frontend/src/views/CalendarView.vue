@@ -31,14 +31,59 @@
     </div>
 
     <div class="month-nav">
-      <button type="button" class="nav-icon-btn" aria-label="Previous month" @click="shiftMonth(-1)">
+      <button type="button" class="nav-icon-btn" :aria-label="gridSpan === 'week' ? 'Previous week' : 'Previous month'" @click="shiftPeriod(-1)">
         <ChevronLeft :size="18" :stroke-width="1.75" />
       </button>
-      <h2 class="month-label">{{ monthLabel }}</h2>
-      <button type="button" class="nav-icon-btn" aria-label="Next month" @click="shiftMonth(1)">
+      <h2 class="month-label">{{ periodLabel }}</h2>
+      <button type="button" class="nav-icon-btn" :aria-label="gridSpan === 'week' ? 'Next week' : 'Next month'" @click="shiftPeriod(1)">
         <ChevronRight :size="18" :stroke-width="1.75" />
       </button>
       <button type="button" class="btn-outline btn-today" @click="goToday">Today</button>
+      <div v-if="mode === 'calendar'" class="cal-controls">
+        <div class="mode-toggle mode-toggle--compact" role="tablist" aria-label="Calendar span">
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="gridSpan === 'month'"
+            class="mode-btn"
+            :class="{ 'mode-btn--active': gridSpan === 'month' }"
+            @click="gridSpan = 'month'"
+          >
+            Month
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="gridSpan === 'week'"
+            class="mode-btn"
+            :class="{ 'mode-btn--active': gridSpan === 'week' }"
+            @click="gridSpan = 'week'"
+          >
+            Week
+          </button>
+        </div>
+        <div class="zoom-controls" aria-label="Calendar zoom">
+          <button
+            type="button"
+            class="nav-icon-btn"
+            aria-label="Zoom out"
+            :disabled="zoomLevel === 0"
+            @click="adjustZoom(-1)"
+          >
+            <ZoomOut :size="16" :stroke-width="1.75" />
+          </button>
+          <span class="zoom-label">{{ zoomLabels[zoomLevel] }}</span>
+          <button
+            type="button"
+            class="nav-icon-btn"
+            aria-label="Zoom in"
+            :disabled="zoomLevel === 2"
+            @click="adjustZoom(1)"
+          >
+            <ZoomIn :size="16" :stroke-width="1.75" />
+          </button>
+        </div>
+      </div>
     </div>
 
     <p v-if="loading" class="muted-line">Loading tasks…</p>
@@ -95,10 +140,16 @@
 
     <!-- Calendar mode -->
     <div v-else class="cal-layout">
-      <div class="cal-grid" role="grid" :aria-label="monthLabel">
+      <div
+        class="cal-grid"
+        :class="{ 'cal-grid--week': gridSpan === 'week' }"
+        role="grid"
+        :aria-label="periodLabel"
+        :style="calGridStyle"
+      >
         <div v-for="dow in weekdays" :key="dow" class="cal-dow">{{ dow }}</div>
         <button
-          v-for="cell in monthCells"
+          v-for="cell in displayCells"
           :key="cell.key"
           type="button"
           class="cal-cell"
@@ -113,7 +164,7 @@
           <span class="cal-daynum">{{ cell.day }}</span>
           <ul class="cal-task-chips">
             <li
-              v-for="task in cell.tasks.slice(0, 3)"
+              v-for="task in cell.tasks.slice(0, maxVisibleChips)"
               :key="task.id"
               class="cal-chip"
               :data-s="task.status"
@@ -128,7 +179,13 @@
               </span>
               <span class="cal-chip-title">{{ task.title }}</span>
             </li>
-            <li v-if="cell.tasks.length > 3" class="cal-more">+{{ cell.tasks.length - 3 }} more</li>
+            <li
+              v-if="cell.tasks.length > maxVisibleChips"
+              class="cal-more"
+              @click.stop="selectDay(cell.iso)"
+            >
+              +{{ cell.tasks.length - maxVisibleChips }} more
+            </li>
           </ul>
         </button>
       </div>
@@ -201,7 +258,7 @@
 </template>
 
 <script setup>
-import { Calendar, CalendarDays, ChevronLeft, ChevronRight, List, Plus, UserRound } from '@lucide/vue'
+import { Calendar, CalendarDays, ChevronLeft, ChevronRight, List, Plus, UserRound, ZoomIn, ZoomOut } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 
 import { apiJson } from '@/api/client'
@@ -221,6 +278,11 @@ import {
 } from '@/utils/ui'
 
 const mode = ref('calendar')
+const gridSpan = ref(readStored('plenvo_cal_span', 'month'))
+const zoomLevel = ref(readStored('plenvo_cal_zoom', 1))
+const ZOOM_HEIGHTS = [72, 104, 148]
+const ZOOM_CHIPS = [2, 4, 8]
+const zoomLabels = ['Compact', 'Standard', 'Comfortable']
 const loading = ref(true)
 const error = ref('')
 const tasks = ref([])
@@ -255,7 +317,38 @@ const monthLabel = computed(() =>
   cursor.value.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
 )
 
-const range = computed(() => monthQueryRange(cursor.value))
+const periodLabel = computed(() => {
+  if (gridSpan.value === 'week') {
+    const mon = startOfWeek(parseIsoDate(selectedDate.value))
+    const sun = new Date(mon)
+    sun.setDate(mon.getDate() + 6)
+    const sameMonth = mon.getMonth() === sun.getMonth()
+    const startFmt = mon.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: sameMonth ? undefined : 'short',
+    })
+    const endFmt = sun.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    })
+    return `${startFmt} – ${endFmt}`
+  }
+  return monthLabel.value
+})
+
+const maxVisibleChips = computed(() => ZOOM_CHIPS[zoomLevel.value] ?? 4)
+
+const calGridStyle = computed(() => ({
+  '--cal-cell-min-height': `${ZOOM_HEIGHTS[zoomLevel.value] ?? 104}px`,
+}))
+
+const range = computed(() => {
+  if (gridSpan.value === 'week') {
+    return weekQueryRange(parseIsoDate(selectedDate.value))
+  }
+  return monthQueryRange(cursor.value)
+})
 
 const assigneeOptions = computed(() =>
   buildAssigneeOptions({
@@ -349,6 +442,28 @@ const monthCells = computed(() => {
   return cells
 })
 
+const weekCells = computed(() => {
+  const mon = startOfWeek(parseIsoDate(selectedDate.value))
+  const todayIso = toIsoDate(new Date())
+  const cells = []
+  for (let i = 0; i < 7; i += 1) {
+    const d = new Date(mon)
+    d.setDate(mon.getDate() + i)
+    const iso = toIsoDate(d)
+    cells.push({
+      key: iso,
+      iso,
+      day: d.getDate(),
+      inMonth: d.getMonth() === cursor.value.getMonth(),
+      isToday: iso === todayIso,
+      tasks: tasksByDate.value.get(iso) || [],
+    })
+  }
+  return cells
+})
+
+const displayCells = computed(() => (gridSpan.value === 'week' ? weekCells.value : monthCells.value))
+
 const selectedDayTasks = computed(() => tasksByDate.value.get(selectedDate.value) || [])
 
 const selectedDayLabel = computed(() => {
@@ -358,6 +473,52 @@ const selectedDayLabel = computed(() => {
     day: 'numeric',
     month: 'long',
   })
+})
+
+function startOfWeek(d) {
+  const copy = new Date(d)
+  const offset = (copy.getDay() + 6) % 7
+  copy.setDate(copy.getDate() - offset)
+  copy.setHours(0, 0, 0, 0)
+  return copy
+}
+
+function readStored(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw == null) return fallback
+    if (key.includes('zoom')) {
+      const n = Number(raw)
+      return Number.isFinite(n) ? Math.min(2, Math.max(0, n)) : fallback
+    }
+    return raw === 'week' || raw === 'month' ? raw : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function weekQueryRange(d) {
+  const mon = startOfWeek(d)
+  const sun = new Date(mon)
+  sun.setDate(mon.getDate() + 6)
+  return { due_from: toIsoDate(mon), due_to: toIsoDate(sun) }
+}
+
+function adjustZoom(delta) {
+  zoomLevel.value = Math.min(2, Math.max(0, zoomLevel.value + delta))
+  try {
+    localStorage.setItem('plenvo_cal_zoom', String(zoomLevel.value))
+  } catch {
+    /* ignore */
+  }
+}
+
+watch(gridSpan, (val) => {
+  try {
+    localStorage.setItem('plenvo_cal_span', val)
+  } catch {
+    /* ignore */
+  }
 })
 
 function startOfMonth(d) {
@@ -415,6 +576,17 @@ function triggerFlash(taskId) {
   flashTimer = setTimeout(() => {
     flashId.value = null
   }, 700)
+}
+
+function shiftPeriod(delta) {
+  if (gridSpan.value === 'week') {
+    const d = parseIsoDate(selectedDate.value)
+    d.setDate(d.getDate() + delta * 7)
+    selectedDate.value = toIsoDate(d)
+    cursor.value = startOfMonth(d)
+    return
+  }
+  shiftMonth(delta)
 }
 
 function shiftMonth(delta) {
@@ -635,6 +807,38 @@ watch(
   align-items: center;
   gap: 0.5rem;
   margin: 0.85rem 0 1.25rem;
+  flex-wrap: wrap;
+}
+
+.cal-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.mode-toggle--compact .mode-btn {
+  padding: 0.38rem 0.6rem;
+  font-size: 0.76rem;
+}
+
+.zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.zoom-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  min-width: 4.5rem;
+  text-align: center;
 }
 
 .month-label {
@@ -719,6 +923,11 @@ watch(
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
+  transition: grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cal-grid--week .cal-cell {
+  min-height: calc(var(--cal-cell-min-height, 104px) * 1.35);
 }
 
 .cal-dow {
@@ -733,7 +942,7 @@ watch(
 }
 
 .cal-cell {
-  min-height: 104px;
+  min-height: var(--cal-cell-min-height, 104px);
   padding: 0.4rem 0.35rem 0.45rem;
   border: none;
   background: var(--color-bg);
@@ -744,6 +953,10 @@ watch(
   flex-direction: column;
   gap: 0.25rem;
   font-family: inherit;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    min-height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .cal-cell:hover {
@@ -833,7 +1046,15 @@ watch(
 .cal-more {
   font-size: 0.68rem;
   color: var(--color-text-muted);
-  padding-left: 0.2rem;
+  padding: 0.15rem 0.25rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.cal-more:hover {
+  color: var(--color-accent);
+  background: rgba(196, 163, 90, 0.1);
 }
 
 .day-panel {
@@ -888,8 +1109,10 @@ watch(
     position: static;
   }
 
-  .cal-cell {
-    min-height: 84px;
+  .cal-controls {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
   }
 }
 

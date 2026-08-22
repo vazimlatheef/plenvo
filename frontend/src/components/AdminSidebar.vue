@@ -2,13 +2,7 @@
   <aside class="sidebar" :class="{ 'sidebar--open': mobileOpen }">
     <div class="sidebar-brand">
       <RouterLink to="/" class="brand-link" @click="closeMobile">
-        <img
-          class="brand-logo"
-          src="/plenvo-logo-full-v2.svg"
-          alt="Plenvo"
-          width="148"
-          height="40"
-        />
+        <PlenvoLogo tag="span" variant="lockup" />
       </RouterLink>
       <button type="button" class="sidebar-close" aria-label="Close menu" @click="closeMobile">
         <X :size="18" :stroke-width="1.75" />
@@ -21,6 +15,8 @@
         :key="item.to"
         :to="item.to"
         class="nav-item"
+        :class="{ 'router-link-active': isNavActive(item) }"
+        active-class=""
         @click="closeMobile"
       >
         <component :is="item.icon" class="nav-icon" :size="18" :stroke-width="1.75" />
@@ -75,6 +71,7 @@ import {
   CreditCard,
   FolderKanban,
   FolderPlus,
+  GraduationCap,
   Home,
   LayoutDashboard,
   LogOut,
@@ -85,9 +82,10 @@ import {
   X,
   Zap,
 } from '@lucide/vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { logoutAndRedirect, user } from '@/composables/session'
+import PlenvoLogo from '@/components/PlenvoLogo.vue'
 
 defineProps({
   mobileOpen: { type: Boolean, default: false },
@@ -95,6 +93,7 @@ defineProps({
 
 const emit = defineEmits(['close'])
 const router = useRouter()
+const route = useRoute()
 
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
@@ -102,8 +101,25 @@ const navItems = [
   { to: '/app/projects', label: 'Projects', icon: FolderKanban },
   { to: '/app/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/app/team', label: 'Team', icon: Users },
+  {
+    to: '/app/admin/trainings',
+    label: 'Training',
+    icon: GraduationCap,
+    matchPrefix: '/app/admin/trainings',
+  },
   { to: '/app/admin/ai-terminal', label: 'Plenvo AI', icon: Sparkles },
 ]
+
+function isNavActive(item) {
+  const path = route.path
+  if (item.matchPrefix) {
+    return path === item.matchPrefix || path.startsWith(`${item.matchPrefix}/`)
+  }
+  if (item.to === '/app/admin') {
+    return path === item.to
+  }
+  return path === item.to || path.startsWith(`${item.to}/`)
+}
 
 function closeMobile() {
   emit('close')
@@ -141,18 +157,12 @@ function onLogout() {
 
 .brand-link {
   text-decoration: none;
-  color: var(--color-accent);
+  color: inherit;
+  display: inline-flex;
 }
 
 .brand-link:hover {
   text-decoration: none;
-}
-
-.brand-logo {
-  display: block;
-  height: 36px;
-  width: auto;
-  max-width: 168px;
 }
 
 .sidebar-close {

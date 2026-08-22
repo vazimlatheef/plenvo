@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin_user, get_db
 from app.models import User
-from app.schemas.training import TrainingCreate, TrainingPublic, TrainingSummary, TrainingUpdate
+from app.schemas.training import TrainingCreate, TrainingListItem, TrainingPublic, TrainingSummary, TrainingUpdate
 from app.services.training_service import (
     create_training as create_training_record,
     delete_training,
@@ -23,11 +23,11 @@ def _org_id(user: User) -> int:
     return user.organisation_id
 
 
-@router.get("/trainings", response_model=list[TrainingPublic])
+@router.get("/trainings", response_model=list[TrainingListItem])
 def list_trainings_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
-) -> list[TrainingPublic]:
+) -> list[TrainingListItem]:
     return list_trainings(db, organisation_id=_org_id(current_user))
 
 

@@ -107,61 +107,28 @@
       </section>
     </div>
 
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-panel">
-        <button type="button" class="modal-close" aria-label="Close" @click="closeModal">
-          <X :size="18" :stroke-width="1.75" />
-        </button>
-        <h2>{{ editingTaskId ? 'Edit task' : 'New task' }}</h2>
-        <form class="field-stack" @submit.prevent="saveTask">
-          <label>
-            Title *
-            <input v-model="form.title" type="text" required maxlength="200" :disabled="saving" />
-          </label>
-          <label>
-            Assignee
-            <select v-model="form.assignee_key" :disabled="saving">
-              <option :value="null">Unassigned</option>
-              <option v-for="opt in assigneeOptions" :key="opt.key" :value="opt.key">
-                {{ assigneeOptionLabel(opt) }}
-              </option>
-            </select>
-          </label>
-          <label>
-            Due date
-            <DatePicker v-model="form.due_date" :disabled="saving" />
-          </label>
-          <label>
-            Status
-            <select v-model="form.status" :disabled="saving">
-              <option v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
-          </label>
-          <p v-if="formError" class="error-line">{{ formError }}</p>
-          <div class="modal-actions">
-            <button type="button" class="btn-outline" :disabled="saving" @click="closeModal">Cancel</button>
-            <button type="submit" class="btn-primary" :disabled="saving || !form.title.trim()">
-              {{ saving ? 'Saving…' : editingTaskId ? 'Save changes' : 'Create task' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <TaskEditModal
+      :open="showModal"
+      :mode="editingTaskId ? 'edit' : 'create'"
+      :saving="saving"
+      :error="formError"
+      :assignee-options="assigneeOptions"
+      :initial="modalInitial"
+      @close="closeModal"
+      @save="saveFromModal"
+    />
   </div>
 </template>
 
 <script setup>
-import { ArrowLeft, Calendar, ClipboardList, Pencil, Plus, Trash2, UserRound, X } from '@lucide/vue'
+import { ArrowLeft, Calendar, ClipboardList, Pencil, Plus, Trash2, UserRound } from '@lucide/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { apiJson } from '@/api/client'
-import DatePicker from '@/components/DatePicker.vue'
+import TaskEditModal from '@/components/TaskEditModal.vue'
 import { user } from '@/composables/session'
 import {
-  assigneeOptionLabel,
   buildAssigneeOptions,
   parseAssigneeKey,
   resolveAssigneeName,
@@ -193,7 +160,7 @@ const showModal = ref(false)
 const editingTaskId = ref(null)
 const saving = ref(false)
 const formError = ref('')
-const form = ref({
+const modalInitial = ref({
   title: '',
   assignee_key: null,
   due_date: '',
@@ -241,7 +208,7 @@ function triggerFlash(taskId) {
 }
 
 function resetForm() {
-  form.value = { title: '', assignee_key: null, due_date: '', status: 'pending' }
+  modalInitial.value = { title: '', assignee_key: null, due_date: '', status: 'pending' }
   formError.value = ''
   editingTaskId.value = null
 }
@@ -253,7 +220,7 @@ function openCreate() {
 
 function openEdit(task) {
   editingTaskId.value = task.id
-  form.value = {
+  modalInitial.value = {
     title: task.title || '',
     assignee_key: taskAssigneeKey(task),
     due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
@@ -339,28 +306,28 @@ async function onStatusChange(task, event) {
   }
 }
 
-function buildAssigneePayload() {
-  const { assignee_id, assignee_contact_id } = parseAssigneeKey(form.value.assignee_key)
+function buildAssigneePayload(assigneeKey) {
+  const { assignee_id, assignee_contact_id } = parseAssigneeKey(assigneeKey)
   if (!assignee_id && !assignee_contact_id) {
     return { clear_assignee: true }
   }
   return { assignee_id, assignee_contact_id }
 }
 
-async function saveTask() {
-  if (!form.value.title.trim()) return
+async function saveFromModal(payload) {
+  if (!payload.title.trim()) return
 
   saving.value = true
   formError.value = ''
   try {
-    const assigneePayload = buildAssigneePayload()
+    const assigneePayload = buildAssigneePayload(payload.assignee_key)
     if (editingTaskId.value) {
       const updated = await apiJson(`/api/v1/tasks/${editingTaskId.value}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          title: form.value.title.trim(),
-          status: form.value.status || 'pending',
-          due_date: form.value.due_date || null,
+          title: payload.title.trim(),
+          status: payload.status || 'pending',
+          due_date: payload.due_date || null,
           ...assigneePayload,
         }),
       })
@@ -373,10 +340,10 @@ async function saveTask() {
       const created = await apiJson('/api/v1/tasks', {
         method: 'POST',
         body: JSON.stringify({
-          title: form.value.title.trim(),
+          title: payload.title.trim(),
           project_id: projectId.value,
-          status: form.value.status || 'pending',
-          due_date: form.value.due_date || null,
+          status: payload.status || 'pending',
+          due_date: payload.due_date || null,
           assignee_id: assignees.assignee_id ?? null,
           assignee_contact_id: assignees.assignee_contact_id ?? null,
         }),

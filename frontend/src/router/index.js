@@ -25,6 +25,7 @@ import TermsView from '@/views/TermsView.vue'
 import AdminProjectsView from '@/views/AdminProjectsView.vue'
 import AdminProjectTasksView from '@/views/AdminProjectTasksView.vue'
 import AdminTeamView from '@/views/AdminTeamView.vue'
+import AdminTrainingsView from '@/views/AdminTrainingsView.vue'
 import CalendarView from '@/views/CalendarView.vue'
 import MyTasks from '@/views/MyTasks.vue'
 import ProfileView from '@/views/ProfileView.vue'
@@ -120,6 +121,12 @@ const router = createRouter({
           name: 'admin-dashboard',
           component: AdminDashboardView,
           meta: { title: 'Admin dashboard', adminOnly: true },
+        },
+        {
+          path: 'admin/trainings',
+          name: 'trainings-list',
+          component: AdminTrainingsView,
+          meta: { title: 'Training', adminOnly: true },
         },
         {
           path: 'admin/trainings/new',

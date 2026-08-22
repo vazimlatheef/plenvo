@@ -2,7 +2,7 @@
   <header class="header">
     <div class="inner">
       <RouterLink :to="homeLink" class="brand" aria-label="Plenvo">
-        <img class="mark-img" src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="132" height="36" />
+        <PlenvoLogo tag="span" variant="lockup" compact />
         <span class="tagline">
           <span class="tag">Training</span>
           <span class="sub">See who's done · Less chasing</span>
@@ -51,6 +51,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { logoutAndRedirect, user } from '@/composables/session'
+import PlenvoLogo from '@/components/PlenvoLogo.vue'
 
 const router = useRouter()
 const menuOpen = ref(false)
@@ -122,14 +123,6 @@ onBeforeUnmount(() => {
 
 .brand:hover {
   text-decoration: none;
-}
-
-.mark-img {
-  display: block;
-  height: 32px;
-  width: auto;
-  max-width: 140px;
-  flex-shrink: 0;
 }
 
 .tagline {

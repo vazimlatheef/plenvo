@@ -2,7 +2,7 @@
   <footer class="site-footer">
     <div class="footer-inner">
       <RouterLink to="/" class="logo" aria-label="Plenvo">
-        <img src="/plenvo-logo-full-v2.svg" alt="Plenvo" width="120" height="32" />
+        <PlenvoLogo tag="span" variant="lockup" compact />
       </RouterLink>
       <div class="footer-links">
         <RouterLink to="/about">About</RouterLink>
@@ -16,6 +16,10 @@
     </div>
   </footer>
 </template>
+
+<script setup>
+import PlenvoLogo from '@/components/PlenvoLogo.vue'
+</script>
 
 <style scoped>
 .site-footer {

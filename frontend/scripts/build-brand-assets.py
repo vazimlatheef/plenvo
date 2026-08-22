@@ -106,11 +106,9 @@ def main() -> None:
     icon.convert("RGBA").save(ico_path, format="ICO", sizes=[(16, 16), (32, 32), (48, 48)])
     print(f"wrote {ico_path}")
 
-    # Pixel-accurate SVG wrappers of the provided artwork (overwrites vector drafts).
-    from embed_logo_svgs import wrap_png  # noqa: WPS433
-
-    wrap_png("plenvo-icon-v2.png", "plenvo-icon-v2.svg", 1024, 1024)
-    wrap_png("plenvo-logo-full-v2.png", "plenvo-logo-full-v2.svg", 1024, 275)
+    # Vector SVGs are the source of truth for in-app branding; skip PNG embed overwrite.
+    # wrap_png("plenvo-icon-v2.png", "plenvo-icon-v2.svg", 1024, 1024)
+    # wrap_png("plenvo-logo-full-v2.png", "plenvo-logo-full-v2.svg", 1024, 275)
 
 
 if __name__ == "__main__":

@@ -30,11 +30,13 @@
         <p>No open tasks assigned to you. <RouterLink to="/app/tasks">Browse tasks</RouterLink></p>
       </div>
       <div v-else class="tasks-list">
-        <div
+        <button
           v-for="task in focusTasks"
           :key="task.id"
-          class="task-item"
+          type="button"
+          class="task-item task-item--clickable"
           :class="{ overdue: isFocusOverdue(task) }"
+          @click="openEditTask(task)"
         >
           <div class="task-info">
             <h4>{{ task.title }}</h4>
@@ -52,7 +54,7 @@
               {{ task.priority }}
             </span>
           </div>
-        </div>
+        </button>
       </div>
     </section>
 
@@ -89,7 +91,15 @@
         <span class="badge-alert">{{ overdueTasks.length }}</span>
       </div>
       <div class="tasks-list">
-        <div v-for="task in overdueTasks" :key="task.id" class="task-item overdue">
+        <div
+          v-for="task in overdueTasks"
+          :key="task.id"
+          class="task-item overdue task-item--clickable"
+          role="button"
+          tabindex="0"
+          @click="openEditTask(task)"
+          @keydown.enter="openEditTask(task)"
+        >
           <div class="task-info">
             <h4>{{ task.title }}</h4>
             <div class="task-meta">
@@ -103,17 +113,7 @@
               </span>
             </div>
           </div>
-          <div class="task-side">
-            <button
-              type="button"
-              class="row-icon-btn"
-              title="Edit task"
-              aria-label="Edit task"
-              :disabled="busyTaskId === task.id"
-              @click="goEditTask(task)"
-            >
-              <Pencil :size="15" :stroke-width="1.75" />
-            </button>
+          <div class="task-side" @click.stop>
             <button
               type="button"
               class="row-icon-btn row-icon-btn--danger"
@@ -155,6 +155,19 @@
         </div>
       </div>
     </section>
+
+    <TaskEditModal
+      :open="showTaskModal"
+      mode="edit"
+      :saving="savingTask"
+      :error="taskFormError"
+      :assignee-options="assigneeOptions"
+      :show-project="true"
+      :projects="dashboardProjects"
+      :initial="taskModalInitial"
+      @close="closeTaskModal"
+      @save="saveTaskFromModal"
+    />
   </div>
 </template>
 
@@ -168,23 +181,37 @@ import {
   CheckSquare,
   FolderKanban,
   Minus,
-  Pencil,
   Trash2,
   UserRound,
   Users,
 } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 
 import { apiJson } from '@/api/client'
+import TaskEditModal from '@/components/TaskEditModal.vue'
 import { getToken } from '@/services/auth'
 import { user } from '@/composables/session'
+import {
+  buildAssigneeOptions,
+  parseAssigneeKey,
+  taskAssigneeKey,
+} from '@/utils/assignee'
 import { focusTasksForUser, isTaskOverdue } from '@/utils/taskInsights'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const router = useRouter()
 const busyTaskId = ref(null)
+const showTaskModal = ref(false)
+const editingTaskId = ref(null)
+const savingTask = ref(false)
+const taskFormError = ref('')
+const taskModalInitial = ref({
+  title: '',
+  assignee_key: null,
+  due_date: '',
+  status: 'pending',
+  project_id: null,
+})
 
 const stats = ref({
   projects: 0,
@@ -194,6 +221,7 @@ const stats = ref({
 })
 
 const recentProjects = ref([])
+const dashboardProjects = ref([])
 const allTasks = ref([])
 const overdueTasks = ref([])
 const recentEmployees = ref([])
@@ -224,6 +252,14 @@ const focusTasks = computed(() => {
   return focusTasksForUser(allTasks.value, user.value?.id, myContact?.id ?? null, 3)
 })
 
+const assigneeOptions = computed(() =>
+  buildAssigneeOptions({
+    users: employees.value,
+    contacts: contacts.value,
+    currentUser: user.value,
+  }),
+)
+
 function priorityIcon(priority) {
   if (priority === 'high') return ArrowUp
   if (priority === 'low') return ArrowDown
@@ -240,6 +276,7 @@ async function fetchDashboardData() {
     const projects = projectsRes.data
     stats.value.projects = projects.length
     recentProjects.value = projects.slice(0, 3)
+    dashboardProjects.value = projects
   } catch (err) {
     console.error('Failed to load projects:', err)
   } finally {
@@ -317,12 +354,66 @@ function assigneeLabel(task) {
   return 'Unassigned'
 }
 
-function goEditTask(task) {
-  if (task.project_id) {
-    router.push(`/app/projects/${task.project_id}/tasks`)
-    return
+function openEditTask(task) {
+  editingTaskId.value = task.id
+  taskModalInitial.value = {
+    title: task.title || '',
+    assignee_key: taskAssigneeKey(task),
+    due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
+    status: task.status || 'pending',
+    project_id: task.project_id ?? null,
   }
-  router.push('/app/tasks')
+  taskFormError.value = ''
+  showTaskModal.value = true
+}
+
+function closeTaskModal() {
+  showTaskModal.value = false
+  editingTaskId.value = null
+  taskFormError.value = ''
+}
+
+function refreshOverdueList(tasks) {
+  const now = new Date()
+  overdueTasks.value = tasks
+    .filter((t) => t.due_date && new Date(t.due_date) < now && t.status !== 'completed')
+    .slice(0, 5)
+  stats.value.overdue = tasks.filter(
+    (t) => t.due_date && new Date(t.due_date) < now && t.status !== 'completed',
+  ).length
+}
+
+async function saveTaskFromModal(payload) {
+  if (!editingTaskId.value || !payload.title.trim()) return
+  savingTask.value = true
+  taskFormError.value = ''
+  try {
+    const { assignee_id, assignee_contact_id } = parseAssigneeKey(payload.assignee_key)
+    const body = {
+      title: payload.title.trim(),
+      status: payload.status || 'pending',
+      due_date: payload.due_date || null,
+      project_id: payload.project_id ?? null,
+    }
+    if (!assignee_id && !assignee_contact_id) {
+      body.clear_assignee = true
+    } else {
+      body.assignee_id = assignee_id
+      body.assignee_contact_id = assignee_contact_id
+    }
+    const updated = await apiJson(`/api/v1/tasks/${editingTaskId.value}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+    allTasks.value = allTasks.value.map((t) => (t.id === updated.id ? { ...t, ...updated } : t))
+    refreshOverdueList(allTasks.value)
+    closeTaskModal()
+  } catch (err) {
+    console.error('Failed to save task:', err)
+    taskFormError.value = err.message || 'Failed to save task'
+  } finally {
+    savingTask.value = false
+  }
 }
 
 async function deleteOverdueTask(task) {
@@ -374,7 +465,18 @@ onMounted(fetchDashboardData)
 <style scoped>
 .dashboard {
   max-width: 100%;
+  animation: appContentIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+.section {
+  margin-bottom: 2.25rem;
+  animation: appContentIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.section:nth-child(2) { animation-delay: 0.05s; }
+.section:nth-child(3) { animation-delay: 0.1s; }
+.section:nth-child(4) { animation-delay: 0.15s; }
+.section:nth-child(5) { animation-delay: 0.2s; }
 
 .dashboard-header {
   margin-bottom: 1.75rem;
@@ -452,10 +554,6 @@ onMounted(fetchDashboardData)
   font-size: 0.78rem;
   color: var(--color-text-muted);
   letter-spacing: 0.02em;
-}
-
-.section {
-  margin-bottom: 2.25rem;
 }
 
 .section-header {
@@ -585,6 +683,30 @@ onMounted(fetchDashboardData)
   border: 1px solid var(--color-border);
   border-left: 3px solid var(--color-border);
   border-radius: var(--radius);
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition:
+    border-color 0.22s ease,
+    background 0.22s ease,
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.22s ease;
+}
+
+.task-item--clickable {
+  cursor: pointer;
+}
+
+.task-item--clickable:hover {
+  border-color: rgba(196, 163, 90, 0.4);
+  background: rgba(30, 36, 32, 0.95);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+button.task-item--clickable {
+  border: 1px solid var(--color-border);
 }
 
 .task-item.overdue {

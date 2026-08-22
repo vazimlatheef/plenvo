@@ -1,9 +1,15 @@
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Assignment, Training
-from app.schemas.training import TrainingAssignmentRow, TrainingCreate, TrainingSummary, TrainingUpdate
+from app.schemas.training import (
+    TrainingAssignmentRow,
+    TrainingCreate,
+    TrainingListItem,
+    TrainingSummary,
+    TrainingUpdate,
+)
 from app.services.assignment_service import _assignment_assignee_email, _assignment_assignee_name
 
 
@@ -139,13 +145,39 @@ def get_training_assignment_summary(db: Session, training_id: int, *, organisati
     )
 
 
-def list_trainings(db: Session, *, organisation_id: int) -> list[Training]:
+def list_trainings(db: Session, *, organisation_id: int) -> list[TrainingListItem]:
     if organisation_id is None:
         return []
-    return list(
-        db.scalars(
-            select(Training)
-            .where(Training.organisation_id == organisation_id)
-            .order_by(Training.created_at.desc())
-        ).all()
+
+    completed_sum = func.coalesce(
+        func.sum(case((Assignment.status == "completed", 1), else_=0)),
+        0,
     )
+    stmt = (
+        select(
+            Training,
+            func.count(Assignment.id).label("total_assigned"),
+            completed_sum.label("completed"),
+        )
+        .outerjoin(Assignment, Assignment.training_id == Training.id)
+        .where(Training.organisation_id == organisation_id)
+        .group_by(Training.id)
+        .order_by(Training.created_at.desc())
+    )
+    rows = db.execute(stmt).all()
+    return [
+        TrainingListItem(
+            id=training.id,
+            title=training.title,
+            description=training.description,
+            content_type=training.content_type,
+            external_url=training.external_url,
+            youtube_video_id=training.youtube_video_id,
+            created_by_id=training.created_by_id,
+            created_at=training.created_at,
+            updated_at=training.updated_at,
+            total_assigned=int(total_assigned or 0),
+            completed=int(completed or 0),
+        )
+        for training, total_assigned, completed in rows
+    ]

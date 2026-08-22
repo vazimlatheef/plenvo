@@ -106,60 +106,27 @@
       </section>
     </div>
 
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-panel">
-        <button type="button" class="modal-close" aria-label="Close" @click="closeModal">
-          <X :size="18" :stroke-width="1.75" />
-        </button>
-        <h2>Edit task</h2>
-        <form class="field-stack" @submit.prevent="saveTask">
-          <label>
-            Title *
-            <input v-model="form.title" type="text" required maxlength="200" :disabled="saving" />
-          </label>
-          <label>
-            Assignee
-            <select v-model="form.assignee_key" :disabled="saving">
-              <option :value="null">Unassigned</option>
-              <option v-for="opt in assigneeOptions" :key="opt.key" :value="opt.key">
-                {{ assigneeOptionLabel(opt) }}
-              </option>
-            </select>
-          </label>
-          <label>
-            Due date
-            <DatePicker v-model="form.due_date" :disabled="saving" />
-          </label>
-          <label>
-            Status
-            <select v-model="form.status" :disabled="saving">
-              <option v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
-          </label>
-          <p v-if="formError" class="error-line">{{ formError }}</p>
-          <div class="modal-actions">
-            <button type="button" class="btn-outline" :disabled="saving" @click="closeModal">Cancel</button>
-            <button type="submit" class="btn-primary" :disabled="saving || !form.title.trim()">
-              {{ saving ? 'Saving…' : 'Save changes' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <TaskEditModal
+      :open="showModal"
+      mode="edit"
+      :saving="saving"
+      :error="formError"
+      :assignee-options="assigneeOptions"
+      :initial="modalInitial"
+      @close="closeModal"
+      @save="saveFromModal"
+    />
   </div>
 </template>
 
 <script setup>
-import { Calendar, ClipboardList, Pencil, Trash2, UserRound, X } from '@lucide/vue'
+import { Calendar, ClipboardList, Pencil, Trash2, UserRound } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 
 import { apiJson } from '@/api/client'
-import DatePicker from '@/components/DatePicker.vue'
+import TaskEditModal from '@/components/TaskEditModal.vue'
 import { user } from '@/composables/session'
 import {
-  assigneeOptionLabel,
   buildAssigneeOptions,
   parseAssigneeKey,
   resolveAssigneeName,
@@ -189,7 +156,7 @@ const showModal = ref(false)
 const editingTaskId = ref(null)
 const saving = ref(false)
 const formError = ref('')
-const form = ref({
+const modalInitial = ref({
   title: '',
   assignee_key: null,
   due_date: '',
@@ -241,7 +208,7 @@ function triggerFlash(taskId) {
 function openEdit(task) {
   if (!canManageTasks.value) return
   editingTaskId.value = task.id
-  form.value = {
+  modalInitial.value = {
     title: task.title || '',
     assignee_key: taskAssigneeKey(task),
     due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
@@ -254,7 +221,7 @@ function openEdit(task) {
 function closeModal() {
   showModal.value = false
   editingTaskId.value = null
-  form.value = { title: '', assignee_key: null, due_date: '', status: 'pending' }
+  modalInitial.value = { title: '', assignee_key: null, due_date: '', status: 'pending' }
   formError.value = ''
 }
 
@@ -320,17 +287,17 @@ async function onStatusChange(task, event) {
   }
 }
 
-async function saveTask() {
-  if (!form.value.title.trim() || !editingTaskId.value) return
+async function saveFromModal(payload) {
+  if (!payload.title.trim() || !editingTaskId.value) return
 
   saving.value = true
   formError.value = ''
   try {
-    const { assignee_id, assignee_contact_id } = parseAssigneeKey(form.value.assignee_key)
+    const { assignee_id, assignee_contact_id } = parseAssigneeKey(payload.assignee_key)
     const body = {
-      title: form.value.title.trim(),
-      status: form.value.status || 'pending',
-      due_date: form.value.due_date || null,
+      title: payload.title.trim(),
+      status: payload.status || 'pending',
+      due_date: payload.due_date || null,
     }
     if (!assignee_id && !assignee_contact_id) {
       body.clear_assignee = true
