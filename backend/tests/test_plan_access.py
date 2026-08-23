@@ -69,5 +69,44 @@ def test_plan_access_snapshot_marks_restricted_with_counts():
     assert snap["has_full_write_access"] is False
     assert snap["project_count"] == 3
     assert snap["task_count"] == 12
+    assert "Your trial ended" in snap["restriction_message"]
     assert "3 projects" in snap["restriction_message"]
     assert "12 tasks" in snap["restriction_message"]
+
+
+def test_canceled_personal_subscriber_is_restricted():
+    org = _org(plan_tier="personal", trial_days=-1)
+    org.trial_ends_at = None
+    org.stripe_subscription_id = None
+    org.subscription_status = "canceled"
+    assert is_restricted(org) is True
+    assert has_full_write_access(org) is False
+
+
+def test_canceled_personal_subscription_ended_message():
+    org = _org(plan_tier="personal", trial_days=-1)
+    org.trial_ends_at = None
+    org.stripe_subscription_id = None
+    org.subscription_status = "canceled"
+    db = MagicMock()
+    db.scalar.side_effect = [2, 5]
+    snap = plan_access_snapshot(db, org)
+    assert "Your subscription ended" in snap["restriction_message"]
+
+
+def test_stale_canceled_sub_id_is_not_paid():
+    from app.services.plan_access import has_paid_subscription
+
+    org = _org(stripe_subscription_id="sub_old", subscription_status="canceled")
+    org.trial_ends_at = None
+    assert has_paid_subscription(org) is False
+    assert is_restricted(org) is True
+
+
+def test_active_paid_subscription_not_restricted():
+    org = _org(plan_tier="personal", trial_days=-1)
+    org.trial_ends_at = None
+    org.stripe_subscription_id = "sub_active"
+    org.subscription_status = "active"
+    assert has_full_write_access(org) is True
+    assert is_restricted(org) is False

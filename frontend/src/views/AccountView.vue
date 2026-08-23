@@ -180,9 +180,12 @@ function formatDate(iso) {
 
 function isCurrentPlan(planId) {
   const a = account.value
-  if (!a) return false
+  if (!a || a.plan_tier !== planId) return false
   if (a.cancel_at_period_end) return false
-  return a.plan_tier === planId
+  // Paid subscriber on this tier, or active trial on this tier.
+  if (a.has_paid_subscription) return true
+  if (a.on_trial && !a.has_paid_subscription) return true
+  return false
 }
 
 function planCta(planId) {

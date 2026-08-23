@@ -16,9 +16,10 @@ PAYMENT_REQUIRED_STATUS = status.HTTP_402_PAYMENT_REQUIRED
 
 
 def has_paid_subscription(org: Organisation) -> bool:
-    return bool(org.stripe_subscription_id) and (
-        org.subscription_status or "active"
-    ) not in ("canceled", "incomplete_expired")
+    if not org.stripe_subscription_id:
+        return False
+    status = (org.subscription_status or "active").strip().lower()
+    return status not in ("canceled", "incomplete_expired", "unpaid")
 
 
 def has_full_write_access(org: Organisation, *, now: datetime | None = None) -> bool:
@@ -29,9 +30,20 @@ def is_restricted(org: Organisation, *, now: datetime | None = None) -> bool:
     return not has_full_write_access(org, now=now)
 
 
-def restriction_message(*, project_count: int, task_count: int) -> str:
+def restriction_message(
+    org: Organisation,
+    *,
+    project_count: int,
+    task_count: int,
+    on_trial: bool,
+    has_paid: bool,
+) -> str:
+    if org.trial_ends_at is not None and not on_trial and not has_paid:
+        lead = "Your trial ended"
+    else:
+        lead = "Your subscription ended"
     return (
-        f"Your trial ended — you have {project_count} projects and {task_count} tasks waiting. "
+        f"{lead} — you have {project_count} projects and {task_count} tasks waiting. "
         "Upgrade to keep creating and editing."
     )
 
@@ -68,7 +80,13 @@ def plan_access_snapshot(db: Session, org: Organisation, *, now: datetime | None
         "on_trial": on_trial,
         "project_count": project_count,
         "task_count": task_count,
-        "restriction_message": restriction_message(project_count=project_count, task_count=task_count)
+        "restriction_message": restriction_message(
+            org,
+            project_count=project_count,
+            task_count=task_count,
+            on_trial=on_trial,
+            has_paid=paid,
+        )
         if restricted
         else None,
     }
