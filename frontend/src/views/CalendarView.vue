@@ -208,7 +208,8 @@
           <button
             type="button"
             class="btn-primary btn-compact"
-            :disabled="loading"
+            :disabled="loading || writeRestricted"
+            :title="writeDisabledTitle"
             @click="openCreate(selectedDate)"
           >
             <Plus :size="15" :stroke-width="2" />
@@ -281,6 +282,7 @@ import { apiJson } from '@/api/client'
 import TaskEditModal from '@/components/TaskEditModal.vue'
 import LinksList from '@/components/LinksList.vue'
 import { user } from '@/composables/session'
+import { useWriteAccess } from '@/composables/useWriteAccess'
 import {
   buildAssigneeOptions,
   parseAssigneeKey,
@@ -300,6 +302,7 @@ const zoomLevel = ref(readStored('plenvo_cal_zoom', 1))
 const ZOOM_HEIGHTS = [72, 104, 148]
 const ZOOM_CHIPS = [2, 4, 8]
 const zoomLabels = ['Compact', 'Standard', 'Comfortable']
+const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 const loading = ref(true)
 const refreshing = ref(false)
 const error = ref('')
@@ -651,6 +654,7 @@ function openEdit(task) {
 }
 
 function openCreate(isoDate) {
+  if (writeRestricted.value) return
   modalMode.value = 'create'
   editingTaskId.value = null
   modalInitial.value = {

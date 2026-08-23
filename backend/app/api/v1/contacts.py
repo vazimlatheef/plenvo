@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_admin_user, get_current_user, get_db
+from app.api.deps import get_current_admin_user, get_current_user, get_db, require_admin_full_write_access
 from app.core.security import hash_password
 from app.models.models import Contact, Organisation, User
 from app.schemas.contact import ContactCreate, ContactInviteRequest, ContactResponse, ContactUpdate
@@ -48,7 +48,7 @@ def list_contacts(
 def create_contact(
     payload: ContactCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(require_admin_full_write_access),
 ):
     org_id = _require_org(current_user)
     email = str(payload.email).strip().lower()
@@ -94,7 +94,7 @@ def update_contact(
     contact_id: int,
     payload: ContactUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(require_admin_full_write_access),
 ):
     org_id = _require_org(current_user)
     contact = db.query(Contact).filter(Contact.id == contact_id).first()
@@ -132,7 +132,7 @@ def update_contact(
 def delete_contact(
     contact_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(require_admin_full_write_access),
 ):
     org_id = _require_org(current_user)
     contact = db.query(Contact).filter(Contact.id == contact_id).first()
@@ -148,7 +148,7 @@ def invite_contact(
     contact_id: int,
     payload: ContactInviteRequest = ContactInviteRequest(),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(require_admin_full_write_access),
 ):
     """Create a Plenvo account for this contact (if needed) and email login credentials."""
     org_id = _require_org(current_user)

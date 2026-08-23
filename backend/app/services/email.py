@@ -57,6 +57,10 @@ def build_my_tasks_url() -> str:
     return f"{FRONTEND_URL}/app/tasks"
 
 
+def build_account_url() -> str:
+    return f"{FRONTEND_URL}/app/account"
+
+
 def build_unsubscribe_url(token: str) -> str:
     return f"{API_BASE_URL}/api/v1/email/unsubscribe?token={quote(token, safe='')}"
 
@@ -366,6 +370,37 @@ def send_overdue_tasks_email(
         f"You have {count} overdue {noun}:\n\n"
         f"{chr(10).join(rows_text)}\n\n"
         f"Open My Tasks: {tasks_url}\n\n"
+        f"{_footer_text()}"
+    )
+    return _send_email(to_email, user_name, subject, plain_text, html_content)
+
+
+def send_trial_ending_email(
+    to_email: str,
+    user_name: str,
+    *,
+    days_left: int,
+    project_count: int,
+    task_count: int,
+) -> bool:
+    """Warn org admin that trial ends soon."""
+    day_word = "day" if days_left == 1 else "days"
+    subject = f"Your Plenvo trial ends in {days_left} {day_word}"
+    account_url = build_account_url()
+    body_html = f"""
+      <p style="margin:0 0 14px;">Hello {_esc(user_name)},</p>
+      <p style="margin:0 0 14px;">
+        Your trial ends in {days_left} {day_word} — you have {project_count} projects and {task_count} tasks.
+        Upgrade to keep access.
+      </p>
+      {_cta_button(account_url, "Upgrade in Account")}
+    """
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
+    plain_text = (
+        f"Hello {user_name},\n\n"
+        f"Your trial ends in {days_left} {day_word} — you have {project_count} projects "
+        f"and {task_count} tasks. Upgrade to keep access.\n\n"
+        f"Upgrade: {account_url}\n\n"
         f"{_footer_text()}"
     )
     return _send_email(to_email, user_name, subject, plain_text, html_content)

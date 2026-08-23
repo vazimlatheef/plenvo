@@ -20,6 +20,7 @@ from app.core.pricing import (
     stripe_product_image_url,
 )
 from app.models.models import Organisation, User
+from app.services.plan_access import has_paid_subscription, plan_access_snapshot
 from app.services.plan_limits import is_on_trial, team_limit_snapshot
 
 
@@ -69,9 +70,7 @@ def ensure_stripe_customer(db: Session, org: Organisation, admin: User) -> str:
 
 
 def _has_active_paid_subscription(org: Organisation) -> bool:
-    return bool(org.stripe_subscription_id) and (
-        org.subscription_status or "active"
-    ) not in ("canceled", "incomplete_expired")
+    return has_paid_subscription(org)
 
 
 def create_checkout_session(
@@ -355,16 +354,17 @@ def handle_subscription_deleted(db: Session, sub: Any) -> None:
 
 def account_snapshot(db: Session, org: Organisation) -> dict:
     limits = team_limit_snapshot(db, org)
-    on_trial = is_on_trial(org)
-    has_paid = _has_active_paid_subscription(org)
+    access = plan_access_snapshot(db, org)
+    on_trial = access["on_trial"]
+    has_paid = access["has_paid_subscription"]
     tier = limits["plan_tier"]
 
     return {
         **limits,
+        **access,
         "organisation_name": org.name,
         "display_plan": tier,
         "plan_label": plan_label_for_org(tier, on_trial=on_trial, has_paid=has_paid),
-        "has_paid_subscription": has_paid,
         "subscription_status": org.subscription_status,
         "cancel_at_period_end": bool(org.cancel_at_period_end),
         "access_ends_at": (

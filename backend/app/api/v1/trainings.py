@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_admin_user, get_db
+from app.api.deps import get_current_admin_user, get_db, require_admin_full_write_access
 from app.models import User
 from app.schemas.training import TrainingCreate, TrainingListItem, TrainingPublic, TrainingSummary, TrainingUpdate
 from app.services.training_service import (
@@ -53,7 +53,7 @@ def training_assignment_summary(
 def create_training(
     payload: TrainingCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(require_admin_full_write_access),
 ) -> TrainingPublic:
     return create_training_record(
         db,
@@ -68,7 +68,7 @@ def patch_training(
     training_id: int,
     payload: TrainingUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(require_admin_full_write_access),
 ) -> TrainingPublic:
     return update_training(db, training_id, payload, organisation_id=_org_id(current_user))
 
@@ -77,6 +77,6 @@ def patch_training(
 def delete_training_endpoint(
     training_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(require_admin_full_write_access),
 ) -> None:
     delete_training(db, training_id, organisation_id=_org_id(current_user))

@@ -3,19 +3,24 @@ from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_admin_user, get_current_user, get_db
+from app.api.deps import get_current_admin_user, get_current_user, get_db, require_admin_full_write_access
 from app.core.security import hash_password
 from app.models import User
 from app.models.models import Organisation
 from app.schemas.user import UserCreate, UserPublic, UserUpdate
 from app.services.overdue_notifications import check_and_send_overdue_notifications
 from app.services.plan_limits import assert_can_add_team_members
+from app.services.trial_notifications import check_and_send_trial_warning
 
 router = APIRouter(tags=["users"])
 
 
 class OverdueCheckResponse(BaseModel):
     notified: int
+
+
+class TrialWarningCheckResponse(BaseModel):
+    sent: bool
 
 
 @router.get("/me", response_model=UserPublic)
@@ -74,11 +79,21 @@ def check_overdue_tasks(
     return OverdueCheckResponse(notified=notified)
 
 
+@router.post("/me/check-trial-warning", response_model=TrialWarningCheckResponse)
+def check_trial_warning(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TrialWarningCheckResponse:
+    """Email admin once when trial ends within 3 days (non-blocking for client)."""
+    sent = check_and_send_trial_warning(db, current_user)
+    return TrialWarningCheckResponse(sent=sent)
+
+
 @router.post("/", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 def create_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(require_admin_full_write_access),
 ) -> User:
     if not current_user.organisation_id:
         raise HTTPException(status_code=400, detail="No organisation on account.")

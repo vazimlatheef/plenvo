@@ -11,11 +11,23 @@
         <LinksList v-if="project?.links?.length" :links="project.links" class="project-links" />
       </div>
       <div class="header-actions">
-        <button type="button" class="btn-outline btn-with-icon" @click="openProjectEdit">
+        <button
+          type="button"
+          class="btn-outline btn-with-icon"
+          :disabled="writeRestricted"
+          :title="writeDisabledTitle"
+          @click="openProjectEdit"
+        >
           <Pencil :size="15" :stroke-width="1.75" />
           Edit details
         </button>
-        <button type="button" class="btn-primary" @click="openCreate">
+        <button
+          type="button"
+          class="btn-primary"
+          :disabled="writeRestricted"
+          :title="writeDisabledTitle"
+          @click="openCreate"
+        >
         <Plus :size="16" :stroke-width="2" />
         New task
       </button>
@@ -28,7 +40,13 @@
     <div v-else-if="!tasks.length" class="empty-panel">
       <ClipboardList class="empty-icon" :size="28" :stroke-width="1.5" />
       <p>No tasks yet — create the first one</p>
-      <button type="button" class="btn-primary" @click="openCreate">
+      <button
+        type="button"
+        class="btn-primary"
+        :disabled="writeRestricted"
+        :title="writeDisabledTitle"
+        @click="openCreate"
+      >
         <Plus :size="16" :stroke-width="2" />
         Create task
       </button>
@@ -171,6 +189,7 @@ import LinksEditor from '@/components/LinksEditor.vue'
 import LinksList from '@/components/LinksList.vue'
 import { linksForApi } from '@/utils/links'
 import { user } from '@/composables/session'
+import { useWriteAccess } from '@/composables/useWriteAccess'
 import {
   buildAssigneeOptions,
   parseAssigneeKey,
@@ -186,6 +205,7 @@ import {
 } from '@/utils/ui'
 
 const route = useRoute()
+const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 
 const project = ref(null)
 const tasks = ref([])
@@ -271,6 +291,7 @@ function resetForm() {
 }
 
 function openProjectEdit() {
+  if (writeRestricted.value) return
   if (!project.value) return
   projectForm.value = {
     description: project.value.description || '',
@@ -308,11 +329,13 @@ async function saveProjectDetails() {
 }
 
 function openCreate() {
+  if (writeRestricted.value) return
   resetForm()
   showModal.value = true
 }
 
 function openEdit(task) {
+  if (writeRestricted.value) return
   editingTaskId.value = task.id
   modalInitial.value = {
     title: task.title || '',
@@ -460,6 +483,7 @@ async function saveFromModal(payload) {
 }
 
 async function confirmDelete(task) {
+  if (writeRestricted.value) return
   if (!window.confirm('Delete this task?')) return
 
   busyId.value = task.id

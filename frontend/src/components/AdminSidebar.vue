@@ -40,7 +40,16 @@
 
     <div class="sidebar-section">
       <p class="section-label">Quick actions</p>
-      <RouterLink to="/app/projects" class="nav-item nav-item--action" @click="closeMobile">
+      <div
+        v-if="writeRestricted"
+        class="nav-item nav-item--action nav-item--locked"
+        aria-disabled="true"
+        :title="writeDisabledTitle"
+      >
+        <FolderPlus class="nav-icon" :size="18" :stroke-width="1.75" />
+        <span>New Project</span>
+      </div>
+      <RouterLink v-else to="/app/projects" class="nav-item nav-item--action" @click="closeMobile">
         <FolderPlus class="nav-icon" :size="18" :stroke-width="1.75" />
         <span>New Project</span>
       </RouterLink>
@@ -101,6 +110,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { apiJson } from '@/api/client'
 import { logoutAndRedirect, user } from '@/composables/session'
+import { useWriteAccess } from '@/composables/useWriteAccess'
 import PlenvoLogo from '@/components/PlenvoLogo.vue'
 
 defineProps({
@@ -112,6 +122,7 @@ const router = useRouter()
 const route = useRoute()
 
 const planTier = ref(null)
+const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 
 const isPersonalPlan = computed(() => planTier.value === 'personal')
 

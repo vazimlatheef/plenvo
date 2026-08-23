@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_admin_full_write_access, require_full_write_access
 from app.models.models import Contact, Project, Task, User
 from app.schemas.link import normalize_links
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
@@ -36,7 +36,7 @@ def _validate_contact_assignee(db: Session, org_id: int, contact_id: int) -> Con
 def create_task(
     task_in: TaskCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin_full_write_access),
 ):
     if current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can create tasks")
@@ -127,7 +127,7 @@ def update_task(
     task_id: int,
     task_in: TaskUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_full_write_access),
 ):
     org_id = _require_org(current_user)
     task = db.query(Task).filter(Task.id == task_id).first()
@@ -178,7 +178,7 @@ def update_task(
 def delete_task(
     task_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin_full_write_access),
 ):
     org_id = _require_org(current_user)
     task = db.query(Task).filter(Task.id == task_id).first()

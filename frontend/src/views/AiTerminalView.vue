@@ -74,7 +74,12 @@
         </button>
       </div>
 
-      <button class="btn-primary" :disabled="!form.raw_text.trim() || loading" @click="parseNote">
+      <button
+        class="btn-primary"
+        :disabled="!form.raw_text.trim() || loading || writeRestricted"
+        :title="writeDisabledTitle"
+        @click="parseNote"
+      >
         <span v-if="loading" class="spinner" />
         <span v-else class="btn-with-icon">
           <Sparkles :size="16" :stroke-width="2" />
@@ -209,7 +214,12 @@
           <ArrowLeft :size="15" :stroke-width="1.75" />
           Start over
         </button>
-        <button class="btn-primary" :disabled="loading || extractedTasks.length === 0" @click="confirmTasks">
+        <button
+          class="btn-primary"
+          :disabled="loading || extractedTasks.length === 0 || writeRestricted"
+          :title="writeDisabledTitle"
+          @click="confirmTasks"
+        >
           <span v-if="loading" class="spinner" />
           <span v-else class="btn-with-icon">
             <Check :size="16" :stroke-width="2" />
@@ -243,6 +253,7 @@ import { ref, computed, nextTick, onMounted } from 'vue'
 import { apiJson } from '@/api/client'
 import DatePicker from '@/components/DatePicker.vue'
 import { user } from '@/composables/session'
+import { useWriteAccess } from '@/composables/useWriteAccess'
 import {
   assigneeOptionLabel,
   buildAssigneeOptions,
@@ -253,6 +264,8 @@ import {
 const NEW_PROJECT_VALUE = '__new__'
 const CREATE_PROJECT_PREFIX = 'new:'
 const CREATE_CONTACT_PREFIX = 'contact:'
+
+const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 
 const step = ref('input')
 const loading = ref(false)
@@ -500,6 +513,7 @@ onMounted(async () => {
 })
 
 async function parseNote() {
+  if (writeRestricted.value) return
   error.value = null
   loading.value = true
   try {
@@ -554,6 +568,7 @@ async function parseNote() {
 }
 
 async function confirmTasks() {
+  if (writeRestricted.value) return
   error.value = null
   loading.value = true
   try {

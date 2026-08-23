@@ -2,7 +2,13 @@
   <div class="app-page">
     <div class="app-page-header">
       <h1>Projects</h1>
-      <button type="button" class="btn-primary btn-with-icon" @click="showCreateModal = true">
+      <button
+        type="button"
+        class="btn-primary btn-with-icon"
+        :disabled="writeRestricted"
+        :title="writeDisabledTitle"
+        @click="openCreateModal"
+      >
         <Plus :size="16" :stroke-width="2" />
         New project
       </button>
@@ -13,7 +19,13 @@
 
     <div v-else-if="projects.length === 0" class="empty-panel">
       <p>No projects yet — create the first one</p>
-      <button type="button" class="btn-primary btn-with-icon" @click="showCreateModal = true">
+      <button
+        type="button"
+        class="btn-primary btn-with-icon"
+        :disabled="writeRestricted"
+        :title="writeDisabledTitle"
+        @click="openCreateModal"
+      >
         <Plus :size="16" :stroke-width="2" />
         Create project
       </button>
@@ -90,7 +102,9 @@ import { apiJson } from '@/api/client'
 import LinksEditor from '@/components/LinksEditor.vue'
 import LinksList from '@/components/LinksList.vue'
 import { linksForApi } from '@/utils/links'
-import { avatarTone, getInitials } from '@/utils/ui'
+import { useWriteAccess } from '@/composables/useWriteAccess'
+
+const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 
 const projects = ref([])
 const loading = ref(true)
@@ -100,6 +114,11 @@ const showCreateModal = ref(false)
 const newProject = ref({ title: '', description: '', links: [] })
 const creating = ref(false)
 const createError = ref('')
+
+function openCreateModal() {
+  if (writeRestricted.value) return
+  showCreateModal.value = true
+}
 
 function formatDate(dateString) {
   if (!dateString) return ''

@@ -5,8 +5,8 @@
       <button
         type="button"
         class="btn-primary"
-        :disabled="!canAddMembers"
-        :title="canAddMembers ? undefined : teamLimits.limit_message || undefined"
+        :disabled="!canAddMembers || writeRestricted"
+        :title="writeRestricted ? writeDisabledTitle : canAddMembers ? undefined : teamLimits.limit_message || undefined"
         @click="openAddModal"
       >
         <Plus :size="16" :stroke-width="2" />
@@ -55,7 +55,7 @@
 
       <div v-else-if="rows.length === 0" class="empty-panel">
         <p>No team members yet — add someone with name and email (no account needed)</p>
-        <button type="button" class="btn-primary" :disabled="!canAddMembers" @click="openAddModal">
+        <button type="button" class="btn-primary" :disabled="!canAddMembers || writeRestricted" :title="writeRestricted ? writeDisabledTitle : undefined" @click="openAddModal">
           <Plus :size="16" :stroke-width="2" />
           Add team member
         </button>
@@ -330,6 +330,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import { apiJson } from '@/api/client'
 import { user } from '@/composables/session'
+import { useWriteAccess } from '@/composables/useWriteAccess'
 import { avatarTone, getInitials } from '@/utils/ui'
 import {
   buildPerformanceRows,
@@ -350,6 +351,8 @@ const teamSizeOptions = [
   { value: '6-20', label: '6–20' },
   { value: '20+', label: '20+' },
 ]
+
+const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 
 const contacts = ref([])
 const employees = ref([])
@@ -519,6 +522,7 @@ async function loadTeam() {
 }
 
 function openAddModal() {
+  if (writeRestricted.value) return
   if (!canAddMembers.value) {
     actionError.value = teamLimits.value?.limit_message || 'Team member limit reached.'
     return

@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models import User
+from app.models.models import Organisation
+from app.services.plan_access import assert_full_write_access
 
 http_bearer = HTTPBearer()
 
@@ -57,4 +59,37 @@ def get_current_admin_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required.",
         )
+    return current_user
+
+
+def get_user_organisation(db: Session, user: User) -> Organisation:
+    if not user.organisation_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are not part of an organisation.",
+        )
+    org = db.get(Organisation, user.organisation_id)
+    if org is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organisation not found.",
+        )
+    return org
+
+
+def require_full_write_access(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+) -> User:
+    org = get_user_organisation(db, current_user)
+    assert_full_write_access(org)
+    return current_user
+
+
+def require_admin_full_write_access(
+    current_user: Annotated[User, Depends(get_current_admin_user)],
+    db: Session = Depends(get_db),
+) -> User:
+    org = get_user_organisation(db, current_user)
+    assert_full_write_access(org)
     return current_user

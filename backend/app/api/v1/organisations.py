@@ -15,7 +15,7 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_admin_user, get_current_user, get_db
+from app.api.deps import get_current_admin_user, get_current_user, get_db, require_admin_full_write_access
 from app.core.pricing import normalize_currency, resolve_signup_plan_tier
 from app.core.security import hash_password
 from app.models.models import Organisation, User
@@ -234,7 +234,7 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
 def invite_employee(
     payload: InviteRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(require_admin_full_write_access),
 ):
     if not current_user.organisation_id:
         raise HTTPException(status_code=400, detail="Your account has no organisation.")

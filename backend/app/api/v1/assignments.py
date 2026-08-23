@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_admin_user, get_current_user, get_db
+from app.api.deps import get_current_admin_user, get_current_user, get_db, require_admin_full_write_access, require_full_write_access
 from app.models import User
 from app.schemas.assignment import (
     AssignmentBatchResponse,
@@ -43,7 +43,7 @@ def list_assignments(
 def create_assignment_batch(
     payload: AssignmentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(require_admin_full_write_access),
 ) -> AssignmentBatchResponse:
     items = create_assignments(
         db,
@@ -62,7 +62,7 @@ def update_assignment_progress_endpoint(
     assignment_id: int,
     payload: AssignmentProgressUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_full_write_access),
 ) -> AssignmentProgressResponse:
     assignment = update_assignment_progress(
         db,

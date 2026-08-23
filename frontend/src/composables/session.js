@@ -1,7 +1,9 @@
 import { ref } from 'vue'
 
 import { fetchMe, getToken, logout as authLogout } from '@/services/auth'
+import { clearPlanAccess } from '@/composables/useWriteAccess'
 import { maybeCheckOverdueTasks, resetOverdueCheck } from '@/services/overdueNotifications'
+import { maybeCheckTrialWarning, resetTrialWarningCheck } from '@/services/trialNotifications'
 
 /** Shared session (no Pinia): current user after login or /me. */
 export const user = ref(null)
@@ -14,6 +16,8 @@ export function setSessionUser(u) {
 export function clearSessionUser() {
   user.value = null
   resetOverdueCheck()
+  resetTrialWarningCheck()
+  clearPlanAccess()
 }
 
 /** Load /me when token exists; clears session on failure. */
@@ -27,6 +31,7 @@ export async function loadSessionUser() {
   try {
     user.value = await fetchMe()
     maybeCheckOverdueTasks()
+    maybeCheckTrialWarning()
     return user.value
   } catch {
     authLogout()

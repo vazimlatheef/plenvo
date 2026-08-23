@@ -32,6 +32,9 @@
         <p v-else-if="account.has_paid_subscription" class="muted-line billing-line">
           Billed monthly in {{ account.currency }}.
         </p>
+        <p v-else-if="account.restricted" class="warn-line trial-line--prominent">
+          {{ account.restriction_message }}
+        </p>
 
         <p v-if="account.cancel_at_period_end && account.access_ends_at" class="warn-line">
           Cancellation scheduled — access continues until {{ formatDate(account.access_ends_at) }}.
@@ -63,6 +66,10 @@
           Prices shown in your organisation currency ({{ account.currency }}).
           <template v-if="account.on_trial && !account.has_paid_subscription">
             Switch plans anytime during your trial — limits update immediately, no charge until trial ends.
+          </template>
+          <template v-else-if="account.restricted">
+            Subscribe to restore full create and edit access for your {{ account.project_count }} projects and
+            {{ account.task_count }} tasks.
           </template>
           <template v-else>
             Checkout stays in Plenvo — you won't be sent to the public pricing page.
@@ -124,6 +131,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiJson } from '@/api/client'
+import { loadPlanAccess } from '@/composables/useWriteAccess'
 
 const route = useRoute()
 const router = useRouter()
@@ -190,6 +198,7 @@ async function loadAccount() {
   error.value = ''
   try {
     account.value = await apiJson('/api/v1/billing/account')
+    await loadPlanAccess({ force: true })
   } catch (err) {
     error.value = err.message || 'Failed to load account'
   } finally {

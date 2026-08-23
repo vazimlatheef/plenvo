@@ -95,7 +95,8 @@
               class="status-pill"
               :data-s="task.status"
               :value="task.status"
-              :disabled="busyId === task.id"
+              :disabled="busyId === task.id || writeRestricted"
+              :title="writeDisabledTitle"
               @change="onStatusChange(task, $event)"
             >
               <option v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
@@ -129,6 +130,7 @@ import { apiJson } from '@/api/client'
 import TaskEditModal from '@/components/TaskEditModal.vue'
 import LinksList from '@/components/LinksList.vue'
 import { user } from '@/composables/session'
+import { useWriteAccess } from '@/composables/useWriteAccess'
 import {
   buildAssigneeOptions,
   parseAssigneeKey,
@@ -169,6 +171,7 @@ const modalInitial = ref({
 })
 
 const canManageTasks = computed(() => user.value?.role === 'admin')
+const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 
 const statusGroups = computed(() =>
   STATUS_GROUPS.map((group) => ({
@@ -211,6 +214,7 @@ function triggerFlash(taskId) {
 }
 
 function openEdit(task) {
+  if (writeRestricted.value) return
   if (!canManageTasks.value) return
   editingTaskId.value = task.id
   modalInitial.value = {
@@ -269,6 +273,7 @@ async function loadTasks() {
 }
 
 async function onStatusChange(task, event) {
+  if (writeRestricted.value) return
   const next = event.target.value
   if (next === task.status) return
 
@@ -338,6 +343,7 @@ async function saveFromModal(payload) {
 }
 
 async function confirmDelete(task) {
+  if (writeRestricted.value) return
   if (!canManageTasks.value) return
   if (!window.confirm('Delete this task?')) return
 

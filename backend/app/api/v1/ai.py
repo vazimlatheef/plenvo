@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_full_write_access
 from app.core.config import settings
 from app.models.models import Contact, Note, Organisation, Project, Task, User
 from app.services.mention_match import (
@@ -340,7 +340,7 @@ LIVE SNAPSHOT:
 async def parse_note(
     body: ParseNoteRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_full_write_access),
 ):
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured.")
@@ -405,7 +405,7 @@ async def parse_note(
 def confirm_tasks(
     body: ConfirmTasksRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_full_write_access),
 ):
     if current_user.organisation_id is None:
         raise HTTPException(status_code=400, detail="No organisation on account.")

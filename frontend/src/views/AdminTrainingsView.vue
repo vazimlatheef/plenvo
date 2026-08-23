@@ -3,14 +3,42 @@
     <div class="app-page-header">
       <h1>Training</h1>
       <div class="header-actions">
-        <RouterLink to="/app/admin/assign" class="btn-outline btn-with-icon">
+        <RouterLink
+          v-if="!writeRestricted"
+          to="/app/admin/assign"
+          class="btn-outline btn-with-icon"
+        >
           Assign training
           <ArrowRight :size="14" :stroke-width="1.75" />
         </RouterLink>
-        <RouterLink to="/app/admin/trainings/new" class="btn-primary btn-with-icon">
+        <button
+          v-else
+          type="button"
+          class="btn-outline btn-with-icon"
+          disabled
+          :title="writeDisabledTitle"
+        >
+          Assign training
+          <ArrowRight :size="14" :stroke-width="1.75" />
+        </button>
+        <RouterLink
+          v-if="!writeRestricted"
+          to="/app/admin/trainings/new"
+          class="btn-primary btn-with-icon"
+        >
           <Plus :size="16" :stroke-width="2" />
           New training
         </RouterLink>
+        <button
+          v-else
+          type="button"
+          class="btn-primary btn-with-icon"
+          disabled
+          :title="writeDisabledTitle"
+        >
+          <Plus :size="16" :stroke-width="2" />
+          New training
+        </button>
       </div>
     </div>
 
@@ -19,10 +47,20 @@
 
     <div v-else-if="trainings.length === 0" class="empty-panel">
       <p>No trainings yet — publish one for your team to complete.</p>
-      <RouterLink to="/app/admin/trainings/new" class="btn-primary btn-with-icon">
+      <RouterLink v-if="!writeRestricted" to="/app/admin/trainings/new" class="btn-primary btn-with-icon">
         <Plus :size="16" :stroke-width="2" />
         Create training
       </RouterLink>
+      <button
+        v-else
+        type="button"
+        class="btn-primary btn-with-icon"
+        disabled
+        :title="writeDisabledTitle"
+      >
+        <Plus :size="16" :stroke-width="2" />
+        Create training
+      </button>
     </div>
 
     <ul v-else class="dense-list">
@@ -73,7 +111,10 @@ import { ArrowRight, Plus } from '@lucide/vue'
 import { onMounted, ref } from 'vue'
 
 import { apiJson } from '@/api/client'
+import { useWriteAccess } from '@/composables/useWriteAccess'
 import { avatarTone, getInitials } from '@/utils/ui'
+
+const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 
 const trainings = ref([])
 const loading = ref(true)

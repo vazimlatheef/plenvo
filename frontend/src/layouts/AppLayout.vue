@@ -3,6 +3,7 @@
     <AdminSidebar v-if="isAdmin" :mobile-open="sidebarOpen" @close="sidebarOpen = false" />
 
     <div class="shell-body">
+      <PlanRestrictionBanner v-if="user" />
       <header v-if="isAdmin" class="admin-topbar">
         <button type="button" class="menu-btn" aria-label="Open menu" @click="sidebarOpen = true">
           <Menu :size="20" :stroke-width="1.75" />
@@ -32,9 +33,12 @@ import { useRoute } from 'vue-router'
 
 import AdminSidebar from '@/components/AdminSidebar.vue'
 import AppHeader from '@/components/AppHeader.vue'
+import PlanRestrictionBanner from '@/components/PlanRestrictionBanner.vue'
 import PlenvoLogo from '@/components/PlenvoLogo.vue'
+import { loadPlanAccess } from '@/composables/useWriteAccess'
 import { user } from '@/composables/session'
 import { maybeCheckOverdueTasks } from '@/services/overdueNotifications'
+import { maybeCheckTrialWarning } from '@/services/trialNotifications'
 
 const route = useRoute()
 const sidebarOpen = ref(false)
@@ -52,6 +56,8 @@ watch(
 
 onMounted(() => {
   maybeCheckOverdueTasks()
+  maybeCheckTrialWarning()
+  if (user.value) loadPlanAccess()
 })
 </script>
 
