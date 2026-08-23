@@ -10,18 +10,32 @@
     </div>
 
     <nav class="sidebar-nav" aria-label="Main">
-      <RouterLink
-        v-for="item in navItems"
-        :key="item.to"
-        :to="item.to"
-        class="nav-item"
-        :class="{ 'router-link-active': isNavActive(item) }"
-        active-class=""
-        @click="closeMobile"
-      >
-        <component :is="item.icon" class="nav-icon" :size="18" :stroke-width="1.75" />
-        <span>{{ item.label }}</span>
-      </RouterLink>
+      <template v-for="item in navItems" :key="item.to">
+        <div
+          v-if="isTeamNavItem(item) && isPersonalPlan"
+          class="nav-item nav-item--locked"
+          aria-disabled="true"
+        >
+          <component :is="item.icon" class="nav-icon" :size="18" :stroke-width="1.75" />
+          <div class="nav-locked-body">
+            <span class="nav-locked-label">{{ item.label }}</span>
+            <RouterLink to="/app/account" class="nav-upgrade-hint" @click="closeMobile">
+              Upgrade to Team to add members, see performance, and assign training/tasks
+            </RouterLink>
+          </div>
+        </div>
+        <RouterLink
+          v-else
+          :to="item.to"
+          class="nav-item"
+          :class="{ 'router-link-active': isNavActive(item) }"
+          active-class=""
+          @click="closeMobile"
+        >
+          <component :is="item.icon" class="nav-icon" :size="18" :stroke-width="1.75" />
+          <span>{{ item.label }}</span>
+        </RouterLink>
+      </template>
     </nav>
 
     <div class="sidebar-section">
@@ -82,8 +96,10 @@ import {
   X,
   Zap,
 } from '@lucide/vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { apiJson } from '@/api/client'
 import { logoutAndRedirect, user } from '@/composables/session'
 import PlenvoLogo from '@/components/PlenvoLogo.vue'
 
@@ -94,6 +110,10 @@ defineProps({
 const emit = defineEmits(['close'])
 const router = useRouter()
 const route = useRoute()
+
+const planTier = ref(null)
+
+const isPersonalPlan = computed(() => planTier.value === 'personal')
 
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
@@ -109,6 +129,23 @@ const navItems = [
   },
   { to: '/app/admin/ai-terminal', label: 'Plenvo AI', icon: Sparkles },
 ]
+
+function isTeamNavItem(item) {
+  return item.to === '/app/team'
+}
+
+async function loadPlanTier() {
+  try {
+    const limits = await apiJson('/api/v1/organisations/me/team-limits')
+    planTier.value = limits?.plan_tier || null
+  } catch {
+    planTier.value = null
+  }
+}
+
+onMounted(() => {
+  loadPlanTier()
+})
 
 function isNavActive(item) {
   const path = route.path
@@ -244,6 +281,42 @@ function onLogout() {
 
 .nav-item--action {
   color: var(--color-text);
+}
+
+.nav-item--locked {
+  opacity: 0.55;
+  cursor: default;
+  align-items: flex-start;
+}
+
+.nav-item--locked:hover {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.nav-locked-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.nav-locked-label {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.nav-upgrade-hint {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  font-weight: 400;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.nav-upgrade-hint:hover {
+  text-decoration: underline;
+  color: var(--color-accent);
 }
 
 .nav-icon {
