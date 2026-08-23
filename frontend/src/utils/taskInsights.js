@@ -28,14 +28,12 @@ export function isTaskOverdue(task, today = startOfToday()) {
   return due < today
 }
 
-export function canUseWorkloadView({ plan_tier: tier, on_trial: onTrial } = {}) {
-  if (onTrial) return true
+export function canUseWorkloadView({ plan_tier: tier } = {}) {
   const t = (tier || '').toLowerCase()
   return t === 'team' || t === 'enterprise'
 }
 
-export function canUsePerformanceView({ plan_tier: tier, on_trial: onTrial } = {}) {
-  if (onTrial) return true
+export function canUsePerformanceView({ plan_tier: tier } = {}) {
   const t = (tier || '').toLowerCase()
   return t === 'team' || t === 'enterprise'
 }

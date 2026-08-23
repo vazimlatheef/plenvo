@@ -12,9 +12,10 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.pricing import (
     catalogue_for_currency,
-    normalize_currency,
+    checkout_currency,
     normalize_plan,
     plan_from_price_id,
+    plan_label_for_org,
     price_id_for,
     stripe_product_image_url,
 )
@@ -67,6 +68,12 @@ def ensure_stripe_customer(db: Session, org: Organisation, admin: User) -> str:
     return customer.id
 
 
+def _has_active_paid_subscription(org: Organisation) -> bool:
+    return bool(org.stripe_subscription_id) and (
+        org.subscription_status or "active"
+    ) not in ("canceled", "incomplete_expired")
+
+
 def create_checkout_session(
     db: Session,
     *,
@@ -81,16 +88,27 @@ def create_checkout_session(
     """
     _require_stripe()
     tier = normalize_plan(plan)
-    currency = normalize_currency(org.currency)
-    price_id = price_id_for(currency, tier)
+    currency = checkout_currency(org.currency)
+    price_id = price_id_for(tier)
     if not price_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"No Stripe Price ID configured for {tier} in {currency}. "
-                "Set STRIPE_PRICE_* env vars."
+                f"No Stripe Price ID configured for {tier}. "
+                f"Set STRIPE_PRICE_ID_{tier.upper()} env var."
             ),
         )
+
+    has_paid = _has_active_paid_subscription(org)
+    on_trial = is_on_trial(org)
+
+    # Active trial without a paid Stripe sub: switch plan locally (limits update immediately).
+    if on_trial and not has_paid:
+        org.plan_tier = tier
+        db.add(org)
+        db.commit()
+        db.refresh(org)
+        return {"updated": True, "plan_tier": tier, "on_trial": True}
 
     # Existing paid subscription → change price in place (avoid a second sub).
     if org.stripe_subscription_id and (org.subscription_status or "active") in (
@@ -110,6 +128,7 @@ def create_checkout_session(
         updated = stripe.Subscription.modify(
             org.stripe_subscription_id,
             items=[{"id": item_id, "price": price_id}],
+            currency=currency,
             cancel_at_period_end=False,
             metadata={
                 "organisation_id": str(org.id),
@@ -131,6 +150,7 @@ def create_checkout_session(
     session = stripe.checkout.Session.create(
         mode="subscription",
         customer=customer_id,
+        currency=currency,
         line_items=[{"price": price_id, "quantity": 1}],
         success_url=f"{base}/app/account?checkout=success",
         cancel_url=f"{base}/app/account?checkout=cancel",
@@ -336,22 +356,14 @@ def handle_subscription_deleted(db: Session, sub: Any) -> None:
 def account_snapshot(db: Session, org: Organisation) -> dict:
     limits = team_limit_snapshot(db, org)
     on_trial = is_on_trial(org)
-    has_paid = bool(org.stripe_subscription_id) and (
-        org.subscription_status or "active"
-    ) not in ("canceled", "incomplete_expired")
-
-    display_tier = "trial" if on_trial and not has_paid else (org.plan_tier or "personal")
+    has_paid = _has_active_paid_subscription(org)
+    tier = limits["plan_tier"]
 
     return {
         **limits,
         "organisation_name": org.name,
-        "display_plan": display_tier,
-        "plan_label": {
-            "trial": "Trial",
-            "personal": "Personal",
-            "team": "Team",
-            "enterprise": "Enterprise",
-        }.get(display_tier, display_tier.capitalize()),
+        "display_plan": tier,
+        "plan_label": plan_label_for_org(tier, on_trial=on_trial, has_paid=has_paid),
         "has_paid_subscription": has_paid,
         "subscription_status": org.subscription_status,
         "cancel_at_period_end": bool(org.cancel_at_period_end),

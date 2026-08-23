@@ -27,19 +27,10 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     stripe_product_image_url: str = ""
 
-    # Price IDs per currency × plan (set in Stripe Dashboard / .env)
-    stripe_price_gbp_personal: str = ""
-    stripe_price_gbp_team: str = ""
-    stripe_price_gbp_enterprise: str = ""
-    stripe_price_eur_personal: str = ""
-    stripe_price_eur_team: str = ""
-    stripe_price_eur_enterprise: str = ""
-    stripe_price_usd_personal: str = ""
-    stripe_price_usd_team: str = ""
-    stripe_price_usd_enterprise: str = ""
-    stripe_price_inr_personal: str = ""
-    stripe_price_inr_team: str = ""
-    stripe_price_inr_enterprise: str = ""
+    # One multi-currency Price ID per plan (currency passed at Checkout time)
+    stripe_price_id_personal: str = ""
+    stripe_price_id_team: str = ""
+    stripe_price_id_enterprise: str = ""
 
     @field_validator("database_url", mode="before")
     @classmethod

@@ -2,6 +2,7 @@
 
 Enforced when adding members (contacts / users), not at signup.
 Headcount = org Users + unlinked Contacts (linked contacts are already counted as users).
+Trial uses the selected plan's real limits — not a blanket upgrade.
 """
 
 from __future__ import annotations
@@ -14,13 +15,12 @@ from sqlalchemy.orm import Session
 from app.models.models import Contact, Organisation, User
 
 # Max total headcount (Users + unlinked Contacts).
-# personal = solo only (0 additional members).
+# personal = solo only (1 total member).
 _PLAN_MEMBER_LIMITS: dict[str, int | None] = {
     "personal": 1,
     "team": 5,
     "enterprise": None,
 }
-_TRIAL_MEMBER_LIMIT = 5
 _DEFAULT_TIER = "team"
 
 
@@ -35,12 +35,7 @@ def is_on_trial(org: Organisation, *, now: datetime | None = None) -> bool:
 
 
 def member_limit_for_org(org: Organisation, *, now: datetime | None = None) -> int | None:
-    """Return max headcount, or None for unlimited.
-
-    During an active trial, always allow Team-tier capacity (5) regardless of plan_tier.
-    """
-    if is_on_trial(org, now=now):
-        return _TRIAL_MEMBER_LIMIT
+    """Return max headcount, or None for unlimited (enterprise)."""
     tier = (org.plan_tier or _DEFAULT_TIER).strip().lower()
     if tier not in _PLAN_MEMBER_LIMITS:
         tier = _DEFAULT_TIER
@@ -67,15 +62,16 @@ def count_team_members(db: Session, organisation_id: int) -> int:
 
 def plan_limit_message(org: Organisation, limit: int, *, now: datetime | None = None) -> str:
     tier = (org.plan_tier or _DEFAULT_TIER).strip().lower() or _DEFAULT_TIER
-    # Message uses advertised caps: personal = 0 additional; team/trial = 5.
-    if is_on_trial(org, now=now):
-        shown = _TRIAL_MEMBER_LIMIT
-    elif tier == "personal":
-        shown = 0
+    trial_suffix = " trial" if is_on_trial(org, now=now) else ""
+    if tier == "personal":
+        shown = "1 member (solo — no additional team members)"
+    elif limit is None:
+        shown = "unlimited team members"
     else:
-        shown = limit
+        shown = f"up to {limit} team members"
     return (
-        f"Your {tier} plan allows up to {shown} team members. Upgrade in Account & Subscription to add more."
+        f"Your {tier}{trial_suffix} plan allows {shown}. "
+        "Upgrade in Account & Subscription to add more."
     )
 
 
@@ -120,11 +116,12 @@ def assert_can_add_team_members(
 
 def team_limit_snapshot(db: Session, org: Organisation) -> dict:
     current = count_team_members(db, org.id)
+    tier = (org.plan_tier or _DEFAULT_TIER).strip().lower()
     limit = member_limit_for_org(org)
     on_trial = is_on_trial(org)
     can_add = limit is None or current < limit
     return {
-        "plan_tier": (org.plan_tier or _DEFAULT_TIER).strip().lower(),
+        "plan_tier": tier,
         "currency": (org.currency or "USD").strip().upper(),
         "on_trial": on_trial,
         "trial_ends_at": org.trial_ends_at.isoformat() if org.trial_ends_at else None,

@@ -4,8 +4,8 @@
       <RouterLink to="/" class="back-link">← Back to Plenvo</RouterLink>
 
       <p class="eyebrow">Plenvo</p>
-      <h1>Start your free trial</h1>
-      <p class="lede">14 days free. No credit card required. Cancel anytime.</p>
+      <h1>Start your {{ planLabel }} trial</h1>
+      <p class="lede">14 days free on the {{ planLabel }} plan. No credit card required. Cancel anytime.</p>
 
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
 
@@ -51,7 +51,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { apiJson } from '@/api/client'
 import { useCurrency } from '@/composables/useCurrency'
@@ -59,7 +59,17 @@ import { setSessionUser } from '@/composables/session'
 import { login } from '@/services/auth'
 
 const router = useRouter()
+const route = useRoute()
 const { currency, loaded: currencyLoaded, detect } = useCurrency()
+
+const PLAN_LABELS = { personal: 'Personal', team: 'Team', enterprise: 'Enterprise' }
+
+const selectedPlan = computed(() => {
+  const raw = String(route.query.plan || 'team').toLowerCase()
+  return PLAN_LABELS[raw] ? raw : 'team'
+})
+
+const planLabel = computed(() => PLAN_LABELS[selectedPlan.value] || 'Team')
 
 const email = ref('')
 const password = ref('')
@@ -83,6 +93,7 @@ async function onSubmit() {
         email: email.value.trim(),
         password: password.value,
         currency: currency.value || 'USD',
+        plan_tier: selectedPlan.value,
       }),
     })
 

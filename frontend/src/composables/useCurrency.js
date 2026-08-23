@@ -37,22 +37,22 @@ export const PRICE_MAP = {
   GBP: {
     currency: 'GBP',
     symbol: '£',
-    prices: { personal: '4.99', team: '19.99', enterprise: '39.99' },
+    prices: { personal: '4.99', team: '19.99', enterprise: '49.99' },
   },
   EUR: {
     currency: 'EUR',
     symbol: '€',
-    prices: { personal: '4.99', team: '19.99', enterprise: '39.99' },
+    prices: { personal: '4.99', team: '19.99', enterprise: '49.99' },
   },
   USD: {
     currency: 'USD',
     symbol: '$',
-    prices: { personal: '4.99', team: '19.99', enterprise: '39.99' },
+    prices: { personal: '4.99', team: '19.99', enterprise: '49.99' },
   },
   INR: {
     currency: 'INR',
     symbol: '₹',
-    prices: { personal: '499', team: '1,999', enterprise: '3,999' },
+    prices: { personal: '499', team: '1,999', enterprise: '4,999' },
   },
 }
 

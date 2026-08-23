@@ -28,7 +28,7 @@
 
             <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
 
-            <RouterLink to="/signup" class="nav-cta">Start for free</RouterLink>
+            <RouterLink to="/signup?plan=team" class="nav-cta">Start for free</RouterLink>
 
           </template>
 
@@ -110,7 +110,7 @@
 
           <template v-else>
 
-            <RouterLink to="/signup" class="btn-primary">Start for free — takes 60 seconds →</RouterLink>
+            <RouterLink to="/signup?plan=team" class="btn-primary">Start for free — takes 60 seconds →</RouterLink>
 
             <a href="#demo" class="btn-ghost" @click.prevent="scrollToDemo">See Plenvo AI in action ↓</a>
 
@@ -379,7 +379,7 @@
 
             <span v-else-if="plan.cta === 'trial' && signedIn" class="plan-note">Ask your admin to upgrade in Account</span>
 
-            <RouterLink v-else-if="plan.cta === 'trial'" to="/signup" :class="plan.featured ? 'btn-primary full' : 'btn-outline full'">
+            <RouterLink v-else-if="plan.cta === 'trial'" :to="plan.signupTo" :class="plan.featured ? 'btn-primary full' : 'btn-outline full'">
               Start for free →
             </RouterLink>
 
@@ -459,7 +459,7 @@
 
         </p>
 
-        <RouterLink to="/signup" class="btn-primary large">Start for free →</RouterLink>
+        <RouterLink to="/signup?plan=team" class="btn-primary large">Start for free →</RouterLink>
 
         <p class="cta-note">Cancel anytime · {{ symbol }}0 today · Takes 60 seconds</p>
 
@@ -552,7 +552,7 @@ const showPublicPricing = computed(() => {
 const canManageBilling = computed(() => Boolean(billing.value?.can_manage_billing))
 
 const pricingPlanCta = computed(() => {
-  if (!signedIn.value) return { to: '/signup', label: 'Start for free →' }
+  if (!signedIn.value) return { to: '/signup?plan=team', label: 'Start for free →' }
   if (canManageBilling.value) return { to: '/app/account', label: 'Choose plan →' }
   return null
 })
@@ -773,6 +773,10 @@ const displayPlans = computed(() => [
 
     name: 'Personal',
 
+    id: 'personal',
+
+    signupTo: '/signup?plan=personal',
+
     price: personalPrice.value,
 
     members: '1 person, unlimited everything',
@@ -800,6 +804,10 @@ const displayPlans = computed(() => [
   {
 
     name: 'Team',
+
+    id: 'team',
+
+    signupTo: '/signup?plan=team',
 
     price: teamPrice.value,
 
@@ -832,6 +840,10 @@ const displayPlans = computed(() => [
   {
 
     name: 'Enterprise',
+
+    id: 'enterprise',
+
+    signupTo: '/signup?plan=enterprise',
 
     price: enterprisePrice.value,
 

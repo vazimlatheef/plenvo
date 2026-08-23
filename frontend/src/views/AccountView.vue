@@ -19,12 +19,18 @@
             <p class="plan-name">{{ account.plan_label }}</p>
             <p class="muted-line org-name">{{ account.organisation_name }}</p>
           </div>
-          <span class="plan-chip" :data-plan="account.display_plan">{{ account.plan_label }}</span>
+          <span class="plan-chip" :data-plan="account.plan_tier">{{ planTierLabel(account.plan_tier) }}</span>
         </div>
 
-        <p v-if="account.on_trial && account.trial_ends_at" class="trial-line">
-          Trial ends {{ formatDate(account.trial_ends_at) }}
-          <span v-if="trialDaysLeft != null"> · {{ trialDaysLeft }} day{{ trialDaysLeft === 1 ? '' : 's' }} left</span>
+        <p v-if="account.on_trial && !account.has_paid_subscription" class="trial-line trial-line--prominent">
+          <strong>Free trial</strong>
+          <template v-if="account.trial_ends_at">
+            — ends {{ formatDate(account.trial_ends_at) }}
+            <span v-if="trialDaysLeft != null"> · {{ trialDaysLeft }} day{{ trialDaysLeft === 1 ? '' : 's' }} left</span>
+          </template>
+        </p>
+        <p v-else-if="account.has_paid_subscription" class="muted-line billing-line">
+          Billed monthly in {{ account.currency }}.
         </p>
 
         <p v-if="account.cancel_at_period_end && account.access_ends_at" class="warn-line">
@@ -42,6 +48,9 @@
           <template v-else> · Unlimited</template>
           used
         </p>
+        <p v-if="account.plan_tier === 'personal'" class="muted-line usage-hint">
+          Personal plan — solo use only (1 member total).
+        </p>
         <div class="usage-bar" aria-hidden="true">
           <div class="usage-fill" :style="{ width: usagePct + '%' }" />
         </div>
@@ -49,27 +58,40 @@
       </section>
 
       <section class="account-card">
-        <h2>Upgrade / change plan</h2>
+        <h2>{{ account.on_trial && !account.has_paid_subscription ? 'Change trial plan' : 'Upgrade / change plan' }}</h2>
         <p class="app-lede">
-          Prices shown in your organisation currency ({{ account.currency }}). Checkout stays in Plenvo —
-          you won’t be sent to the public pricing page.
+          Prices shown in your organisation currency ({{ account.currency }}).
+          <template v-if="account.on_trial && !account.has_paid_subscription">
+            Switch plans anytime during your trial — limits update immediately, no charge until trial ends.
+          </template>
+          <template v-else>
+            Checkout stays in Plenvo — you won't be sent to the public pricing page.
+          </template>
         </p>
 
         <ul class="plan-list">
-          <li v-for="plan in account.plans" :key="plan.id" class="plan-option">
+          <li
+            v-for="plan in account.plans"
+            :key="plan.id"
+            class="plan-option"
+            :class="{ 'plan-option--current': isCurrentPlan(plan.id) }"
+          >
             <div>
-              <p class="plan-option-name">{{ plan.name }}</p>
+              <p class="plan-option-name">
+                {{ plan.name }}
+                <span v-if="isCurrentPlan(plan.id)" class="current-badge">Current</span>
+              </p>
               <p class="plan-option-price">{{ plan.price_display }}<span class="per">/month</span></p>
             </div>
             <button
               v-if="account.can_manage_billing"
               type="button"
-              class="btn-primary"
-              :disabled="checkoutBusy || isCurrentPaidPlan(plan.id) || !plan.checkout_ready"
+              :class="isCurrentPlan(plan.id) ? 'btn-outline' : 'btn-primary'"
+              :disabled="checkoutBusy || isCurrentPlan(plan.id) || !plan.checkout_ready"
               :title="!plan.checkout_ready ? 'Stripe Price ID not configured' : undefined"
               @click="startCheckout(plan.id)"
             >
-              {{ checkoutBusy === plan.id ? 'Redirecting…' : planCta(plan.id) }}
+              {{ checkoutBusy === plan.id ? 'Updating…' : planCta(plan.id) }}
             </button>
             <span v-else class="muted-line">Ask an admin to change the plan</span>
           </li>
@@ -130,6 +152,11 @@ const usagePct = computed(() => {
   return Math.min(100, Math.round((a.member_count / a.member_limit) * 100))
 })
 
+function planTierLabel(tier) {
+  const labels = { personal: 'Personal', team: 'Team', enterprise: 'Enterprise' }
+  return labels[tier] || tier
+}
+
 function formatDate(iso) {
   if (!iso) return ''
   try {
@@ -143,16 +170,19 @@ function formatDate(iso) {
   }
 }
 
-function isCurrentPaidPlan(planId) {
+function isCurrentPlan(planId) {
   const a = account.value
-  if (!a || (a.on_trial && !a.has_paid_subscription)) return false
-  return a.has_paid_subscription && a.plan_tier === planId && !a.cancel_at_period_end
+  if (!a) return false
+  if (a.cancel_at_period_end) return false
+  return a.plan_tier === planId
 }
 
 function planCta(planId) {
-  if (isCurrentPaidPlan(planId)) return 'Current plan'
-  if (account.value?.has_paid_subscription) return 'Switch plan'
-  return 'Upgrade'
+  if (isCurrentPlan(planId)) return 'Current plan'
+  const a = account.value
+  if (a?.on_trial && !a?.has_paid_subscription) return 'Switch to this plan'
+  if (a?.has_paid_subscription) return 'Switch plan'
+  return 'Subscribe'
 }
 
 async function loadAccount() {
@@ -180,13 +210,18 @@ async function startCheckout(planId) {
       return
     }
     if (result?.updated) {
-      banner.value = `Plan updated to ${String(result.plan_tier || planId).replace(/^\w/, (c) => c.toUpperCase())}.`
+      const name = String(result.plan_tier || planId).replace(/^\w/, (c) => c.toUpperCase())
+      if (result.on_trial) {
+        banner.value = `Trial plan updated to ${name}. New limits apply immediately.`
+      } else {
+        banner.value = `Plan updated to ${name}.`
+      }
       await loadAccount()
       return
     }
     throw new Error('No checkout URL returned')
   } catch (err) {
-    checkoutError.value = err.message || 'Could not start checkout'
+    checkoutError.value = err.message || 'Could not update plan'
   } finally {
     checkoutBusy.value = ''
   }
@@ -270,10 +305,15 @@ onMounted(async () => {
 }
 
 .trial-line,
-.warn-line {
+.warn-line,
+.billing-line {
   margin: 0.85rem 0 0;
   font-size: 0.9rem;
   color: var(--color-text-muted);
+}
+
+.trial-line--prominent {
+  color: var(--color-accent);
 }
 
 .warn-line {
@@ -281,8 +321,13 @@ onMounted(async () => {
 }
 
 .usage-line {
-  margin: 0 0 0.65rem;
+  margin: 0 0 0.35rem;
   font-size: 0.95rem;
+}
+
+.usage-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
 }
 
 .usage-bar {
@@ -317,6 +362,14 @@ onMounted(async () => {
   border-top: 1px solid var(--color-border);
 }
 
+.plan-option--current {
+  background: rgba(196, 163, 90, 0.04);
+  margin: 0 -0.5rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
 .plan-option:first-child {
   border-top: none;
   padding-top: 0;
@@ -325,6 +378,21 @@ onMounted(async () => {
 .plan-option-name {
   margin: 0;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.current-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  border: 1px solid rgba(196, 163, 90, 0.35);
 }
 
 .plan-option-price {

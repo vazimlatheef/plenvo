@@ -39,7 +39,7 @@
       </form>
       <p class="foot">
         Don’t have an account?
-        <RouterLink to="/signup">Start for free</RouterLink>
+        <RouterLink to="/signup?plan=team">Start for free</RouterLink>
       </p>
     </div>
   </div>

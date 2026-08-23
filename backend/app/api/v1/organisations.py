@@ -1,6 +1,6 @@
 """
 Organisation signup flow.
-POST /signup  → creates Organisation (team trial) + admin User from email/password only
+POST /signup  → creates Organisation + admin User; plan_tier from signup CTA (default team)
 POST /invite  → admin invites employees to their org
 
 Card collection / Stripe subscription happens later on explicit upgrade to a paid plan.
@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin_user, get_current_user, get_db
-from app.core.pricing import normalize_currency
+from app.core.pricing import normalize_currency, resolve_signup_plan_tier
 from app.core.security import hash_password
 from app.models.models import Organisation, User
 from app.schemas.user import UserPublic
@@ -32,7 +32,17 @@ from app.services.plan_limits import assert_can_add_team_members, team_limit_sna
 router = APIRouter(tags=["organisations"])
 
 TRIAL_DAYS = 14
-DEFAULT_PLAN_TIER = "team"
+
+
+class SignupRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    # Detected client-side via useCurrency / IP; frozen on the organisation.
+    currency: str | None = Field(default=None, max_length=3)
+    # From pricing card CTA (?plan=personal|team|enterprise); omitted → team.
+    plan_tier: str | None = Field(default=None, max_length=32)
+
+
 _CONSUMER_EMAIL_DOMAINS = frozenset(
     {
         "gmail.com",
@@ -49,13 +59,6 @@ _CONSUMER_EMAIL_DOMAINS = frozenset(
         "mail.com",
     }
 )
-
-
-class SignupRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
-    # Detected client-side via useCurrency / IP; frozen on the organisation.
-    currency: str | None = Field(default=None, max_length=3)
 
 
 class InviteRequest(BaseModel):
@@ -160,11 +163,12 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         trial_ends_at = datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)
         slug = make_unique_slug(db, slugify(company_name))
         billing_currency = normalize_currency(payload.currency)
+        selected_plan = resolve_signup_plan_tier(payload.plan_tier)
 
         org = Organisation(
             name=company_name,
             slug=slug,
-            plan_tier=DEFAULT_PLAN_TIER,
+            plan_tier=selected_plan,
             currency=billing_currency,
             stripe_customer_id=None,
             stripe_subscription_id=None,
