@@ -370,11 +370,11 @@
             </ul>
 
             <RouterLink
-              v-if="plan.cta === 'trial' && pricingPlanCta"
-              :to="pricingPlanCta.to"
+              v-if="plan.cta === 'trial' && signedIn && canManageBilling"
+              to="/app/account"
               :class="plan.featured ? 'btn-primary full' : 'btn-outline full'"
             >
-              {{ pricingPlanCta.label }}
+              Choose plan →
             </RouterLink>
 
             <span v-else-if="plan.cta === 'trial' && signedIn" class="plan-note">Ask your admin to upgrade in Account</span>
@@ -550,12 +550,6 @@ const showPublicPricing = computed(() => {
 })
 
 const canManageBilling = computed(() => Boolean(billing.value?.can_manage_billing))
-
-const pricingPlanCta = computed(() => {
-  if (!signedIn.value) return { to: '/signup?plan=team', label: 'Start for free →' }
-  if (canManageBilling.value) return { to: '/app/account', label: 'Choose plan →' }
-  return null
-})
 
 
 
