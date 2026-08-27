@@ -12,7 +12,7 @@
           <SiteAccountMenu />
         </template>
         <template v-else>
-          <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
+          <RouterLink to="/login" class="nav-link nav-link--auth">Sign in</RouterLink>
           <RouterLink to="/signup?plan=team" class="nav-cta">Start for free</RouterLink>
         </template>
       </div>
@@ -96,11 +96,14 @@ import { user } from '@/composables/session'
 }
 
 @media (max-width: 640px) {
-  .nav-links .nav-link:not(.router-link-active) {
+  .nav-links .nav-link:not(.nav-link--auth):not(.router-link-active) {
     display: none;
   }
   .nav-links .nav-link.router-link-active {
     display: inline;
+  }
+  .nav-link--auth {
+    display: inline-flex !important;
   }
 }
 </style>

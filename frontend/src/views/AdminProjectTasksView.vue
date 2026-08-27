@@ -100,6 +100,16 @@
         <h2>Project details</h2>
         <form class="field-stack" @submit.prevent="saveProjectDetails">
           <label>
+            Project name *
+            <input
+              v-model="projectForm.title"
+              type="text"
+              required
+              maxlength="100"
+              :disabled="savingProject"
+            />
+          </label>
+          <label>
             Description
             <textarea
               v-model="projectForm.description"
@@ -181,7 +191,7 @@ const modalInitial = ref({
 const showProjectModal = ref(false)
 const savingProject = ref(false)
 const projectFormError = ref('')
-const projectForm = ref({ description: '', links: [] })
+const projectForm = ref({ title: '', description: '', links: [] })
 
 const projectId = computed(() => {
   const id = Number(route.params.projectId)
@@ -240,6 +250,7 @@ function openProjectEdit() {
   if (writeRestricted.value) return
   if (!project.value) return
   projectForm.value = {
+    title: project.value.title || '',
     description: project.value.description || '',
     links: Array.isArray(project.value.links) ? project.value.links.map((l) => ({ ...l })) : [],
   }
@@ -260,6 +271,7 @@ async function saveProjectDetails() {
     const updated = await apiJson(`/api/v1/projects/${projectId.value}`, {
       method: 'PATCH',
       body: JSON.stringify({
+        title: projectForm.value.title.trim(),
         description: projectForm.value.description.trim() || null,
         links: linksForApi(projectForm.value.links),
       }),

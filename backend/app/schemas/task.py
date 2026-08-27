@@ -31,6 +31,7 @@ class TaskUpdate(BaseModel):
     status: Optional[str] = None
     priority: Optional[str] = None
     due_date: Optional[date] = None
+    project_id: Optional[int] = None
     assignee_id: Optional[int] = None
     assignee_contact_id: Optional[int] = None
     # When true, clear both assignee fields (unassign).

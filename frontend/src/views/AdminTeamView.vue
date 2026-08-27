@@ -87,6 +87,17 @@
                 {{ invitingId === row.contactId ? 'Sending…' : 'Invite to Plenvo' }}
               </button>
             </template>
+            <button
+              v-if="row.contactId"
+              type="button"
+              class="row-icon-btn"
+              aria-label="Edit member"
+              :disabled="writeRestricted"
+              :title="writeRestricted ? writeDisabledTitle : 'Edit member'"
+              @click="openEditModal(row)"
+            >
+              <Pencil :size="14" :stroke-width="1.75" />
+            </button>
             <span class="dense-row__due">{{ row.meta }}</span>
           </div>
         </li>
@@ -244,6 +255,52 @@
       </template>
     </template>
 
+    <div v-if="showEditModal" class="modal-overlay" @click.self="cancelEdit">
+      <div class="modal-panel">
+        <button type="button" class="modal-close" aria-label="Close" @click="cancelEdit">
+          <X :size="18" :stroke-width="1.75" />
+        </button>
+        <h2>Edit team member</h2>
+        <form class="field-stack" @submit.prevent="saveContactEdit">
+          <label>
+            Full name *
+            <input v-model="editForm.name" type="text" required maxlength="200" />
+          </label>
+          <label>
+            Email *
+            <input v-model="editForm.email" type="email" required maxlength="150" />
+          </label>
+          <label>
+            Role
+            <select v-model="editForm.role">
+              <option v-for="r in roleOptions" :key="r" :value="r">{{ r }}</option>
+            </select>
+          </label>
+          <label>
+            Company
+            <input v-model="editForm.company" type="text" maxlength="200" placeholder="Optional" />
+          </label>
+          <label>
+            LinkedIn URL
+            <input
+              v-model="editForm.linkedin_url"
+              type="url"
+              maxlength="2048"
+              placeholder="https://linkedin.com/in/… (optional)"
+            />
+            <span v-if="editLinkedInError" class="error-line" style="margin-top: 0.25rem">{{ editLinkedInError }}</span>
+          </label>
+          <p v-if="editFormError" class="error-line">{{ editFormError }}</p>
+          <div class="modal-actions">
+            <button type="button" class="btn-outline" :disabled="savingEdit" @click="cancelEdit">Cancel</button>
+            <button type="submit" class="btn-primary" :disabled="savingEdit || !!editLinkedInError">
+              {{ savingEdit ? 'Saving…' : 'Save changes' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div v-if="showAddModal" class="modal-overlay" @click.self="cancelAdd">
       <div class="modal-panel">
         <button type="button" class="modal-close" aria-label="Close" @click="cancelAdd">
@@ -325,7 +382,7 @@
 </template>
 
 <script setup>
-import { Plus, X } from '@lucide/vue'
+import { Plus, Pencil, X } from '@lucide/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { apiJson } from '@/api/client'
@@ -383,6 +440,17 @@ const formError = ref('')
 const LINKEDIN_RE = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[\w\-.%]+\/?$/i
 const formLinkedInError = computed(() => {
   const v = (form.value.linkedin_url || '').trim()
+  if (!v) return ''
+  return LINKEDIN_RE.test(v) ? '' : 'LinkedIn URL must look like https://linkedin.com/in/your-profile'
+})
+
+const showEditModal = ref(false)
+const editingContactId = ref(null)
+const editForm = ref({ name: '', email: '', role: 'Member', company: '', linkedin_url: '' })
+const savingEdit = ref(false)
+const editFormError = ref('')
+const editLinkedInError = computed(() => {
+  const v = (editForm.value.linkedin_url || '').trim()
   if (!v) return ''
   return LINKEDIN_RE.test(v) ? '' : 'LinkedIn URL must look like https://linkedin.com/in/your-profile'
 })
@@ -535,6 +603,58 @@ function openAddModal() {
 function cancelAdd() {
   showAddModal.value = false
   formError.value = ''
+}
+
+function openEditModal(row) {
+  if (writeRestricted.value || !row.contactId) return
+  const contact = contacts.value.find((c) => c.id === row.contactId)
+  if (!contact) return
+  editingContactId.value = contact.id
+  editForm.value = {
+    name: contact.name || '',
+    email: contact.email || '',
+    role: contact.role || 'Member',
+    company: contact.company || '',
+    linkedin_url: contact.linkedin_url || '',
+  }
+  editFormError.value = ''
+  showEditModal.value = true
+}
+
+function cancelEdit() {
+  showEditModal.value = false
+  editingContactId.value = null
+  editFormError.value = ''
+}
+
+async function saveContactEdit() {
+  if (!editingContactId.value || !editForm.value.name.trim() || !editForm.value.email.trim()) return
+  if (editLinkedInError.value) return
+  savingEdit.value = true
+  editFormError.value = ''
+  try {
+    const updated = await apiJson(`/api/v1/contacts/${editingContactId.value}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: editForm.value.name.trim(),
+        email: editForm.value.email.trim().toLowerCase(),
+        role: editForm.value.role,
+        company: editForm.value.company.trim() || null,
+        linkedin_url: editForm.value.linkedin_url.trim() || null,
+      }),
+    })
+    contacts.value = contacts.value.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+    cancelEdit()
+    actionSuccess.value = `Updated ${updated.name}`
+    setTimeout(() => {
+      actionSuccess.value = ''
+    }, 2500)
+  } catch (err) {
+    console.error('[AdminTeam] edit contact failed', err)
+    editFormError.value = err.message || 'Failed to update member'
+  } finally {
+    savingEdit.value = false
+  }
 }
 
 async function addContact() {

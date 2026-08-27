@@ -9,7 +9,7 @@ from app.models import User
 from app.models.models import Organisation
 from app.schemas.user import UserCreate, UserPublic, UserUpdate
 from app.services.overdue_notifications import check_and_send_overdue_notifications
-from app.services.plan_limits import assert_can_add_team_members
+from app.services.plan_limits import assert_can_add_team_members, bump_trial_peak_member_count
 from app.services.trial_notifications import check_and_send_trial_warning
 
 router = APIRouter(tags=["users"])
@@ -123,6 +123,11 @@ def create_user(
             detail="A user with this email already exists.",
         ) from None
     db.refresh(user)
+    org = db.query(Organisation).filter(Organisation.id == current_user.organisation_id).first()
+    if org:
+        bump_trial_peak_member_count(db, org)
+        db.commit()
+        db.refresh(org)
     return user
 
 

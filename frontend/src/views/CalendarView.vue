@@ -638,6 +638,7 @@ function selectDay(iso) {
 }
 
 function openEdit(task) {
+  if (writeRestricted.value) return
   modalMode.value = 'edit'
   editingTaskId.value = task.id
   modalInitial.value = {
@@ -706,6 +707,7 @@ async function saveFromModal(payload) {
         links: payload.links,
         status: payload.status,
         due_date: payload.due_date,
+        project_id: payload.project_id ?? null,
       }
       if (!assignee_id && !assignee_contact_id) {
         body.clear_assignee = true

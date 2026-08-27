@@ -191,6 +191,7 @@ import { apiJson } from '@/api/client'
 import TaskEditModal from '@/components/TaskEditModal.vue'
 import { getToken } from '@/services/auth'
 import { user } from '@/composables/session'
+import { useWriteAccess } from '@/composables/useWriteAccess'
 import {
   buildAssigneeOptions,
   parseAssigneeKey,
@@ -200,6 +201,7 @@ import { focusTasksForUser, isTaskOverdue } from '@/utils/taskInsights'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 const busyTaskId = ref(null)
 const showTaskModal = ref(false)
 const editingTaskId = ref(null)
@@ -357,6 +359,7 @@ function assigneeLabel(task) {
 }
 
 function openEditTask(task) {
+  if (writeRestricted.value) return
   editingTaskId.value = task.id
   taskModalInitial.value = {
     title: task.title || '',
@@ -423,6 +426,7 @@ async function saveTaskFromModal(payload) {
 }
 
 async function deleteOverdueTask(task) {
+  if (writeRestricted.value) return
   if (!window.confirm('Delete this task?')) return
   busyTaskId.value = task.id
   try {

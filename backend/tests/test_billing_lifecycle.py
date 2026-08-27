@@ -18,6 +18,38 @@ from app.services.stripe_billing import (
 )
 
 
+def _seed_solo_org(db) -> dict:
+    """Solo org: admin only (1 headcount)."""
+    org = Organisation(
+        id=1,
+        name="Solo Co",
+        slug="solo-co",
+        plan_tier="personal",
+        currency="USD",
+        stripe_customer_id="cus_solo",
+        stripe_subscription_id="sub_personal",
+        subscription_status="active",
+        trial_ends_at=None,
+        trial_peak_member_count=1,
+    )
+    db.add(org)
+    db.flush()
+    admin = User(
+        id=1,
+        organisation_id=org.id,
+        email="admin@solo.com",
+        password_hash="hashed",
+        first_name="Solo",
+        last_name="Admin",
+        role="admin",
+    )
+    db.add(admin)
+    db.commit()
+    db.refresh(org)
+    db.refresh(admin)
+    return {"org": org, "admin": admin}
+
+
 def _seed_team_org_with_data(db) -> dict:
     """Team org: 1 admin + 5 contacts (6 headcount), project, task, training."""
     org = Organisation(
@@ -206,8 +238,8 @@ def test_personal_resubscribe_checkout_to_webhook_restores_access(
     db,
     stripe_test_env,
 ):
-    """Restricted Personal org → Checkout session → webhook → write access restored."""
-    data = _seed_team_org_with_data(db)
+    """Restricted Personal org (solo) → Checkout session → webhook → write access restored."""
+    data = _seed_solo_org(db)
     org = data["org"]
     admin = data["admin"]
 
@@ -253,10 +285,44 @@ def test_team_resubscribe_checkout_to_webhook_restores_access_and_tier(
     db,
     stripe_test_env,
 ):
-    """Restricted downgraded org → Checkout Team → webhook → Team tier + write access."""
-    data = _seed_team_org_with_data(db)
-    org = data["org"]
-    admin = data["admin"]
+    """Restricted downgraded org (4 members) → Checkout Team → webhook → Team tier + write access."""
+    org = Organisation(
+        id=2,
+        name="Mid Co",
+        slug="mid-co",
+        plan_tier="team",
+        currency="USD",
+        stripe_customer_id="cus_mid",
+        stripe_subscription_id="sub_team",
+        subscription_status="active",
+        trial_ends_at=None,
+        trial_peak_member_count=4,
+    )
+    db.add(org)
+    db.flush()
+    admin = User(
+        id=2,
+        organisation_id=org.id,
+        email="admin@mid.com",
+        password_hash="hashed",
+        first_name="Mid",
+        last_name="Admin",
+        role="admin",
+    )
+    db.add(admin)
+    db.flush()
+    for i in range(3):
+        db.add(
+            Contact(
+                id=i + 10,
+                organisation_id=org.id,
+                name=f"Contact {i}",
+                email=f"mid{i}@mid.com",
+            )
+        )
+    db.commit()
+    db.refresh(org)
+    db.refresh(admin)
 
     handle_subscription_deleted(db, {"id": "sub_team", "metadata": {"organisation_id": str(org.id)}})
     db.refresh(org)
@@ -290,5 +356,5 @@ def test_team_resubscribe_checkout_to_webhook_restores_access_and_tier(
 
     limits = team_limit_snapshot(db, org)
     assert limits["member_limit"] == 5
-    assert limits["member_count"] == 6
-    assert limits["can_add_members"] is False
+    assert limits["member_count"] == 4
+    assert limits["can_add_members"] is True

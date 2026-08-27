@@ -27,7 +27,7 @@ from app.services.email import (
     send_invite_email,
     send_verification_email,
 )
-from app.services.plan_limits import assert_can_add_team_members, team_limit_snapshot
+from app.services.plan_limits import assert_can_add_team_members, bump_trial_peak_member_count, team_limit_snapshot
 
 router = APIRouter(tags=["organisations"])
 
@@ -173,6 +173,7 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             stripe_customer_id=None,
             stripe_subscription_id=None,
             trial_ends_at=trial_ends_at,
+            trial_peak_member_count=1,
         )
         db.add(org)
         db.flush()
@@ -290,6 +291,11 @@ def invite_employee(
 
     db.refresh(user)
     db.refresh(current_user)
+
+    if existing_user is None and existing_contact is None:
+        bump_trial_peak_member_count(db, org)
+        db.commit()
+        db.refresh(org)
 
     contact = find_org_contact_by_email(db, current_user.organisation_id, user.email)
     if contact and contact.user_id is None:

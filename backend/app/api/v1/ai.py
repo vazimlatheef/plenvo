@@ -19,7 +19,7 @@ from app.services.mention_match import (
     match_person,
     match_project,
 )
-from app.services.plan_limits import assert_can_add_team_members
+from app.services.plan_limits import assert_can_add_team_members, bump_trial_peak_member_count
 from app.services.relative_dates import resolve_task_due_date
 from app.services.workspace_context import build_workspace_snapshot
 
@@ -477,6 +477,9 @@ def confirm_tasks(
         db.add(contact)
         db.flush()
         created_contact_ids[key] = contact.id
+
+    if created_contact_ids:
+        bump_trial_peak_member_count(db, org)
 
     created_tasks = []
     for t in body.tasks:

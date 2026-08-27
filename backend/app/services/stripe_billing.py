@@ -21,7 +21,12 @@ from app.core.pricing import (
 )
 from app.models.models import Organisation, User
 from app.services.plan_access import has_paid_subscription, plan_access_snapshot
-from app.services.plan_limits import is_on_trial, team_limit_snapshot
+from app.services.plan_limits import (
+    assert_checkout_meets_minimum_tier,
+    assert_trial_plan_upgrade_only,
+    is_on_trial,
+    team_limit_snapshot,
+)
 
 
 def _get(obj: Any, key: str, default: Any = None) -> Any:
@@ -101,13 +106,16 @@ def create_checkout_session(
     has_paid = _has_active_paid_subscription(org)
     on_trial = is_on_trial(org)
 
-    # Active trial without a paid Stripe sub: switch plan locally (limits update immediately).
+    # Active trial without a paid Stripe sub: upgrade plan locally (limits update immediately).
     if on_trial and not has_paid:
+        assert_trial_plan_upgrade_only(org, tier)
         org.plan_tier = tier
         db.add(org)
         db.commit()
         db.refresh(org)
         return {"updated": True, "plan_tier": tier, "on_trial": True}
+
+    assert_checkout_meets_minimum_tier(db, org, tier)
 
     # Existing paid subscription → change price in place (avoid a second sub).
     if org.stripe_subscription_id and (org.subscription_status or "active") in (
@@ -295,6 +303,7 @@ def handle_checkout_completed(db: Session, session_obj: Any) -> None:
             sub = stripe.Subscription.retrieve(subscription_id)
             _apply_subscription_to_org(db, org, sub)
             if plan in ("personal", "team", "enterprise"):
+                assert_checkout_meets_minimum_tier(db, org, plan)
                 org.plan_tier = plan
                 org.trial_ends_at = None
                 db.add(org)
@@ -304,6 +313,7 @@ def handle_checkout_completed(db: Session, session_obj: Any) -> None:
             org.stripe_subscription_id = subscription_id
 
     if plan in ("personal", "team", "enterprise"):
+        assert_checkout_meets_minimum_tier(db, org, plan)
         org.plan_tier = plan
         org.trial_ends_at = None
         org.subscription_status = "active"

@@ -10,7 +10,7 @@ from app.models.models import Contact, Organisation, User
 from app.schemas.contact import ContactCreate, ContactInviteRequest, ContactResponse, ContactUpdate
 from app.services.contact_service import link_contact_to_user
 from app.services.email import generate_temp_password, generate_unsubscribe_token, send_invite_email
-from app.services.plan_limits import assert_can_add_team_members
+from app.services.plan_limits import assert_can_add_team_members, bump_trial_peak_member_count
 
 router = APIRouter(prefix="/api/v1/contacts", tags=["contacts"])
 
@@ -86,6 +86,12 @@ def create_contact(
         ) from None
 
     db.refresh(contact)
+    if existing_user is None:
+        org_ref = db.query(Organisation).filter(Organisation.id == org_id).first()
+        if org_ref:
+            bump_trial_peak_member_count(db, org_ref)
+            db.commit()
+            db.refresh(org_ref)
     return contact
 
 

@@ -58,6 +58,13 @@
           <div class="usage-fill" :style="{ width: usagePct + '%' }" />
         </div>
         <p v-if="account.limit_message" class="error-line">{{ account.limit_message }}</p>
+        <p
+          v-if="account.trial_peak_member_count > 1 && account.minimum_subscribable_tier"
+          class="muted-line usage-hint"
+        >
+          Trial peak: {{ account.trial_peak_member_count }} members — minimum plan when subscribing:
+          {{ planTierLabel(account.minimum_subscribable_tier) }}.
+        </p>
       </section>
 
       <section class="account-card">
@@ -65,7 +72,8 @@
         <p class="app-lede">
           Prices shown in your organisation currency ({{ account.currency }}).
           <template v-if="account.on_trial && !account.has_paid_subscription">
-            Switch plans anytime during your trial — limits update immediately, no charge until trial ends.
+            Upgrade anytime during your trial — limits update immediately, no charge until trial ends.
+            Downgrades are not available during trial.
           </template>
           <template v-else-if="account.restricted">
             Subscribe to restore full create and edit access for your {{ account.project_count }} projects and
@@ -94,8 +102,8 @@
               v-if="account.can_manage_billing"
               type="button"
               :class="isCurrentPlan(plan.id) ? 'btn-outline' : 'btn-primary'"
-              :disabled="checkoutBusy || isCurrentPlan(plan.id) || !plan.checkout_ready"
-              :title="!plan.checkout_ready ? 'Stripe Price ID not configured' : undefined"
+              :disabled="checkoutBusy || isCurrentPlan(plan.id) || !plan.checkout_ready || isPlanSwitchBlocked(plan.id)"
+              :title="planSwitchBlockedTitle(plan.id) || (!plan.checkout_ready ? 'Stripe Price ID not configured' : undefined)"
               @click="startCheckout(plan.id)"
             >
               {{ checkoutBusy === plan.id ? 'Updating…' : planCta(plan.id) }}
@@ -135,6 +143,10 @@ import { loadPlanAccess } from '@/composables/useWriteAccess'
 
 const route = useRoute()
 const router = useRouter()
+
+const TIER_RANK = { personal: 0, team: 1, enterprise: 2 }
+const TRIAL_DOWNGRADE_MSG =
+  'You can upgrade anytime during your trial. To switch to a lower plan, wait until your trial ends or subscribe.'
 
 const loading = ref(true)
 const error = ref('')
@@ -191,9 +203,42 @@ function isCurrentPlan(planId) {
 function planCta(planId) {
   if (isCurrentPlan(planId)) return 'Current plan'
   const a = account.value
+  if (isTrialDowngrade(planId)) return 'Upgrade only during trial'
+  if (isBelowMinimumTier(planId)) return 'Below trial peak'
   if (a?.on_trial && !a?.has_paid_subscription) return 'Switch to this plan'
   if (a?.has_paid_subscription) return 'Switch plan'
   return 'Subscribe'
+}
+
+function tierRank(planId) {
+  return TIER_RANK[planId] ?? 0
+}
+
+function isTrialDowngrade(planId) {
+  const a = account.value
+  if (!a?.on_trial || a.has_paid_subscription) return false
+  return tierRank(planId) < tierRank(a.plan_tier)
+}
+
+function isBelowMinimumTier(planId) {
+  const a = account.value
+  if (!a?.minimum_subscribable_tier) return false
+  if (a.on_trial && !a.has_paid_subscription) return false
+  return tierRank(planId) < tierRank(a.minimum_subscribable_tier)
+}
+
+function isPlanSwitchBlocked(planId) {
+  return isTrialDowngrade(planId) || isBelowMinimumTier(planId)
+}
+
+function planSwitchBlockedTitle(planId) {
+  if (isTrialDowngrade(planId)) return TRIAL_DOWNGRADE_MSG
+  const a = account.value
+  if (isBelowMinimumTier(planId) && a) {
+    const peak = a.trial_peak_member_count ?? a.member_count
+    return `Your trial peaked at ${peak} team member${peak === 1 ? '' : 's'}. Minimum plan: ${planTierLabel(a.minimum_subscribable_tier)}.`
+  }
+  return ''
 }
 
 async function loadAccount() {

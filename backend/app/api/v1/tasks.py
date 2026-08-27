@@ -157,6 +157,15 @@ def update_task(
             task.priority = data["priority"]
         if "due_date" in data:
             task.due_date = data["due_date"]
+        if "project_id" in data:
+            pid = data["project_id"]
+            if pid is None:
+                task.project_id = None
+            else:
+                project = db.query(Project).filter(Project.id == pid).first()
+                if not project or project.organisation_id != org_id:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+                task.project_id = pid
         if data.get("clear_assignee"):
             task.assignee_id = None
             task.assignee_contact_id = None

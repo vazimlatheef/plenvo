@@ -31,6 +31,7 @@ class Organisation(Base):
     )
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     trial_warning_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    trial_peak_member_count: Mapped[int] = mapped_column(nullable=False, server_default="1")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=true())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
