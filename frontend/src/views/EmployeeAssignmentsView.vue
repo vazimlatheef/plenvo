@@ -39,7 +39,7 @@
           </a>
         </p>
         <p v-else-if="a.content_type === 'upload'" class="muted small">
-          This training uses a file upload. Your team is enabling file delivery — use another training for the demo, or ask your admin to switch to YouTube or a link.
+          This training uses a file upload. Ask your admin to switch to YouTube or an external link if you cannot access the file.
         </p>
 
         <div v-if="canUpdate(a)" class="actions">

@@ -72,7 +72,7 @@
           <div class="dense-row__meta team-meta">
             <span class="dense-row__title">{{ row.name }}</span>
             <span class="team-sub">
-              {{ row.role }}{{ row.company ? ` · ${row.company}` : '' }} · {{ row.email }}
+              {{ row.role }}{{ row.teamDivision ? ` · ${row.teamDivision}` : '' }}{{ row.company ? ` · ${row.company}` : '' }} · {{ row.email }}
             </span>
           </div>
           <div class="team-actions">
@@ -272,9 +272,17 @@
           </label>
           <label>
             Role
-            <select v-model="editForm.role">
+            <select v-model="editForm.selectedRole">
               <option v-for="r in roleOptions" :key="r" :value="r">{{ r }}</option>
             </select>
+          </label>
+          <label v-if="editForm.selectedRole === otherRole">
+            Role (other)
+            <input v-model="editForm.roleOther" type="text" maxlength="200" placeholder="Describe their role" />
+          </label>
+          <label>
+            Team / Division
+            <input v-model="editForm.team_division" type="text" maxlength="200" placeholder="Optional" />
           </label>
           <label>
             Company
@@ -321,9 +329,17 @@
           </label>
           <label>
             Role
-            <select v-model="form.role">
+            <select v-model="form.selectedRole">
               <option v-for="r in roleOptions" :key="r" :value="r">{{ r }}</option>
             </select>
+          </label>
+          <label v-if="form.selectedRole === otherRole">
+            Role (other)
+            <input v-model="form.roleOther" type="text" maxlength="200" placeholder="Describe their role" />
+          </label>
+          <label>
+            Team / Division
+            <input v-model="form.team_division" type="text" maxlength="200" placeholder="Optional" />
           </label>
           <label>
             Company
@@ -390,6 +406,13 @@ import { user } from '@/composables/session'
 import { useWriteAccess } from '@/composables/useWriteAccess'
 import { avatarTone, getInitials } from '@/utils/ui'
 import {
+  DEFAULT_ROLE,
+  OTHER_ROLE,
+  PROFESSIONAL_ROLES,
+  contactRoleFromApi,
+  displayProfessionalRole,
+} from '@/constants/professionalRoles'
+import {
   buildPerformanceRows,
   buildTeamPriorityRows,
   buildTeamRoster,
@@ -400,7 +423,8 @@ import {
   isTaskOverdue,
 } from '@/utils/taskInsights'
 
-const roleOptions = ['Member', 'Manager', 'Contractor', 'Client', 'Other']
+const roleOptions = PROFESSIONAL_ROLES
+const otherRole = OTHER_ROLE
 
 const teamSizeOptions = [
   { value: '1', label: 'Just me' },
@@ -433,7 +457,15 @@ const insightsError = ref('')
 const perfRange = ref('week')
 
 const showAddModal = ref(false)
-const form = ref({ name: '', email: '', role: 'Member', company: '', linkedin_url: '' })
+const form = ref({
+  name: '',
+  email: '',
+  selectedRole: DEFAULT_ROLE,
+  roleOther: '',
+  team_division: '',
+  company: '',
+  linkedin_url: '',
+})
 const saving = ref(false)
 const formError = ref('')
 
@@ -446,7 +478,15 @@ const formLinkedInError = computed(() => {
 
 const showEditModal = ref(false)
 const editingContactId = ref(null)
-const editForm = ref({ name: '', email: '', role: 'Member', company: '', linkedin_url: '' })
+const editForm = ref({
+  name: '',
+  email: '',
+  selectedRole: DEFAULT_ROLE,
+  roleOther: '',
+  team_division: '',
+  company: '',
+  linkedin_url: '',
+})
 const savingEdit = ref(false)
 const editFormError = ref('')
 const editLinkedInError = computed(() => {
@@ -487,7 +527,8 @@ const rows = computed(() => {
       seed: c.id || c.email,
       name: c.name || c.email,
       email: c.email,
-      role: c.role || 'Member',
+      role: displayProfessionalRole(c.role, c.role_other),
+      teamDivision: c.team_division || '',
       company: c.company || '',
       hasAccount: !!c.user_id,
       meta: c.user_id
@@ -595,7 +636,15 @@ function openAddModal() {
     actionError.value = teamLimits.value?.limit_message || 'Team member limit reached.'
     return
   }
-  form.value = { name: '', email: '', role: 'Member', company: '', linkedin_url: '' }
+  form.value = {
+    name: '',
+    email: '',
+    selectedRole: DEFAULT_ROLE,
+    roleOther: '',
+    team_division: '',
+    company: '',
+    linkedin_url: '',
+  }
   formError.value = ''
   showAddModal.value = true
 }
@@ -609,11 +658,14 @@ function openEditModal(row) {
   if (writeRestricted.value || !row.contactId) return
   const contact = contacts.value.find((c) => c.id === row.contactId)
   if (!contact) return
+  const parsed = contactRoleFromApi(contact)
   editingContactId.value = contact.id
   editForm.value = {
     name: contact.name || '',
     email: contact.email || '',
-    role: contact.role || 'Member',
+    selectedRole: parsed.selectedRole,
+    roleOther: parsed.roleOther,
+    team_division: contact.team_division || '',
     company: contact.company || '',
     linkedin_url: contact.linkedin_url || '',
   }
@@ -638,7 +690,10 @@ async function saveContactEdit() {
       body: JSON.stringify({
         name: editForm.value.name.trim(),
         email: editForm.value.email.trim().toLowerCase(),
-        role: editForm.value.role,
+        role: editForm.value.selectedRole,
+        role_other:
+          editForm.value.selectedRole === otherRole ? editForm.value.roleOther.trim() || null : null,
+        team_division: editForm.value.team_division.trim() || null,
         company: editForm.value.company.trim() || null,
         linkedin_url: editForm.value.linkedin_url.trim() || null,
       }),
@@ -672,7 +727,9 @@ async function addContact() {
       body: JSON.stringify({
         name: form.value.name.trim(),
         email: form.value.email.trim().toLowerCase(),
-        role: form.value.role,
+        role: form.value.selectedRole,
+        role_other: form.value.selectedRole === otherRole ? form.value.roleOther.trim() || null : null,
+        team_division: form.value.team_division.trim() || null,
         company: form.value.company.trim() || null,
         linkedin_url: form.value.linkedin_url.trim() || null,
       }),

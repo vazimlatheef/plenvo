@@ -4,7 +4,7 @@
       <p class="eyebrow">Plenvo</p>
       <h1>Sign in</h1>
       <p class="lede">
-        Sign in with your work email. Plenvo sends you straight to what matters — no hunting for the right screen.
+        Sign in with your email address. Plenvo sends you straight to what matters — no hunting for the right screen.
       </p>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <form class="form" @submit.prevent="onSubmit">

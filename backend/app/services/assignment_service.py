@@ -264,12 +264,17 @@ def _send_assignment_email(db: Session, row: Assignment, training: Training, ass
         return
 
     magic_url = build_training_magic_link_url(token_row.token)
+    due_label = None
+    if row.due_date:
+        due_label = row.due_date.strftime("%d %b %Y")
     send_training_magic_link_email(
         to_email=to_email,
-        employee_name=employee_name,
+        employee_name=employee_name or "there",
         training_title=training.title,
         assigned_by_name=assigner.full_name,
         magic_url=magic_url,
+        due_date=due_label,
+        link_valid_days=7,
     )
 
 

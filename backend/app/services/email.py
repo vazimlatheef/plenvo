@@ -28,7 +28,30 @@ FROM_NAME = os.getenv("MAIL_FROM_NAME", "Plenvo")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://plenvo.io").rstrip("/")
 API_BASE_URL = os.getenv("API_BASE_URL", os.getenv("BACKEND_URL", "http://localhost:8000")).rstrip("/")
 
-FOOTER_TAGLINE = "Plenvo — Project and task management for professionals"
+FOOTER_TAGLINE = "Plenvo — project and task management for professional teams"
+FOOTER_SUPPORT = "Questions? Reply to this email or contact hi@plenvo.io"
+
+
+def greeting_name(display_name: str | None) -> str:
+    """First name for email salutations; falls back to 'there'."""
+    text = (display_name or "").strip()
+    if not text:
+        return "there"
+    return text.split()[0]
+
+
+def organisation_display_name(org: object | None, inviter: object | None = None) -> str:
+    """Prefer the admin's company name over auto-generated workspace labels."""
+    company = getattr(inviter, "company_name", None) if inviter else None
+    if isinstance(company, str) and company.strip():
+        return company.strip()
+    org_name = getattr(org, "name", None) if org else None
+    if isinstance(org_name, str) and org_name.strip():
+        cleaned = org_name.strip()
+        if cleaned.endswith("'s workspace"):
+            return cleaned[: -len("'s workspace")].strip() or cleaned
+        return cleaned
+    return "your organisation"
 
 
 def generate_temp_password(length: int = 12) -> str:
@@ -116,7 +139,10 @@ def _html_shell(body_html: str, footer_html: str) -> str:
 
 
 def _footer_html(*, unsubscribe_url: str | None = None) -> str:
-    parts = [f'<p style="margin:0 0 8px;">{_esc(FOOTER_TAGLINE)}</p>']
+    parts = [
+        f'<p style="margin:0 0 8px;">{_esc(FOOTER_TAGLINE)}</p>',
+        f'<p style="margin:0 0 8px;">{_esc(FOOTER_SUPPORT)}</p>',
+    ]
     if unsubscribe_url:
         parts.append(
             '<p style="margin:0;">'
@@ -128,7 +154,7 @@ def _footer_html(*, unsubscribe_url: str | None = None) -> str:
 
 
 def _footer_text(*, unsubscribe_url: str | None = None) -> str:
-    lines = [FOOTER_TAGLINE]
+    lines = [FOOTER_TAGLINE, FOOTER_SUPPORT]
     if unsubscribe_url:
         lines.append(f"Unsubscribe from non-essential emails: {unsubscribe_url}")
     return "\n".join(lines)
@@ -151,18 +177,18 @@ def send_password_reset_email(
 ) -> bool:
     """Password reset — security-critical; no unsubscribe link."""
     reset_url = build_reset_password_url(reset_token)
-    name = (first_name or "").strip() or "there"
+    name = greeting_name(first_name)
     subject = "Reset your Plenvo password"
 
     body_html = f"""
       <p style="margin:0 0 14px;">Hello {_esc(name)},</p>
       <p style="margin:0 0 14px;">
         We received a request to reset the password for your Plenvo account.
-        Use the button below to choose a new password. This link expires in one hour.
+        Use the button below to choose a new password. This link is valid for one hour.
       </p>
       {_cta_button(reset_url, "Reset password")}
       <p style="margin:0 0 14px;font-size:13px;color:#555555;">
-        If you did not request this change, you can ignore this message. Your password will remain unchanged.
+        If you did not request this, you can ignore this email. Your password will not change.
       </p>
       <p style="margin:0;font-size:12px;color:#888888;word-break:break-all;">
         Or open this link: {_esc(reset_url)}
@@ -174,11 +200,11 @@ def send_password_reset_email(
     plain_text = f"""Hello {name},
 
 We received a request to reset the password for your Plenvo account.
-Open the link below to choose a new password. This link expires in one hour.
+Open the link below to choose a new password. This link is valid for one hour.
 
 {reset_url}
 
-If you did not request this change, you can ignore this message. Your password will remain unchanged.
+If you did not request this, you can ignore this email. Your password will not change.
 
 {_footer_text()}
 """
@@ -194,16 +220,16 @@ def send_verification_email(
     """Welcome + verify email for new signups. Includes unsubscribe for non-essential mail."""
     verify_url = build_verify_email_url(verification_token)
     unsub_url = build_unsubscribe_url(unsubscribe_token) if unsubscribe_token else None
-    name = (first_name or "").strip() or "there"
-    subject = "Confirm your Plenvo account"
+    name = greeting_name(first_name)
+    subject = "Welcome to Plenvo — confirm your email"
 
     body_html = f"""
       <p style="margin:0 0 14px;">Hello {_esc(name)},</p>
       <p style="margin:0 0 14px;">
-        Plenvo helps teams plan projects, assign work, and track progress in one place.
+        Welcome to Plenvo. We help teams plan projects, assign work, and track progress in one place.
       </p>
       <p style="margin:0 0 14px;">
-        Confirm your email address to finish setting up your account.
+        Please confirm your email address to finish setting up your account.
       </p>
       {_cta_button(verify_url, "Verify email")}
       <p style="margin:0;font-size:12px;color:#888888;word-break:break-all;">
@@ -215,9 +241,9 @@ def send_verification_email(
 
     plain_text = f"""Hello {name},
 
-Plenvo helps teams plan projects, assign work, and track progress in one place.
+Welcome to Plenvo. We help teams plan projects, assign work, and track progress in one place.
 
-Confirm your email address to finish setting up your account:
+Please confirm your email address to finish setting up your account:
 
 {verify_url}
 
@@ -235,37 +261,39 @@ def send_invite_email(
     unsubscribe_token: str | None = None,
 ) -> bool:
     """Invite with login credentials (operational). Unsubscribe optional for preference footer."""
-    org_name = (organisation_name or "your team").strip()
+    org_name = (organisation_name or "your organisation").strip()
     inviter = (inviter_name or "Your manager").strip()
-    subject = f"{inviter} invited you to join {org_name} on Plenvo"
+    greeting = greeting_name(employee_name)
+    subject = f"You have been invited to {org_name} on Plenvo"
     unsub_url = build_unsubscribe_url(unsubscribe_token) if unsubscribe_token else None
     login_url = f"{FRONTEND_URL}/login"
     signup_url = f"{FRONTEND_URL}/signup"
 
     body_html = f"""
-      <p style="margin:0 0 14px;">Hello {_esc(employee_name)},</p>
+      <p style="margin:0 0 14px;">Hello {_esc(greeting)},</p>
       <p style="margin:0 0 14px;">
-        <strong>{_esc(inviter)}</strong> invited you to join <strong>{_esc(org_name)}</strong> on Plenvo.
-        Use the credentials below to sign in, then change your password.
+        <strong>{_esc(inviter)}</strong> has invited you to join <strong>{_esc(org_name)}</strong> on Plenvo.
+        Sign in with the details below, then change your password when prompted.
       </p>
       <p style="margin:0 0 8px;"><strong>Email:</strong> {_esc(to_email)}</p>
       <p style="margin:0 0 14px;"><strong>Temporary password:</strong> {_esc(temp_password)}</p>
       {_cta_button(login_url, "Sign in to Plenvo")}
       <p style="margin:0 0 14px;font-size:13px;color:#555555;">
-        New to Plenvo? You can also <a href="{_esc(signup_url)}" style="color:#1a1a1a;">create an account</a>
-        with this email if you prefer.
+        Prefer to register yourself? You can also
+        <a href="{_esc(signup_url)}" style="color:#1a1a1a;">create an account</a>
+        with this email address.
       </p>
       <p style="margin:0;font-size:13px;color:#555555;">
-        If you were not expecting this message, contact your manager or hi@plenvo.io.
+        If you were not expecting this invitation, please contact your manager or hi@plenvo.io.
       </p>
     """
 
     html_content = _html_shell(body_html, _footer_html(unsubscribe_url=unsub_url))
 
-    plain_text_content = f"""Hello {employee_name},
+    plain_text_content = f"""Hello {greeting},
 
-{inviter} invited you to join {org_name} on Plenvo.
-Use the credentials below to sign in, then change your password.
+{inviter} has invited you to join {org_name} on Plenvo.
+Sign in with the details below, then change your password when prompted.
 
 Email: {to_email}
 Temporary password: {temp_password}
@@ -273,11 +301,11 @@ Temporary password: {temp_password}
 Sign in: {login_url}
 Create an account: {signup_url}
 
-If you were not expecting this message, contact your manager or hi@plenvo.io.
+If you were not expecting this invitation, please contact your manager or hi@plenvo.io.
 
 {_footer_text(unsubscribe_url=unsub_url)}
 """
-    return _send_email(to_email, employee_name, subject, plain_text_content, html_content)
+    return _send_email(to_email, greeting, subject, plain_text_content, html_content)
 
 
 def send_training_magic_link_email(
@@ -286,26 +314,38 @@ def send_training_magic_link_email(
     training_title: str,
     assigned_by_name: str,
     magic_url: str,
+    *,
+    due_date: str | None = None,
+    link_valid_days: int = 7,
 ) -> bool:
     """Send employee a magic link to complete assigned training without logging in."""
-    subject = f"{assigned_by_name} assigned you: {training_title}"
+    greeting = greeting_name(employee_name)
+    subject = f"Training assigned: {training_title}"
+    due_line_html = ""
+    due_line_text = ""
+    if due_date:
+        due_line_html = f'<p style="margin:0 0 14px;"><strong>Due date:</strong> {_esc(due_date)}</p>'
+        due_line_text = f"Due date: {due_date}\n\n"
+    day_word = "day" if link_valid_days == 1 else "days"
     body_html = f"""
-      <p style="margin:0 0 14px;">Hello {_esc(employee_name)},</p>
+      <p style="margin:0 0 14px;">Hello {_esc(greeting)},</p>
       <p style="margin:0 0 14px;">
-        {_esc(assigned_by_name)} assigned you training: <strong>{_esc(training_title)}</strong>.
+        {_esc(assigned_by_name)} has assigned you training: <strong>{_esc(training_title)}</strong>.
       </p>
+      {due_line_html}
       {_cta_button(magic_url, "Open training")}
-      <p style="margin:0;font-size:13px;color:#555555;">This link expires in 7 days.</p>
+      <p style="margin:0;font-size:13px;color:#555555;">This link works for {link_valid_days} {day_word}.</p>
     """
     html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
     plain_text = (
-        f"Hello {employee_name},\n\n"
-        f"{assigned_by_name} assigned you training: {training_title}.\n\n"
+        f"Hello {greeting},\n\n"
+        f"{assigned_by_name} has assigned you training: {training_title}.\n\n"
+        f"{due_line_text}"
         f"Open your training: {magic_url}\n\n"
-        f"This link expires in 7 days.\n\n"
+        f"This link works for {link_valid_days} {day_word}.\n\n"
         f"{_footer_text()}"
     )
-    return _send_email(to_email, employee_name, subject, plain_text, html_content)
+    return _send_email(to_email, greeting, subject, plain_text, html_content)
 
 
 def send_manager_training_complete_email(
@@ -315,23 +355,24 @@ def send_manager_training_complete_email(
     training_title: str,
 ) -> bool:
     """Notify manager when an employee completes training via magic link."""
-    subject = f"{employee_name} completed: {training_title}"
+    greeting = greeting_name(manager_name)
+    subject = f"Training completed: {training_title}"
     dash = f"{FRONTEND_URL}/app/admin"
     body_html = f"""
-      <p style="margin:0 0 14px;">Hello {_esc(manager_name)},</p>
+      <p style="margin:0 0 14px;">Hello {_esc(greeting)},</p>
       <p style="margin:0 0 14px;">
         {_esc(employee_name)} has completed <strong>{_esc(training_title)}</strong>.
       </p>
-      {_cta_button(dash, "Open dashboard")}
+      {_cta_button(dash, "View dashboard")}
     """
     html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
     plain_text = (
-        f"Hello {manager_name},\n\n"
+        f"Hello {greeting},\n\n"
         f"{employee_name} has completed {training_title}.\n\n"
         f"View progress: {dash}\n\n"
         f"{_footer_text()}"
     )
-    return _send_email(to_email, manager_name, subject, plain_text, html_content)
+    return _send_email(to_email, greeting, subject, plain_text, html_content)
 
 
 def send_overdue_tasks_email(
@@ -344,6 +385,7 @@ def send_overdue_tasks_email(
     if count == 0:
         return False
 
+    greeting = greeting_name(user_name)
     noun = "task" if count == 1 else "tasks"
     subject = f"You have {count} overdue {noun}"
     tasks_url = build_my_tasks_url()
@@ -359,20 +401,20 @@ def send_overdue_tasks_email(
         rows_text.append(f"- {title} (due {due})")
 
     body_html = f"""
-      <p style="margin:0 0 14px;">Hello {_esc(user_name)},</p>
-      <p style="margin:0 0 14px;">You have {count} overdue {noun}:</p>
+      <p style="margin:0 0 14px;">Hello {_esc(greeting)},</p>
+      <p style="margin:0 0 14px;">The following {noun} are now overdue:</p>
       <ul style="margin:0 0 14px;padding-left:20px;">{''.join(rows_html)}</ul>
       {_cta_button(tasks_url, "Open My Tasks")}
     """
     html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
     plain_text = (
-        f"Hello {user_name},\n\n"
-        f"You have {count} overdue {noun}:\n\n"
+        f"Hello {greeting},\n\n"
+        f"The following {noun} are now overdue:\n\n"
         f"{chr(10).join(rows_text)}\n\n"
         f"Open My Tasks: {tasks_url}\n\n"
         f"{_footer_text()}"
     )
-    return _send_email(to_email, user_name, subject, plain_text, html_content)
+    return _send_email(to_email, greeting, subject, plain_text, html_content)
 
 
 def send_trial_ending_email(
@@ -384,26 +426,28 @@ def send_trial_ending_email(
     task_count: int,
 ) -> bool:
     """Warn org admin that trial ends soon."""
+    greeting = greeting_name(user_name)
     day_word = "day" if days_left == 1 else "days"
     subject = f"Your Plenvo trial ends in {days_left} {day_word}"
     account_url = build_account_url()
     body_html = f"""
-      <p style="margin:0 0 14px;">Hello {_esc(user_name)},</p>
+      <p style="margin:0 0 14px;">Hello {_esc(greeting)},</p>
       <p style="margin:0 0 14px;">
-        Your trial ends in {days_left} {day_word} — you have {project_count} projects and {task_count} tasks.
-        Upgrade to keep access.
+        Your trial ends in {days_left} {day_word}. You currently have {project_count} project{'s' if project_count != 1 else ''}
+        and {task_count} task{'s' if task_count != 1 else ''}.
+        Upgrade to keep full access.
       </p>
       {_cta_button(account_url, "Upgrade in Account")}
     """
     html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
     plain_text = (
-        f"Hello {user_name},\n\n"
-        f"Your trial ends in {days_left} {day_word} — you have {project_count} projects "
-        f"and {task_count} tasks. Upgrade to keep access.\n\n"
+        f"Hello {greeting},\n\n"
+        f"Your trial ends in {days_left} {day_word}. You currently have {project_count} projects "
+        f"and {task_count} tasks. Upgrade to keep full access.\n\n"
         f"Upgrade: {account_url}\n\n"
         f"{_footer_text()}"
     )
-    return _send_email(to_email, user_name, subject, plain_text, html_content)
+    return _send_email(to_email, greeting, subject, plain_text, html_content)
 
 
 def _send_email(to_email: str, name: str, subject: str, plain_text: str, html_content: str) -> bool:

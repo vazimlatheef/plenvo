@@ -24,6 +24,7 @@ from app.services.contact_service import find_org_contact_by_email, link_contact
 from app.services.email import (
     generate_temp_password,
     generate_unsubscribe_token,
+    organisation_display_name,
     send_invite_email,
     send_verification_email,
 )
@@ -310,12 +311,14 @@ def invite_employee(
         db.refresh(contact)
 
     org = db.query(Organisation).filter_by(id=current_user.organisation_id).first()
+    invite_name = (payload.name or "").strip() or user.first_name or "there"
     email_sent = send_invite_email(
         to_email=user.email,
-        employee_name=user.full_name,
+        employee_name=invite_name,
         temp_password=temp_password,
-        organisation_name=org.name if org else None,
+        organisation_name=organisation_display_name(org, current_user),
         inviter_name=current_user.full_name,
+        unsubscribe_token=user.email_unsubscribe_token,
     )
     if not email_sent:
         print(f"⚠️ Warning: Failed to send invite email to {user.email}")

@@ -57,7 +57,7 @@
         <label>What do you want to capture or ask?</label>
         <textarea
           v-model="form.raw_text"
-          placeholder="Paste notes, add people and work, or ask a question — e.g. what’s next, how the team is tracking."
+          placeholder="Paste notes, add team members and work, or ask a question — e.g. what's next, how the team is tracking."
           rows="8"
         />
       </div>
@@ -92,7 +92,7 @@
     <div v-if="step === 'briefing'" class="card">
       <div class="review-header">
         <h3>Briefing</h3>
-        <p>Based on live tasks, people, and projects in your workspace.</p>
+        <p>Based on live tasks, team members, and projects in your workspace.</p>
       </div>
       <div class="briefing-body"><MarkdownText :text="briefing" /></div>
       <div class="review-actions">
@@ -113,7 +113,7 @@
         <h3>
           {{ extractedTasks.length }} item{{ extractedTasks.length !== 1 ? 's' : '' }} to confirm
         </h3>
-        <p>Review people, projects, and dates — then save to the board.</p>
+        <p>Review team members, projects, and dates — then save to the board.</p>
       </div>
 
       <div v-for="(task, i) in extractedTasks" :key="i" class="task-card">

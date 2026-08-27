@@ -156,7 +156,7 @@
 
         <h2 class="demo-title">Capture notes or ask about your team.<br />Then try it yourself.</h2>
 
-        <div class="demo-tabs" role="tablist" aria-label="Demo mode">
+        <div class="demo-tabs" role="tablist" aria-label="Preview mode">
           <button
             type="button"
             class="demo-tab"
@@ -735,7 +735,7 @@ const features = [
 
     title: 'Plenvo AI',
 
-    desc: 'Paste notes, assign work, or ask what’s next. Plenvo reads context — then tasks, people, and a live briefing appear instantly.',
+    desc: "Paste notes, assign work, or ask what's next. Plenvo reads context — then tasks, team members, and a live briefing appear instantly.",
 
   },
 

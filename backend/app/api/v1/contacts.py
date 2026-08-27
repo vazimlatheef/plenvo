@@ -9,7 +9,13 @@ from app.core.security import hash_password
 from app.models.models import Contact, Organisation, User
 from app.schemas.contact import ContactCreate, ContactInviteRequest, ContactResponse, ContactUpdate
 from app.services.contact_service import link_contact_to_user
-from app.services.email import generate_temp_password, generate_unsubscribe_token, send_invite_email
+from app.core.professional_roles import resolve_professional_role
+from app.services.email import (
+    generate_temp_password,
+    generate_unsubscribe_token,
+    organisation_display_name,
+    send_invite_email,
+)
 from app.services.plan_limits import assert_can_add_team_members, bump_trial_peak_member_count
 
 router = APIRouter(prefix="/api/v1/contacts", tags=["contacts"])
@@ -70,6 +76,8 @@ def create_contact(
         name=payload.name.strip(),
         email=email,
         role=payload.role,
+        role_other=payload.role_other,
+        team_division=payload.team_division,
         company=payload.company,
         phone=payload.phone,
         linkedin_url=payload.linkedin_url,
@@ -112,6 +120,10 @@ def update_contact(
         contact.name = data["name"].strip()
     if "role" in data and data["role"] is not None:
         contact.role = data["role"]
+    if "role_other" in data:
+        contact.role_other = data["role_other"]
+    if "team_division" in data:
+        contact.team_division = data["team_division"]
     if "email" in data and data["email"] is not None:
         contact.email = str(data["email"]).strip().lower()
     if "company" in data:
@@ -196,9 +208,10 @@ def invite_contact(
                 email=contact.email,
                 password_hash=hash_password(temp_password),
                 first_name=first_name,
-                last_name=last_name or "Member",
+                last_name=last_name,
                 role="employee",
-                position=contact.role,
+                job_title=resolve_professional_role(contact.role, contact.role_other),
+                team_division=contact.team_division,
                 company_name=current_user.company_name,
                 email_unsubscribe_token=generate_unsubscribe_token(),
             )
@@ -225,12 +238,14 @@ def invite_contact(
         db.refresh(contact)
 
     org = db.query(Organisation).filter_by(id=org_id).first()
+    invite_name = (contact.name or "").strip() or user.first_name or "there"
     email_sent = send_invite_email(
         to_email=user.email,
-        employee_name=contact.name or user.full_name,
+        employee_name=invite_name,
         temp_password=temp_password,
-        organisation_name=org.name if org else None,
+        organisation_name=organisation_display_name(org, current_user),
         inviter_name=current_user.full_name,
+        unsubscribe_token=user.email_unsubscribe_token,
     )
     if not email_sent:
         print(f"⚠️ Warning: Failed to send invite email to {user.email}")

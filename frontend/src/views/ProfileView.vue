@@ -50,11 +50,17 @@
         <div class="field-stack">
           <label>
             Role
+            <select v-model="selectedRole" :disabled="saving">
+              <option v-for="r in professionalRoles" :key="r" :value="r">{{ r }}</option>
+            </select>
+          </label>
+          <label v-if="selectedRole === otherRole">
+            Role (other)
             <input
-              v-model="form.job_title"
+              v-model="roleOther"
               type="text"
               maxlength="200"
-              placeholder="e.g. Product Manager"
+              placeholder="Describe your role"
               :disabled="saving"
             />
           </label>
@@ -65,6 +71,26 @@
               type="text"
               maxlength="200"
               placeholder="e.g. Acme Ltd"
+              :disabled="saving"
+            />
+          </label>
+          <label>
+            Team / Division
+            <input
+              v-model="form.team_division"
+              type="text"
+              maxlength="200"
+              placeholder="e.g. Operations, EMEA"
+              :disabled="saving"
+            />
+          </label>
+          <label>
+            Company address
+            <textarea
+              v-model="form.address"
+              rows="2"
+              maxlength="500"
+              placeholder="Optional — office or registered address"
               :disabled="saving"
             />
           </label>
@@ -138,6 +164,13 @@ import 'vue-tel-input/vue-tel-input.css'
 
 import { apiJson } from '@/api/client'
 import { user } from '@/composables/session'
+import {
+  DEFAULT_ROLE,
+  OTHER_ROLE,
+  PROFESSIONAL_ROLES,
+  parseStoredRole,
+  resolveRoleForSave,
+} from '@/constants/professionalRoles'
 
 const LINKEDIN_RE = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[\w\-.%]+\/?$/i
 const E164_RE = /^\+[1-9]\d{6,14}$/
@@ -154,6 +187,11 @@ const saveSuccess = ref('')
 const phoneE164 = ref('')
 const phoneTouched = ref(false)
 
+const professionalRoles = PROFESSIONAL_ROLES
+const otherRole = OTHER_ROLE
+const selectedRole = ref(DEFAULT_ROLE)
+const roleOther = ref('')
+
 const form = reactive({
   email: '',
   first_name: '',
@@ -161,6 +199,8 @@ const form = reactive({
   is_verified: false,
   job_title: '',
   company_name: '',
+  team_division: '',
+  address: '',
   phone: '',
   linkedin_url: '',
   overdue_email_enabled: true,
@@ -219,7 +259,12 @@ function applyUser(u) {
   form.last_name = u.last_name || ''
   form.is_verified = !!u.is_verified
   form.job_title = u.job_title || ''
+  const parsed = parseStoredRole(u.job_title)
+  selectedRole.value = parsed.selectedRole
+  roleOther.value = parsed.roleOther
   form.company_name = u.company_name || ''
+  form.team_division = u.team_division || ''
+  form.address = u.address || ''
   const existing = (u.phone || u.phone_number || '').trim()
   form.phone = existing
   phoneE164.value = E164_RE.test(existing) ? existing : ''
@@ -305,8 +350,10 @@ async function saveProfile() {
       body: JSON.stringify({
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim() || '',
-        job_title: form.job_title.trim() || null,
+        job_title: resolveRoleForSave(selectedRole.value, roleOther.value),
         company_name: form.company_name.trim() || null,
+        team_division: form.team_division.trim() || null,
+        address: form.address.trim() || null,
         phone: phoneE164.value || null,
         linkedin_url: form.linkedin_url.trim() || null,
       }),

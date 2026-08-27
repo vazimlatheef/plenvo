@@ -3,7 +3,7 @@
     <div class="panel">
       <p class="eyebrow">Plenvo</p>
       <h1>Forgot password</h1>
-      <p class="lede">Enter your work email and we'll send a reset link if an account exists.</p>
+      <p class="lede">Enter your email address and we'll send a reset link if an account exists.</p>
 
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <div v-if="done" class="success-block" role="status">

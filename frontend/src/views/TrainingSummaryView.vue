@@ -23,7 +23,7 @@
         </div>
       </div>
       <section v-if="summary?.rows?.length" class="table-wrap">
-        <h2 class="table-title">People &amp; status</h2>
+        <h2 class="table-title">Team members &amp; status</h2>
         <div class="table-scroll">
           <table class="data-table">
             <thead>
@@ -50,7 +50,7 @@
         </div>
       </section>
       <p v-else-if="summary && !summary.rows?.length" class="empty muted">
-        No one assigned yet. Assign people from the dashboard, then refresh this page.
+        No one assigned yet. Assign team members from the dashboard, then refresh this page.
       </p>
       <p v-if="!loading && !error && summary" class="foot muted small">
         Use this in meetings: who still owes the training, who’s done — without another spreadsheet.
@@ -87,7 +87,7 @@ const headerDescription = computed(() => {
   if (titleFromQuery.value) {
     return `Progress for “${titleFromQuery.value}”.`
   }
-  return 'How many people are done, in progress, or not started.'
+  return 'How many team members are done, in progress, or not started.'
 })
 
 const statRows = computed(() => {

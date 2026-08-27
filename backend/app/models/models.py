@@ -60,6 +60,8 @@ class User(Base):
     position: Mapped[str | None] = mapped_column(String(100), nullable=True)
     company_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     job_title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    team_division: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     linkedin_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     phone_country: Mapped[str | None] = mapped_column(String(8), nullable=True)
     phone_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -123,8 +125,10 @@ class Contact(Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
-    # General role label (not auth role): Member, Manager, Contractor, Client, Other
-    role: Mapped[str] = mapped_column(String(40), nullable=False, server_default="Member")
+    # Professional role label (not auth role): CEO, Manager, Team Member, Other, etc.
+    role: Mapped[str] = mapped_column(String(40), nullable=False, server_default="Team Member")
+    role_other: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    team_division: Mapped[str | None] = mapped_column(String(200), nullable=True)
     company: Mapped[str | None] = mapped_column(String(200), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     linkedin_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)

@@ -43,7 +43,7 @@ const faqs = [
     a: 'Yes. You can create projects and tasks for your own work without inviting anyone. Team features are available when you need them.',
   },
   {
-    q: 'How do I add people to my team?',
+    q: 'How do I add team members?',
     a: 'From Team, add a member with their name and email. You can invite them to Plenvo later so they get an account and can update their own tasks.',
   },
   {

@@ -28,6 +28,8 @@ class UserUpdate(BaseModel):
     last_name: str | None = Field(default=None, min_length=1, max_length=100)
     position: str | None = None
     job_title: str | None = None
+    team_division: str | None = None
+    address: str | None = None
     company_name: str | None = None
     linkedin_url: str | None = None
     phone: str | None = None
@@ -38,13 +40,22 @@ class UserUpdate(BaseModel):
     timezone: str | None = None
     overdue_email_enabled: bool | None = None
 
-    @field_validator("job_title", "company_name", "position", mode="before")
+    @field_validator("job_title", "company_name", "position", "team_division", mode="before")
     @classmethod
     def empty_to_none_text(cls, v: object) -> object:
         if v is None:
             return None
         if isinstance(v, str):
             return normalize_optional_str(v, max_len=200)
+        return v
+
+    @field_validator("address", mode="before")
+    @classmethod
+    def empty_to_none_address(cls, v: object) -> object:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return normalize_optional_str(v, max_len=500)
         return v
 
     @field_validator("phone", "phone_number", mode="before")
@@ -77,6 +88,8 @@ class UserPublic(BaseModel):
     position: str | None = None
     company_name: str | None = None
     job_title: str | None = None
+    team_division: str | None = None
+    address: str | None = None
     linkedin_url: str | None = None
     phone_country: str | None = None
     phone_number: str | None = None

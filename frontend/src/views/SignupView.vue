@@ -11,7 +11,7 @@
 
       <form v-if="!done" class="form" @submit.prevent="onSubmit">
         <label class="field">
-          <span>Work email</span>
+          <span>Email</span>
           <input
             v-model="email"
             type="email"

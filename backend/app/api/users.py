@@ -44,6 +44,10 @@ def update_me(
         current_user.position = data["position"]
     if "job_title" in data:
         current_user.job_title = data["job_title"]
+    if "team_division" in data:
+        current_user.team_division = data["team_division"]
+    if "address" in data:
+        current_user.address = data["address"]
     if "company_name" in data:
         current_user.company_name = data["company_name"]
     if "linkedin_url" in data:

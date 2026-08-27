@@ -1,7 +1,7 @@
 <template>
   <div>
     <PageHeader
-      eyebrow="People"
+      eyebrow="Team members"
       title="Assign training"
       description="Choose training and team members. Contacts receive a magic link by email; members with accounts can also use Assignments."
     />
@@ -21,7 +21,7 @@
 
         <div class="field">
           <span>Assign to</span>
-          <p v-if="loadingPeople" class="empty-hint">Loading team…</p>
+          <p v-if="loadingPeople" class="empty-hint">Loading team members…</p>
           <p v-else-if="assigneeOptions.length === 0" class="empty-hint">
             Add team members on the Team page first.
           </p>
@@ -40,7 +40,7 @@
         </div>
 
         <p class="hint">
-          Select one or more people. Contacts without a Plenvo account complete training via the email link.
+          Select one or more team members. Contacts without a Plenvo account complete training via the email link.
         </p>
         <button
           type="submit"
@@ -94,7 +94,7 @@ onMounted(async () => {
     users.value = Array.isArray(userList) ? userList : []
     contacts.value = Array.isArray(contactList) ? contactList : []
   } catch (err) {
-    console.error('[AdminAssign] failed to load people', err)
+    console.error('[AdminAssign] failed to load team members', err)
   } finally {
     loadingPeople.value = false
   }

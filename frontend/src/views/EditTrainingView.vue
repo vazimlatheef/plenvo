@@ -16,10 +16,10 @@
         </label>
         <label class="field">
           <span>Description (optional)</span>
-          <textarea v-model="description" rows="3" :disabled="busy" placeholder="What should people take away?" />
+          <textarea v-model="description" rows="3" :disabled="busy" placeholder="What should team members take away?" />
         </label>
         <label class="field">
-          <span>How people view it</span>
+          <span>How team members view it</span>
           <select v-model="contentType" :disabled="busy">
             <option value="youtube">YouTube video</option>
             <option value="external_link">External link</option>
@@ -39,7 +39,7 @@
           <input v-model="externalUrl" type="url" placeholder="https://…" :disabled="busy" />
         </label>
         <p v-if="contentType === 'upload'" class="hint">
-          File delivery is limited in this demo — prefer YouTube or an external link for a smoother experience.
+          File uploads are not yet available — use YouTube or an external link instead.
         </p>
         <div class="actions">
           <button type="submit" class="btn" :disabled="busy">{{ busy ? 'Saving…' : 'Save changes' }}</button>

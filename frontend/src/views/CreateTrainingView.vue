@@ -3,7 +3,7 @@
     <PageHeader
       eyebrow="Content"
       title="New training"
-      description="Publish a video or a link your team can complete on their own time. File uploads are coming soon — use YouTube or an external link for this demo."
+      description="Publish a video or link your team can complete on their own time. Use YouTube or an external link."
     />
     <section class="card">
       <p v-if="error" class="alert-error">{{ error }}</p>
@@ -14,10 +14,10 @@
         </label>
         <label class="field">
           <span>Description (optional)</span>
-          <textarea v-model="description" rows="3" :disabled="busy" placeholder="What should people take away?" />
+          <textarea v-model="description" rows="3" :disabled="busy" placeholder="What should team members take away?" />
         </label>
         <label class="field">
-          <span>How people view it</span>
+          <span>How team members view it</span>
           <select v-model="contentType" :disabled="busy">
             <option value="youtube">YouTube video</option>
             <option value="external_link">External link</option>
