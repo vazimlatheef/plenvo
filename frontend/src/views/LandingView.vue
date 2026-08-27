@@ -175,6 +175,8 @@
           </button>
         </div>
 
+        <p class="demo-tagline">Meeting notes → assigned work in 60 seconds</p>
+
         <div class="demo-window">
 
           <div class="demo-bar">
@@ -1532,6 +1534,14 @@ onMounted(async () => {
 .demo-tab--active {
   background: rgba(196, 163, 90, 0.16);
   color: var(--color-text);
+}
+
+.demo-tagline {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-accent);
+  margin: -0.25rem 0 1.25rem;
 }
 
 .demo-briefing {
