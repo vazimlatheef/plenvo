@@ -1,7 +1,7 @@
 <template>
   <component :is="tag" class="plenvo-logo" :class="[`plenvo-logo--${variant}`, { 'plenvo-logo--compact': compact }]">
     <span class="plenvo-logo__mark" aria-hidden="true">
-      <svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" overflow="visible">
         <rect
           class="plenvo-logo__squircle"
           width="128"
@@ -9,15 +9,13 @@
           rx="28"
           stroke-width="1.5"
         />
-        <g class="plenvo-logo__glyph-wrap" transform="translate(3 2)">
-          <path
-            class="plenvo-logo__glyph"
-            d="M37 98V30h30c16.5 0 30 13.5 30 30S83.5 90 67 90H51"
-            stroke-width="15"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </g>
+        <path
+          class="plenvo-logo__glyph"
+          d="M38 94V34H66C84 34 84 62 66 62H38"
+          stroke-width="13"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
       </svg>
     </span>
     <span v-if="showWordmark" class="plenvo-logo__wordmark">Plenvo</span>
@@ -86,7 +84,6 @@ const showWordmark = computed(() => props.variant === 'lockup')
   letter-spacing: 0.01em;
   color: var(--color-text);
   line-height: 1;
-  transform: translateY(0.08em);
 }
 
 .plenvo-logo--compact .plenvo-logo__wordmark {
