@@ -11,7 +11,7 @@
       </button>
     </div>
 
-    <p v-if="!rows.length" class="links-editor__hint">No links yet. Add URLs your team might need.</p>
+    <p v-if="!rows.length" class="links-editor__hint">Optional — add reference links for this item.</p>
 
     <ul v-else class="links-editor__list">
       <li v-for="(row, index) in rows" :key="index" class="links-editor__row">

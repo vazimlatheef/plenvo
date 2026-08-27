@@ -47,7 +47,7 @@ const router = createRouter({
       path: '/',
       name: 'landing',
       component: LandingView,
-      meta: { public: true, title: 'Plenvo — AI-powered team management' },
+      meta: { public: true, title: 'Plenvo — Work, projects & life in one place' },
     },
     {
       path: '/login',
@@ -249,7 +249,12 @@ router.beforeEach(async (to) => {
 })
 
 router.afterEach((to) => {
-  document.title = to.meta.title ? `${to.meta.title} · Plenvo` : 'Plenvo'
+  const raw = to.meta.title
+  if (!raw) {
+    document.title = 'Plenvo — Work, projects & life in one place'
+    return
+  }
+  document.title = String(raw).startsWith('Plenvo') ? raw : `${raw} · Plenvo`
 })
 
 export default router

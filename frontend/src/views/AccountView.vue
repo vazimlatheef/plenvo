@@ -72,7 +72,7 @@
         <p class="app-lede">
           Prices shown in {{ currencyLabel }}.
           <template v-if="account.on_trial && !account.has_paid_subscription">
-            Upgrade anytime during your trial — limits update immediately, no charge until trial ends.
+            Upgrade anytime during your trial — limits update immediately, no charge and no card required until trial ends.
             Downgrades are not available during trial.
           </template>
           <template v-else-if="account.restricted">
@@ -523,5 +523,18 @@ onMounted(async () => {
   margin: 0 0 1rem;
   font-size: 0.9rem;
   color: var(--status-done);
+}
+
+@media (max-width: 640px) {
+  .plan-option {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .plan-option .btn-primary,
+  .plan-option .btn-outline {
+    width: 100%;
+    justify-content: center;
+  }
 }
 </style>

@@ -125,8 +125,15 @@ h1 {
   font-weight: 300;
 }
 
-.contact-card a {
+.contact-card a:not(.btn-primary) {
   color: var(--color-accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.contact-card a:not(.btn-primary):hover {
+  color: #d4b76a;
 }
 
 .note {

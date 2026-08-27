@@ -26,7 +26,7 @@
 
           <template v-else>
 
-            <RouterLink to="/login" class="nav-link">Sign in</RouterLink>
+            <RouterLink to="/login" class="nav-link nav-link--auth">Sign in</RouterLink>
 
             <RouterLink to="/signup?plan=team" class="nav-cta">Start for free</RouterLink>
 
@@ -185,6 +185,19 @@
 
           </div>
 
+          <div v-if="demoMode === 'capture'" class="demo-life-tabs" role="tablist" aria-label="Life areas">
+            <button
+              v-for="area in demoAreas"
+              :key="area.id"
+              type="button"
+              class="demo-life-tab"
+              :class="{ 'demo-life-tab--active': demoArea === area.id }"
+              @click="selectDemoArea(area.id)"
+            >
+              {{ area.label }}
+            </button>
+          </div>
+
           <div class="demo-body">
 
             <template v-if="demoMode === 'capture'">
@@ -234,7 +247,7 @@
 
               <p class="col-label">You ask</p>
 
-              <p class="demo-input">"How is my team doing?"</p>
+              <p class="demo-input">"How is my team performing this week?"</p>
 
             </div>
 
@@ -614,36 +627,75 @@ const ctaRefSignup = ref(null)
 
 
 
-const demoInputFull =
+const demoArea = ref('career')
 
-  'Team standup at 9am Monday. Finish the API docs by Thursday — high priority. Call mum this weekend. Side project: update landing page copy. Gym: leg day Tuesday 6pm.'
-
-
-
-const demoTasks = [
-
-  '📅 Team standup · Monday 9am · Recurring',
-
-  '📋 API docs · Thursday · High',
-
-  '👨‍👩‍👧 Call mum · This weekend · Personal',
-
-  '🚀 Update landing page · Side project · Medium',
-
-  '💪 Leg day · Tuesday 6pm · Health',
-
+const demoAreas = [
+  {
+    id: 'career',
+    label: 'Career',
+    input:
+      'Team standup Monday 9am. Finish API docs by Thursday — high priority. Assign homepage mockups to Alex by Friday.',
+    tasks: [
+      '📅 Team standup · Monday 9am',
+      '📋 API docs · Thursday · High',
+      '🎨 Homepage mockups · Friday · Alex',
+    ],
+  },
+  {
+    id: 'health',
+    label: 'Health',
+    input: 'Leg day Tuesday 6pm. Meal prep Sunday. Book dentist for next month.',
+    tasks: ['💪 Leg day · Tuesday 6pm', '🥗 Meal prep · Sunday', '🦷 Book dentist · Next month'],
+  },
+  {
+    id: 'family',
+    label: 'Family',
+    input: 'Call mum this weekend. School run Wednesday 8am. Plan birthday dinner for Saturday.',
+    tasks: [
+      '👨‍👩‍👧 Call mum · This weekend',
+      '🚌 School run · Wednesday 8am',
+      '🎂 Birthday dinner · Saturday',
+    ],
+  },
+  {
+    id: 'personal',
+    label: 'Personal',
+    input: 'Update landing page copy. Renew passport. Read chapter 3 of leadership book.',
+    tasks: [
+      '🚀 Landing page copy · Side project',
+      '🛂 Renew passport · Admin',
+      '📖 Leadership book · Chapter 3',
+    ],
+  },
 ]
 
+const activeDemoArea = computed(() => demoAreas.find((a) => a.id === demoArea.value) || demoAreas[0])
 
+const demoInputFull = computed(() => activeDemoArea.value.input)
+
+const demoTasks = computed(() => activeDemoArea.value.tasks)
 
 const displayedDemoText = ref('')
 const demoMode = ref('capture')
 
 const showDemoCursor = ref(false)
 
-const demoTasksVisible = ref(demoTasks.map(() => false))
+const demoTasksVisible = ref(demoAreas[0].tasks.map(() => false))
 
 let demoAnimationStarted = false
+
+function resetDemoAnimation() {
+  demoAnimationStarted = false
+  displayedDemoText.value = ''
+  demoTasksVisible.value = activeDemoArea.value.tasks.map(() => false)
+}
+
+function selectDemoArea(id) {
+  if (demoArea.value === id) return
+  demoArea.value = id
+  resetDemoAnimation()
+  startDemoAnimation()
+}
 
 
 
@@ -651,7 +703,7 @@ const bullets = computed(() => [
 
   '✓ Paste your day in words — Plenvo creates your tasks',
 
-  '✓ For managers and individuals — not just teams',
+  '✓ Work, life, and team — all in one place',
 
   '✓ AI that reads context, not just keywords',
 
@@ -941,9 +993,9 @@ function startDemoAnimation() {
 
   const typeInterval = setInterval(() => {
 
-    if (i < demoInputFull.length) {
+    if (i < demoInputFull.value.length) {
 
-      displayedDemoText.value += demoInputFull[i]
+      displayedDemoText.value += demoInputFull.value[i]
 
       i++
 
@@ -955,7 +1007,7 @@ function startDemoAnimation() {
 
       setTimeout(() => {
 
-        demoTasks.forEach((_, idx) => {
+        demoTasks.value.forEach((_, idx) => {
 
           setTimeout(() => {
 
@@ -1449,6 +1501,34 @@ onMounted(async () => {
   cursor: pointer;
 }
 
+.demo-life-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+  padding: 0.85rem 1.75rem 0;
+}
+
+.demo-life-tab {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.demo-life-tab--active {
+  border-color: rgba(196, 163, 90, 0.55);
+  color: var(--color-accent);
+  background: rgba(196, 163, 90, 0.08);
+}
+
 .demo-tab--active {
   background: rgba(196, 163, 90, 0.16);
   color: var(--color-text);
@@ -1796,7 +1876,9 @@ onMounted(async () => {
 
   .br-desktop { display: none; }
 
-  .nav-links .nav-link:not(:last-child) { display: none; }
+  .nav-links .nav-link:not(.nav-link--auth):not(.nav-cta) { display: none; }
+
+  .nav-link--auth { display: inline-flex !important; }
 
 }
 

@@ -53,6 +53,24 @@
         <FolderPlus class="nav-icon" :size="18" :stroke-width="1.75" />
         <span>New Project</span>
       </RouterLink>
+      <RouterLink
+        v-if="!writeRestricted"
+        to="/app/admin?newTask=1"
+        class="nav-item nav-item--action"
+        @click="closeMobile"
+      >
+        <ListTodo class="nav-icon" :size="18" :stroke-width="1.75" />
+        <span>New Task</span>
+      </RouterLink>
+      <div
+        v-else
+        class="nav-item nav-item--action nav-item--locked"
+        aria-disabled="true"
+        :title="writeDisabledTitle"
+      >
+        <ListTodo class="nav-icon" :size="18" :stroke-width="1.75" />
+        <span>New Task</span>
+      </div>
       <RouterLink to="/app/team" class="nav-item nav-item--action" @click="closeMobile">
         <UserPlus class="nav-icon" :size="18" :stroke-width="1.75" />
         <span>Add Team Member</span>
@@ -90,6 +108,7 @@
 <script setup>
 import {
   CalendarDays,
+  CheckSquare,
   CircleHelp,
   CreditCard,
   FolderKanban,
@@ -97,6 +116,7 @@ import {
   GraduationCap,
   Home,
   LayoutDashboard,
+  ListTodo,
   LogOut,
   Sparkles,
   UserPlus,
@@ -129,6 +149,7 @@ const isPersonalPlan = computed(() => planTier.value === 'personal')
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
   { to: '/app/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/app/tasks', label: 'My tasks', icon: ListTodo },
   { to: '/app/projects', label: 'Projects', icon: FolderKanban },
   { to: '/app/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/app/team', label: 'Team', icon: Users },

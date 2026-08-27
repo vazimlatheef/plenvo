@@ -39,7 +39,8 @@ export function canUsePerformanceView({ plan_tier: tier } = {}) {
 }
 
 export function canUseTeamPriorityInsights({ plan_tier: tier } = {}) {
-  return (tier || '').toLowerCase() === 'enterprise'
+  const t = (tier || '').toLowerCase()
+  return t === 'team' || t === 'enterprise'
 }
 
 /** Roster rows aligned with Team page (contacts + employees not duplicated by email). */

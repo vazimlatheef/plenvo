@@ -1283,5 +1283,15 @@ watch(
   .cal-chip {
     width: fit-content;
   }
+
+  .cal-cell {
+    min-height: 4.5rem;
+    padding: 0.25rem 0.2rem;
+  }
+
+  .cal-dow {
+    font-size: 0.62rem;
+    padding: 0.4rem 0.15rem;
+  }
 }
 </style>

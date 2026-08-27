@@ -9,7 +9,7 @@
           rx="28"
           stroke-width="1.5"
         />
-        <g class="plenvo-logo__glyph-wrap">
+        <g class="plenvo-logo__glyph-wrap" transform="translate(3 2)">
           <path
             class="plenvo-logo__glyph"
             d="M37 98V30h30c16.5 0 30 13.5 30 30S83.5 90 67 90H51"
@@ -86,7 +86,7 @@ const showWordmark = computed(() => props.variant === 'lockup')
   letter-spacing: 0.01em;
   color: var(--color-text);
   line-height: 1;
-  transform: translateY(0.04em);
+  transform: translateY(0.08em);
 }
 
 .plenvo-logo--compact .plenvo-logo__wordmark {

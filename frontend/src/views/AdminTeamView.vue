@@ -146,8 +146,8 @@
         <section class="priority-section">
           <h2 class="priority-heading">Team priority insights</h2>
           <p v-if="!canTeamPriority" class="priority-upsell">
-            See each person's top-priority open task — available on Enterprise.
-            <RouterLink to="/app/account" class="inline-upgrade">Upgrade to Enterprise →</RouterLink>
+            Team priority insights are available on Team and Enterprise plans.
+            <RouterLink to="/app/account" class="inline-upgrade">Upgrade plan →</RouterLink>
           </p>
           <template v-else>
             <p v-if="insightsLoading" class="muted-line">Loading priority insights…</p>

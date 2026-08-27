@@ -201,7 +201,7 @@ def test_team_cancel_period_end_preserves_data_and_restricts_writes(db):
 
 
 def test_over_limit_after_downgrade_does_not_crash(db):
-    """6 members on Personal (limit 1): snapshot + queries work; only new adds blocked."""
+    """6 members on Personal (limit 1): data preserved; new adds blocked; writes blocked when restricted."""
     data = _seed_team_org_with_data(db)
     org = data["org"]
     org.plan_tier = "personal"
@@ -210,6 +210,11 @@ def test_over_limit_after_downgrade_does_not_crash(db):
     db.add(org)
     db.commit()
     db.refresh(org)
+
+    assert is_restricted(org) is True
+    with pytest.raises(HTTPException) as exc_write:
+        assert_full_write_access(org)
+    assert exc_write.value.status_code == 402
 
     allowed, current, limit, message = can_add_team_members(db, org, adding=0)
     assert allowed is True

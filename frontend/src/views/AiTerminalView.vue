@@ -283,20 +283,24 @@ const intent = ref('capture')
 
 const examples = [
   {
-    label: 'Monday dump',
-    text: 'Standup 9am Monday. API docs due Thursday — high priority. Call mum this weekend. Side project: refresh landing copy. Gym Tuesday 6pm.',
+    label: 'Career · team brief',
+    text: 'How is my team performing this week? Who is overloaded and what is overdue?',
   },
   {
-    label: 'Add someone + work',
-    text: 'Maya starts Monday as designer — add her. Homepage mockups by Friday. Alex reviews API docs Thursday.',
+    label: 'Career · capture',
+    text: 'Maya starts Monday as designer. Homepage mockups due Friday. API review with Alex Thursday.',
   },
   {
-    label: 'What’s next?',
-    text: 'What’s the single most important thing I should tackle today?',
+    label: 'Health',
+    text: 'Leg day Tuesday 6pm. Meal prep Sunday. Book dentist next month.',
   },
   {
-    label: 'Team pulse',
-    text: 'How is the team tracking this week? Who’s overloaded and who has slack?',
+    label: 'Family',
+    text: 'Call mum this weekend. School run Wednesday 8am. Plan birthday dinner Saturday.',
+  },
+  {
+    label: 'Personal',
+    text: 'What should I focus on today? Renew passport and finish landing page copy.',
   },
 ]
 const projects = ref([])

@@ -43,7 +43,13 @@
     </section>
 
     <div class="stats-grid">
-      <div v-for="stat in statCards" :key="stat.label" class="stat-card" :class="{ alert: stat.alert }">
+      <RouterLink
+        v-for="stat in statCards"
+        :key="stat.label"
+        :to="stat.to"
+        class="stat-card stat-card--link"
+        :class="{ alert: stat.alert }"
+      >
         <div class="stat-icon" :class="{ 'stat-icon--alert': stat.alert }">
           <component :is="stat.icon" :size="20" :stroke-width="1.75" />
         </div>
@@ -51,7 +57,7 @@
           <div class="stat-value">{{ stat.value }}</div>
           <div class="stat-label">{{ stat.label }}</div>
         </div>
-      </div>
+      </RouterLink>
     </div>
 
     <section class="section">
@@ -78,6 +84,10 @@
           <div class="task-info">
             <h4>{{ task.title }}</h4>
             <div class="task-meta">
+              <span v-if="hasTeamContext && (task.assignee_id || task.assignee_contact_id)" class="meta-text">
+                <UserRound :size="13" :stroke-width="1.75" />
+                {{ assigneeLabel(task) }}
+              </span>
               <span v-if="task.due_date" class="meta-text">
                 <Calendar :size="13" :stroke-width="1.75" />
                 Due {{ formatDueDate(task.due_date) }}
@@ -195,7 +205,7 @@
 
     <TaskEditModal
       :open="showTaskModal"
-      mode="edit"
+      :mode="taskModalMode"
       :saving="savingTask"
       :error="taskFormError"
       :assignee-options="assigneeOptions"
@@ -223,8 +233,8 @@ import {
   UserRound,
   Users,
 } from '@lucide/vue'
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { apiJson } from '@/api/client'
 import TaskEditModal from '@/components/TaskEditModal.vue'
@@ -241,10 +251,12 @@ import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const router = useRouter()
+const route = useRoute()
 const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 const aiQuery = ref('')
 const busyTaskId = ref(null)
 const showTaskModal = ref(false)
+const taskModalMode = ref('edit')
 const editingTaskId = ref(null)
 const savingTask = ref(false)
 const taskFormError = ref('')
@@ -286,10 +298,16 @@ const greeting = computed(() => {
 })
 
 const statCards = computed(() => [
-  { label: 'Active Projects', value: stats.value.projects, icon: FolderKanban, alert: false },
-  { label: 'Total Tasks', value: stats.value.tasks, icon: CheckSquare, alert: false },
-  { label: 'Team Members', value: stats.value.employees, icon: Users, alert: false },
-  { label: 'Overdue Tasks', value: stats.value.overdue, icon: AlertTriangle, alert: stats.value.overdue > 0 },
+  { label: 'Active Projects', value: stats.value.projects, icon: FolderKanban, alert: false, to: '/app/projects' },
+  { label: 'Total Tasks', value: stats.value.tasks, icon: CheckSquare, alert: false, to: '/app/tasks' },
+  { label: 'Team Members', value: stats.value.employees, icon: Users, alert: false, to: '/app/team' },
+  {
+    label: stats.value.overdue > 0 ? 'Overdue Tasks' : 'On schedule',
+    value: stats.value.overdue,
+    icon: AlertTriangle,
+    alert: stats.value.overdue > 0,
+    to: '/app/tasks',
+  },
 ])
 
 const focusTasks = computed(() => {
@@ -309,7 +327,7 @@ const hasTeamContext = computed(() => stats.value.employees > 1)
 
 const aiPromptChips = computed(() =>
   hasTeamContext.value
-    ? ['How is my team doing?', "What's overdue this week?"]
+    ? ['How is my team performing?', "What's overdue this week?", 'What should I focus on today?']
     : ['What should I focus on today?', "What's coming up this week?"],
 )
 
@@ -423,9 +441,27 @@ function assigneeLabel(task) {
   return 'Unassigned'
 }
 
+function openCreateTask() {
+  if (writeRestricted.value) return
+  editingTaskId.value = null
+  taskModalMode.value = 'create'
+  taskModalInitial.value = {
+    title: '',
+    description: '',
+    links: [],
+    assignee_key: user.value?.id ? `user:${user.value.id}` : null,
+    due_date: '',
+    status: 'pending',
+    project_id: null,
+  }
+  taskFormError.value = ''
+  showTaskModal.value = true
+}
+
 function openEditTask(task) {
   if (writeRestricted.value) return
   editingTaskId.value = task.id
+  taskModalMode.value = 'edit'
   taskModalInitial.value = {
     title: task.title || '',
     description: task.description || '',
@@ -456,7 +492,7 @@ function refreshOverdueList(tasks) {
 }
 
 async function saveTaskFromModal(payload) {
-  if (!editingTaskId.value || !payload.title.trim()) return
+  if (!payload.title.trim()) return
   savingTask.value = true
   taskFormError.value = ''
   try {
@@ -475,6 +511,18 @@ async function saveTaskFromModal(payload) {
       body.assignee_id = assignee_id
       body.assignee_contact_id = assignee_contact_id
     }
+    if (taskModalMode.value === 'create') {
+      const created = await apiJson('/api/v1/tasks', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+      allTasks.value = [created, ...allTasks.value]
+      stats.value.tasks = (stats.value.tasks || 0) + 1
+      refreshOverdueList(allTasks.value)
+      closeTaskModal()
+      return
+    }
+    if (!editingTaskId.value) return
     const updated = await apiJson(`/api/v1/tasks/${editingTaskId.value}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
@@ -534,7 +582,13 @@ function isFocusOverdue(task) {
   return isTaskOverdue(task)
 }
 
-onMounted(fetchDashboardData)
+onMounted(() => {
+  fetchDashboardData()
+  if (route.query.newTask === '1') {
+    openCreateTask()
+    router.replace({ path: route.path, query: {} })
+  }
+})
 </script>
 
 <style scoped>
@@ -684,6 +738,15 @@ onMounted(fetchDashboardData)
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.85rem;
   margin-bottom: 2.25rem;
+}
+
+.stat-card--link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.stat-card--link:hover {
+  text-decoration: none;
 }
 
 .stat-card {
