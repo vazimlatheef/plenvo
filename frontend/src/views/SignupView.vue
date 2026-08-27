@@ -50,7 +50,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiJson } from '@/api/client'
@@ -60,7 +60,7 @@ import { login } from '@/services/auth'
 
 const router = useRouter()
 const route = useRoute()
-const { currency, loaded: currencyLoaded, detect } = useCurrency()
+const { currency, country, loaded: currencyLoaded, detect } = useCurrency()
 
 const PLAN_LABELS = { personal: 'Personal', team: 'Team', enterprise: 'Enterprise' }
 
@@ -79,6 +79,10 @@ const done = ref(false)
 
 const canSubmit = computed(() => email.value.trim() && password.value.length >= 8)
 
+onMounted(() => {
+  detect({ force: true })
+})
+
 async function onSubmit() {
   if (!canSubmit.value) return
   error.value = ''
@@ -93,6 +97,7 @@ async function onSubmit() {
         email: email.value.trim(),
         password: password.value,
         currency: currency.value || 'USD',
+        country_code: country.value || null,
         plan_tier: selectedPlan.value,
       }),
     })

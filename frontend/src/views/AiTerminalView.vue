@@ -94,7 +94,7 @@
         <h3>Briefing</h3>
         <p>Based on live tasks, people, and projects in your workspace.</p>
       </div>
-      <div class="briefing-body">{{ briefing }}</div>
+      <div class="briefing-body"><MarkdownText :text="briefing" /></div>
       <div class="review-actions">
         <button class="btn-secondary btn-with-icon" type="button" @click="reset">
           <ArrowLeft :size="15" :stroke-width="1.75" />
@@ -107,7 +107,7 @@
     <div v-if="step === 'review'" class="card">
       <div v-if="briefing" class="briefing-panel">
         <h3>Briefing</h3>
-        <div class="briefing-body">{{ briefing }}</div>
+        <div class="briefing-body"><MarkdownText :text="briefing" /></div>
       </div>
       <div class="review-header">
         <h3>
@@ -250,8 +250,10 @@
 <script setup>
 import { ArrowLeft, Check, Sparkles, X } from '@lucide/vue'
 import { ref, computed, nextTick, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { apiJson } from '@/api/client'
 import DatePicker from '@/components/DatePicker.vue'
+import MarkdownText from '@/components/MarkdownText.vue'
 import { user } from '@/composables/session'
 import { useWriteAccess } from '@/composables/useWriteAccess'
 import {
@@ -265,6 +267,7 @@ const NEW_PROJECT_VALUE = '__new__'
 const CREATE_PROJECT_PREFIX = 'new:'
 const CREATE_CONTACT_PREFIX = 'contact:'
 
+const route = useRoute()
 const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 
 const step = ref('input')
@@ -509,6 +512,15 @@ onMounted(async () => {
     contacts.value = Array.isArray(contactList) ? contactList : []
   } catch {
     // non-fatal
+  }
+
+  const q = route.query.q
+  if (q) {
+    form.value.raw_text = String(q)
+    if (route.query.submit === '1' && !writeRestricted.value) {
+      await nextTick()
+      parseNote()
+    }
   }
 })
 

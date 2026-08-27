@@ -5,6 +5,43 @@
       <p class="subtitle">{{ greeting }}, {{ userName }}</p>
     </div>
 
+    <section class="ai-hero">
+      <div class="ai-hero__icon">
+        <Sparkles :size="22" :stroke-width="1.75" />
+      </div>
+      <div class="ai-hero__body">
+        <p class="ai-hero__eyebrow">Plenvo AI</p>
+        <h2 class="ai-hero__title">Capture anything. Ask anything.</h2>
+        <p class="ai-hero__lede">
+          Paste notes to create tasks, or ask a question about your workload — Brief reads your live board.
+        </p>
+        <div class="ai-hero__input-row">
+          <input
+            v-model="aiQuery"
+            type="text"
+            class="ai-hero__input"
+            placeholder="Ask or paste a note…"
+            @keydown.enter.prevent="submitAiQuery"
+          />
+          <button type="button" class="btn-primary ai-hero__submit" @click="submitAiQuery">
+            <Sparkles :size="15" :stroke-width="1.75" />
+            Open Brief
+          </button>
+        </div>
+        <div class="ai-hero__chips">
+          <button
+            v-for="chip in aiPromptChips"
+            :key="chip"
+            type="button"
+            class="ai-hero__chip"
+            @click="openAiWithQuery(chip)"
+          >
+            {{ chip }}
+          </button>
+        </div>
+      </div>
+    </section>
+
     <div class="stats-grid">
       <div v-for="stat in statCards" :key="stat.label" class="stat-card" :class="{ alert: stat.alert }">
         <div class="stat-icon" :class="{ 'stat-icon--alert': stat.alert }">
@@ -181,11 +218,13 @@ import {
   CheckSquare,
   FolderKanban,
   Minus,
+  Sparkles,
   Trash2,
   UserRound,
   Users,
 } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { apiJson } from '@/api/client'
 import TaskEditModal from '@/components/TaskEditModal.vue'
@@ -201,7 +240,9 @@ import { focusTasksForUser, isTaskOverdue } from '@/utils/taskInsights'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const router = useRouter()
 const { writeRestricted, writeDisabledTitle } = useWriteAccess()
+const aiQuery = ref('')
 const busyTaskId = ref(null)
 const showTaskModal = ref(false)
 const editingTaskId = ref(null)
@@ -263,6 +304,30 @@ const assigneeOptions = computed(() =>
     currentUser: user.value,
   }),
 )
+
+const hasTeamContext = computed(() => stats.value.employees > 1)
+
+const aiPromptChips = computed(() =>
+  hasTeamContext.value
+    ? ['How is my team doing?', "What's overdue this week?"]
+    : ['What should I focus on today?', "What's coming up this week?"],
+)
+
+function openAiWithQuery(text) {
+  router.push({
+    path: '/app/admin/ai-terminal',
+    query: { q: text, submit: '1' },
+  })
+}
+
+function submitAiQuery() {
+  const text = aiQuery.value.trim()
+  if (!text) {
+    router.push('/app/admin/ai-terminal')
+    return
+  }
+  openAiWithQuery(text)
+}
 
 function priorityIcon(priority) {
   if (priority === 'high') return ArrowUp
@@ -476,6 +541,115 @@ onMounted(fetchDashboardData)
 .dashboard {
   max-width: 100%;
   animation: appContentIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ai-hero {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  padding: 1.25rem 1.35rem;
+  border: 1px solid rgba(196, 163, 90, 0.28);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(196, 163, 90, 0.1), rgba(0, 0, 0, 0.12));
+  animation: appContentIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ai-hero__icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.ai-hero__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-hero__eyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.ai-hero__title {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 400;
+}
+
+.ai-hero__lede {
+  margin: 0 0 0.85rem;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.ai-hero__input-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.ai-hero__input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.ai-hero__submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.ai-hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.ai-hero__chip {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  padding: 0.32rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.15);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.ai-hero__chip:hover {
+  border-color: rgba(196, 163, 90, 0.45);
+  color: var(--color-text);
+}
+
+@media (max-width: 640px) {
+  .ai-hero {
+    flex-direction: column;
+  }
+
+  .ai-hero__input-row {
+    flex-direction: column;
+  }
 }
 
 .section {

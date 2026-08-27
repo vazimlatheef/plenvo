@@ -57,7 +57,7 @@
         <div class="usage-bar" aria-hidden="true">
           <div class="usage-fill" :style="{ width: usagePct + '%' }" />
         </div>
-        <p v-if="account.limit_message" class="error-line">{{ account.limit_message }}</p>
+        <p v-if="account.limit_message" class="limit-line">{{ account.limit_message }}</p>
         <p
           v-if="account.trial_peak_member_count > 1 && account.minimum_subscribable_tier"
           class="muted-line usage-hint"
@@ -70,7 +70,7 @@
       <section class="account-card">
         <h2>{{ account.on_trial && !account.has_paid_subscription ? 'Change trial plan' : 'Upgrade / change plan' }}</h2>
         <p class="app-lede">
-          Prices shown in your organisation currency ({{ account.currency }}).
+          Prices shown in {{ currencyLabel }}.
           <template v-if="account.on_trial && !account.has_paid_subscription">
             Upgrade anytime during your trial — limits update immediately, no charge until trial ends.
             Downgrades are not available during trial.
@@ -114,20 +114,22 @@
         <p v-if="checkoutError" class="error-line">{{ checkoutError }}</p>
       </section>
 
-      <section v-if="account.can_manage_billing && account.can_cancel" class="account-card account-card--danger">
+      <section v-if="account.can_manage_billing && account.can_cancel" class="account-card account-card--cancel">
         <h2>Cancel subscription</h2>
-        <p class="app-lede">
-          Cancels at the end of the current billing period — you keep access until then, then the org
-          moves to Personal.
+        <p class="cancel-lede">We're sorry to see you go.</p>
+        <p class="app-lede cancel-copy">
+          Your subscription will cancel at the end of the current billing period — you keep full access until then.
         </p>
-        <button
-          type="button"
-          class="btn-outline danger-btn"
-          :disabled="cancelBusy"
-          @click="confirmCancel"
-        >
-          {{ cancelBusy ? 'Cancelling…' : 'Cancel subscription' }}
-        </button>
+        <div class="cancel-actions">
+          <button
+            type="button"
+            class="btn-outline danger-btn"
+            :disabled="cancelBusy"
+            @click="confirmCancel"
+          >
+            {{ cancelBusy ? 'Cancelling…' : 'Cancel subscription' }}
+          </button>
+        </div>
         <p v-if="cancelError" class="error-line">{{ cancelError }}</p>
       </section>
     </template>
@@ -139,6 +141,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiJson } from '@/api/client'
+import { CURRENCY_LABELS } from '@/composables/useCurrency'
 import { loadPlanAccess } from '@/composables/useWriteAccess'
 
 const route = useRoute()
@@ -170,6 +173,12 @@ const usagePct = computed(() => {
   const a = account.value
   if (!a || a.member_limit == null || a.member_limit <= 0) return a?.member_count ? 8 : 0
   return Math.min(100, Math.round((a.member_count / a.member_limit) * 100))
+})
+
+const currencyLabel = computed(() => {
+  const code = account.value?.currency
+  if (!code) return 'your organisation currency'
+  return CURRENCY_LABELS[code] || code
 })
 
 function planTierLabel(tier) {
@@ -461,6 +470,40 @@ onMounted(async () => {
 .per {
   font-size: 0.8rem;
   opacity: 0.8;
+}
+
+.account-card--cancel {
+  margin-top: 0.5rem;
+}
+
+.account-card--cancel h2 {
+  color: var(--color-text);
+}
+
+.cancel-lede {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.cancel-copy {
+  margin-bottom: 1.25rem;
+}
+
+.cancel-actions {
+  margin-top: 0.25rem;
+}
+
+.limit-line {
+  margin: 0.65rem 0 0;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #e8b86d;
+  background: rgba(232, 184, 109, 0.08);
+  border: 1px solid rgba(232, 184, 109, 0.22);
+  border-radius: var(--radius-sm);
 }
 
 .account-card--danger h2 {

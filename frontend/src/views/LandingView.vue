@@ -58,9 +58,9 @@
 
           <template v-else>
 
-            Say it.<br />
+            Type your day.<br />
 
-            <em class="accent">Plenvo sorts it.</em>
+            <em class="accent">Plenvo sorts the rest.</em>
 
           </template>
 
@@ -78,7 +78,7 @@
 
           <template v-else>
 
-            Meeting notes, personal tasks, team assignments — organized the moment you write them.
+            Meeting notes, personal tasks, and team work — organized the moment you write them.
 
           </template>
 
@@ -154,7 +154,26 @@
 
         <p class="section-eyebrow">Plenvo AI</p>
 
-        <h2 class="demo-title">Watch it read your day.<br />Then try it yourself.</h2>
+        <h2 class="demo-title">Capture notes or ask about your team.<br />Then try it yourself.</h2>
+
+        <div class="demo-tabs" role="tablist" aria-label="Demo mode">
+          <button
+            type="button"
+            class="demo-tab"
+            :class="{ 'demo-tab--active': demoMode === 'capture' }"
+            @click="demoMode = 'capture'"
+          >
+            Capture notes
+          </button>
+          <button
+            type="button"
+            class="demo-tab"
+            :class="{ 'demo-tab--active': demoMode === 'ask' }"
+            @click="demoMode = 'ask'"
+          >
+            Ask Brief
+          </button>
+        </div>
 
         <div class="demo-window">
 
@@ -162,12 +181,13 @@
 
             <span class="dot r"/><span class="dot a"/><span class="dot g"/>
 
-            <span class="demo-bar-title">Plenvo · AI Capture</span>
+            <span class="demo-bar-title">Plenvo · {{ demoMode === 'ask' ? 'AI Brief' : 'AI Capture' }}</span>
 
           </div>
 
           <div class="demo-body">
 
+            <template v-if="demoMode === 'capture'">
             <div class="demo-col">
 
               <p class="col-label">You paste</p>
@@ -207,6 +227,31 @@
               </div>
 
             </div>
+            </template>
+
+            <template v-else>
+            <div class="demo-col demo-col--full">
+
+              <p class="col-label">You ask</p>
+
+              <p class="demo-input">"How is my team doing?"</p>
+
+            </div>
+
+            <div class="demo-sep">→</div>
+
+            <div class="demo-col demo-col--full">
+
+              <p class="col-label">Brief answers</p>
+
+              <div class="demo-briefing">
+                <p><strong>Team snapshot</strong> — 4 open tasks, 1 overdue.</p>
+                <p><strong>Focus:</strong> API docs (Alex, due Thu) is highest priority.</p>
+                <p><strong>Load:</strong> Maya has slack; Alex is carrying the most.</p>
+              </div>
+
+            </div>
+            </template>
 
           </div>
 
@@ -592,6 +637,7 @@ const demoTasks = [
 
 
 const displayedDemoText = ref('')
+const demoMode = ref('capture')
 
 const showDemoCursor = ref(false)
 
@@ -605,7 +651,7 @@ const bullets = computed(() => [
 
   '✓ Paste your day in words — Plenvo creates your tasks',
 
-  '✓ Work, life and team — all in one place',
+  '✓ For managers and individuals — not just teams',
 
   '✓ AI that reads context, not just keywords',
 
@@ -805,7 +851,7 @@ const displayPlans = computed(() => [
 
     price: teamPrice.value,
 
-    members: 'Up to 5 people',
+    members: 'Up to 5 team members',
 
     features: [
 
@@ -841,7 +887,7 @@ const displayPlans = computed(() => [
 
     price: enterprisePrice.value,
 
-    members: '5+ people, unlimited',
+    members: 'Unlimited team members',
 
     features: [
 
@@ -1377,8 +1423,49 @@ onMounted(async () => {
 
   font-size: clamp(1.8rem, 3vw, 2.5rem); font-weight: 400;
 
-  margin: 0.5rem 0 2rem; line-height: 1.2;
+  margin: 0.5rem 0 1rem; line-height: 1.2;
 
+}
+
+.demo-tabs {
+  display: inline-flex;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  padding: 0.2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.demo-tab {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 0.4rem 0.85rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.demo-tab--active {
+  background: rgba(196, 163, 90, 0.16);
+  color: var(--color-text);
+}
+
+.demo-briefing {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+.demo-briefing p {
+  margin: 0 0 0.55rem;
+}
+
+.demo-col--full {
+  min-width: 0;
 }
 
 .demo-window { background: #070a08; border: 1px solid var(--color-border); border-radius: 14px; overflow: hidden; box-shadow: 0 40px 80px rgba(0,0,0,0.5); }

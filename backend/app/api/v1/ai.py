@@ -3,6 +3,7 @@ AI Terminal endpoint — parses meeting notes / updates into structured tasks.
 """
 
 import json
+import re
 import traceback
 from datetime import date, datetime, timezone
 
@@ -24,6 +25,38 @@ from app.services.relative_dates import resolve_task_due_date
 from app.services.workspace_context import build_workspace_snapshot
 
 router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
+
+_ASK_QUERY_PATTERNS = (
+    "how is my team doing",
+    "how is my team",
+    "how is the team doing",
+    "how is the team",
+    "how is the team tracking",
+    "what should i focus on today",
+    "what should i focus on",
+    "what's overdue this week",
+    "what is overdue this week",
+    "what's overdue",
+    "what is overdue",
+    "what's coming up this week",
+    "what is coming up this week",
+    "what's coming up",
+    "what is coming up",
+    "who's overloaded",
+    "who is overloaded",
+    "what's next",
+    "what is next",
+    "team pulse",
+    "team status",
+)
+
+
+def is_ask_query(text: str) -> bool:
+    """Heuristic: route known question phrasings to Ask/briefing mode."""
+    t = re.sub(r"\s+", " ", (text or "").strip().lower())
+    if not t:
+        return False
+    return any(p in t for p in _ASK_QUERY_PATTERNS)
 
 # Read from Settings (loads backend/.env) — not bare os.getenv, which misses .env.
 ANTHROPIC_API_KEY = (settings.anthropic_api_key or "").strip()
@@ -178,7 +211,7 @@ def _resolve_extracted_tasks(
     return resolved
 
 
-async def call_claude(raw_text: str, *, today: date, snapshot: str) -> tuple[str, str | None, list[ExtractedTask]]:
+async def call_claude(raw_text: str, *, today: date, snapshot: str, force_briefing: bool = False) -> tuple[str, str | None, list[ExtractedTask]]:
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured.")
 
@@ -240,7 +273,17 @@ LIVE SNAPSHOT:
         "model": CLAUDE_MODEL,
         "max_tokens": 4000,
         "system": system_prompt,
-        "messages": [{"role": "user", "content": raw_text}],
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "[ASK MODE: answer from the snapshot only. intent must be briefing. tasks must be [].]\n\n"
+                    f"{raw_text}"
+                    if force_briefing
+                    else raw_text
+                ),
+            }
+        ],
     }
 
     try:
@@ -360,6 +403,8 @@ async def parse_note(
     db.commit()
     db.refresh(note)
 
+    ask_mode = is_ask_query(body.raw_text)
+
     try:
         snapshot = build_workspace_snapshot(
             db,
@@ -368,7 +413,10 @@ async def parse_note(
             today=today,
         )
         intent, briefing, extracted_tasks = await call_claude(
-            body.raw_text, today=today, snapshot=snapshot
+            body.raw_text,
+            today=today,
+            snapshot=snapshot,
+            force_briefing=ask_mode,
         )
     except HTTPException:
         raise
@@ -391,6 +439,10 @@ async def parse_note(
         note_project_id=body.project_id,
         today=today,
     )
+
+    if ask_mode:
+        intent = "briefing"
+        extracted_tasks = []
 
     return ParseNoteResponse(
         note_id=note.id,

@@ -3,6 +3,20 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+_DOMAIN_LIKE = re.compile(r"^([\w-]+\.)+[\w-]{2,}(/.*)?$", re.IGNORECASE)
+_HAS_PROTOCOL = re.compile(r"^https?://", re.IGNORECASE)
+
+
+def _normalize_link_url(value: str) -> str:
+    v = value.strip()
+    if not v:
+        return v
+    if _HAS_PROTOCOL.match(v):
+        return v
+    if _DOMAIN_LIKE.match(v) or v.lower().startswith("www."):
+        return f"https://{v}"
+    return v
+
 
 class LinkItem(BaseModel):
     label: str = Field(..., min_length=1, max_length=200)
@@ -16,9 +30,7 @@ class LinkItem(BaseModel):
     @field_validator("url")
     @classmethod
     def _normalize_url(cls, v: str) -> str:
-        if not re.match(r"^https?://", v, re.IGNORECASE):
-            return f"https://{v}"
-        return v
+        return _normalize_link_url(v)
 
 
 def normalize_links(raw: Optional[List[dict]]) -> Optional[List[dict]]:

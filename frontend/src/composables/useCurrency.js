@@ -108,15 +108,18 @@ export function useCurrency() {
   const teamPrice = computed(() => formatPrice(symbol.value, prices.value.team))
   const enterprisePrice = computed(() => formatPrice(symbol.value, prices.value.enterprise))
 
-  async function detect() {
+  async function detect(options = {}) {
+    const force = Boolean(options?.force)
     try {
-      const cached = sessionStorage.getItem(STORAGE_KEY)
-      if (cached) {
-        const data = JSON.parse(cached)
-        const config = getCurrencyConfig(data.currency)
-        applyConfig(state, config, data.country || '')
-        loaded.value = true
-        return
+      if (!force) {
+        const cached = sessionStorage.getItem(STORAGE_KEY)
+        if (cached) {
+          const data = JSON.parse(cached)
+          const config = getCurrencyConfig(data.currency)
+          applyConfig(state, config, data.country || '')
+          loaded.value = true
+          return
+        }
       }
 
       const res = await fetch('https://ipapi.co/json/')

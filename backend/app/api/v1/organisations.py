@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin_user, get_current_user, get_db, require_admin_full_write_access
-from app.core.pricing import normalize_currency, resolve_signup_plan_tier
+from app.core.pricing import normalize_currency, resolve_signup_plan_tier, resolve_currency_from_country
 from app.core.security import hash_password
 from app.models.models import Organisation, User
 from app.schemas.user import UserPublic
@@ -39,6 +39,8 @@ class SignupRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     # Detected client-side via useCurrency / IP; frozen on the organisation.
     currency: str | None = Field(default=None, max_length=3)
+    # ISO country from geo lookup — takes precedence over currency when unambiguous.
+    country_code: str | None = Field(default=None, max_length=8)
     # From pricing card CTA (?plan=personal|team|enterprise); omitted → team.
     plan_tier: str | None = Field(default=None, max_length=32)
 
@@ -162,7 +164,11 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         first_name, last_name, company_name = _defaults_from_email(email)
         trial_ends_at = datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)
         slug = make_unique_slug(db, slugify(company_name))
-        billing_currency = normalize_currency(payload.currency)
+        billing_currency = (
+            resolve_currency_from_country(payload.country_code)
+            if payload.country_code
+            else normalize_currency(payload.currency)
+        )
         selected_plan = resolve_signup_plan_tier(payload.plan_tier)
 
         org = Organisation(

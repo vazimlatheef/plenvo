@@ -135,8 +135,8 @@ def plan_limit_message(org: Organisation, limit: int, *, now: datetime | None = 
     else:
         shown = f"up to {limit} team members"
     return (
-        f"Your {tier}{trial_suffix} plan allows {shown}. "
-        "Upgrade in Account & Subscription to add more."
+        f"Your {tier}{trial_suffix} plan is at capacity ({shown}). "
+        "Upgrade in Account to add more."
     )
 
 

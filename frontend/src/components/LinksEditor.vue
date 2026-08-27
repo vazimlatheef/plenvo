@@ -26,9 +26,9 @@
         />
         <input
           v-model="row.url"
-          type="url"
+          type="text"
           class="links-editor__input links-editor__input--url"
-          placeholder="https://docs.google.com/..."
+          placeholder="skao.com, www.example.com, or folder name"
           maxlength="2000"
           :disabled="disabled"
           @input="emitChange"
