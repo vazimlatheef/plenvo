@@ -41,6 +41,11 @@
               <span v-else class="unverified-badge" title="Email not verified">Unverified</span>
             </span>
           </label>
+          <label>
+            Timezone
+            <input :value="timezoneLabel" type="text" readonly class="input-readonly" />
+            <span class="field-hint">Detected from your browser. Updates automatically when you sign in or return to Plenvo.</span>
+          </label>
         </div>
       </section>
 
@@ -164,6 +169,7 @@ import 'vue-tel-input/vue-tel-input.css'
 
 import { apiJson } from '@/api/client'
 import { user } from '@/composables/session'
+import { formatTimezoneLabel } from '@/utils/timezone'
 import {
   DEFAULT_ROLE,
   OTHER_ROLE,
@@ -229,6 +235,8 @@ const phoneInputOptions = {
 }
 
 const hasClientErrors = computed(() => !!(errors.phone || errors.linkedin_url))
+
+const timezoneLabel = computed(() => formatTimezoneLabel(user.value?.timezone))
 
 function nationalDigits(phoneObject) {
   const raw = phoneObject?.nationalNumber ?? ''
@@ -405,6 +413,14 @@ onMounted(loadProfile)
   margin: 0 0 1.1rem;
   font-size: 0.88rem;
   color: var(--color-text-muted);
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
 }
 
 .email-row {

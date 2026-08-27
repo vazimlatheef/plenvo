@@ -7,14 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Task, User
 from app.services.email import send_overdue_tasks_email
-
-
-def _is_overdue(task: Task, today: date) -> bool:
-    if task.status == "completed":
-        return False
-    if task.due_date is None:
-        return False
-    return task.due_date < today
+from app.services.task_due import is_task_overdue
 
 
 def check_and_send_overdue_notifications(db: Session, user: User) -> int:
@@ -33,7 +26,7 @@ def check_and_send_overdue_notifications(db: Session, user: User) -> int:
             )
         ).all()
     )
-    newly_overdue = [t for t in tasks if _is_overdue(t, today)]
+    newly_overdue = [t for t in tasks if is_task_overdue(t, tz_name=user.timezone)]
     if not newly_overdue:
         return 0
 

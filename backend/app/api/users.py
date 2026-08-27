@@ -11,6 +11,7 @@ from app.schemas.user import UserCreate, UserPublic, UserUpdate
 from app.services.overdue_notifications import check_and_send_overdue_notifications
 from app.services.plan_limits import assert_can_add_team_members, bump_trial_peak_member_count
 from app.services.trial_notifications import check_and_send_trial_warning
+from app.services.timezones import normalize_timezone
 
 router = APIRouter(tags=["users"])
 
@@ -21,6 +22,15 @@ class OverdueCheckResponse(BaseModel):
 
 class TrialWarningCheckResponse(BaseModel):
     sent: bool
+
+
+class TimezoneSyncRequest(BaseModel):
+    timezone: str
+
+
+class TimezoneSyncResponse(BaseModel):
+    timezone: str
+    synced: bool
 
 
 @router.get("/me", response_model=UserPublic)
@@ -71,6 +81,27 @@ def update_me(
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+@router.post("/me/sync-timezone", response_model=TimezoneSyncResponse)
+def sync_timezone(
+    payload: TimezoneSyncRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TimezoneSyncResponse:
+    tz = normalize_timezone(payload.timezone)
+    if not tz:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid timezone. Use an IANA name like Europe/London.",
+        )
+    synced = current_user.timezone != tz
+    if synced:
+        current_user.timezone = tz
+        db.add(current_user)
+        db.commit()
+        db.refresh(current_user)
+    return TimezoneSyncResponse(timezone=current_user.timezone or tz, synced=synced)
 
 
 @router.post("/me/check-overdue-tasks", response_model=OverdueCheckResponse)

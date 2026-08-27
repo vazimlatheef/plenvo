@@ -28,7 +28,7 @@
 
 <script setup>
 import { Menu } from '@lucide/vue'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import AdminSidebar from '@/components/AdminSidebar.vue'
@@ -39,6 +39,7 @@ import { loadPlanAccess } from '@/composables/useWriteAccess'
 import { user } from '@/composables/session'
 import { maybeCheckOverdueTasks } from '@/services/overdueNotifications'
 import { maybeCheckTrialWarning } from '@/services/trialNotifications'
+import { syncUserTimezone } from '@/services/timezoneSync'
 
 const route = useRoute()
 const sidebarOpen = ref(false)
@@ -58,7 +59,18 @@ onMounted(() => {
   maybeCheckOverdueTasks()
   maybeCheckTrialWarning()
   if (user.value) loadPlanAccess()
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
+
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+})
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible' && user.value) {
+    syncUserTimezone()
+  }
+}
 </script>
 
 <style scoped>

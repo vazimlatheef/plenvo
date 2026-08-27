@@ -66,6 +66,7 @@ def create_task(
         status=task_in.status or "pending",
         priority=task_in.priority or "medium",
         due_date=task_in.due_date,
+        due_time=task_in.due_time,
         project_id=task_in.project_id,
         assignee_id=assignee_id,
         assignee_contact_id=assignee_contact_id,
@@ -157,6 +158,13 @@ def update_task(
             task.priority = data["priority"]
         if "due_date" in data:
             task.due_date = data["due_date"]
+            if data["due_date"] is None:
+                task.due_time = None
+        if "due_time" in data:
+            if data["due_time"] is None:
+                task.due_time = None
+            elif task.due_date is not None:
+                task.due_time = data["due_time"]
         if "project_id" in data:
             pid = data["project_id"]
             if pid is None:

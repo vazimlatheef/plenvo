@@ -140,7 +140,7 @@ import { ArrowLeft, ClipboardList, Pencil, Plus, X } from '@lucide/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { apiJson } from '@/api/client'
+import { normalizeDueTime } from '@/utils/taskDue'
 import TaskEditModal from '@/components/TaskEditModal.vue'
 import TaskKanbanBoard from '@/components/TaskKanbanBoard.vue'
 import TaskListView from '@/components/TaskListView.vue'
@@ -185,6 +185,7 @@ const modalInitial = ref({
   links: [],
   assignee_key: null,
   due_date: '',
+  due_time: '',
   status: 'pending',
 })
 
@@ -240,6 +241,7 @@ function resetForm() {
     links: [],
     assignee_key: null,
     due_date: '',
+  due_time: '',
     status: 'pending',
   }
   formError.value = ''
@@ -301,6 +303,7 @@ function openEdit(task) {
     links: task.links || [],
     assignee_key: taskAssigneeKey(task),
     due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
+    due_time: normalizeDueTime(task.due_time),
     status: task.status || 'pending',
   }
   formError.value = ''
@@ -406,6 +409,7 @@ async function saveFromModal(payload) {
           links: payload.links,
           status: payload.status || 'pending',
           due_date: payload.due_date || null,
+          due_time: payload.due_date && payload.due_time ? payload.due_time : null,
           ...assigneePayload,
         }),
       })
@@ -424,6 +428,7 @@ async function saveFromModal(payload) {
           project_id: projectId.value,
           status: payload.status || 'pending',
           due_date: payload.due_date || null,
+          due_time: payload.due_date && payload.due_time ? payload.due_time : null,
           assignee_id: assignees.assignee_id ?? null,
           assignee_contact_id: assignees.assignee_contact_id ?? null,
         }),

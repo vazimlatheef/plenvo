@@ -5,7 +5,7 @@ AI Terminal endpoint — parses meeting notes / updates into structured tasks.
 import json
 import re
 import traceback
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,8 +20,10 @@ from app.services.mention_match import (
     match_person,
     match_project,
 )
+from app.services.due_times import parse_time_string, resolve_task_due_time
 from app.services.plan_limits import assert_can_add_team_members, bump_trial_peak_member_count
 from app.services.relative_dates import resolve_task_due_date
+from app.services.timezones import today_in_timezone
 from app.services.workspace_context import build_workspace_snapshot
 
 router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
@@ -76,6 +78,7 @@ class ExtractedTask(BaseModel):
     assignee_name: str | None = None
     project_name: str | None = None
     due_date: str | None = None
+    due_time: str | None = None
     priority: str = "medium"
     # Populated after conservative org directory match (null if none / ambiguous).
     assignee_id: int | None = None
@@ -145,6 +148,14 @@ def _placeholder_contact_email(name: str, org_id: int) -> str:
     return f"{slug}.{org_id}.{secrets.token_hex(3)}@pending.local"
 
 
+def _parse_due_time(value) -> time | None:
+    if not value:
+        return None
+    if isinstance(value, time):
+        return value
+    return parse_time_string(str(value))
+
+
 def _resolve_extracted_tasks(
     tasks: list[ExtractedTask],
     *,
@@ -177,6 +188,13 @@ def _resolve_extracted_tasks(
             description=task.description,
             today=today,
         )
+
+        resolved_time = resolve_task_due_time(
+            due_time=task.due_time,
+            title=task.title,
+            description=task.description,
+        )
+        data["due_time"] = resolved_time if data["due_date"] else None
 
         assignee_name = _normalize_person_name(task.assignee_name)
         data["assignee_name"] = assignee_name
@@ -245,11 +263,13 @@ Task object fields:
 - assignee_name (string or null — name as written)
 - project_name (string or null)
 - due_date (string ISO YYYY-MM-DD or null)
+- due_time (string HH:MM 24-hour or null — use when a specific time is mentioned, e.g. standup at 9am → "09:00")
 - priority ("low" | "medium" | "high")
 
 Date rules:
 - Convert relative phrases using today: tomorrow, Thursday, next Monday, in 2 weeks, by Friday.
 - Never leave due_date null when a day/date is mentioned.
+- When a clock time is mentioned (9am, 14:30, at 6pm), set due_time in 24-hour HH:MM.
 
 What to capture as tasks (do not skip):
 - Action items, meetings, calls, standups
@@ -390,7 +410,7 @@ async def parse_note(
     if current_user.organisation_id is None:
         raise HTTPException(status_code=400, detail="No organisation on account.")
 
-    today = date.today()
+    today = today_in_timezone(current_user.timezone)
 
     note = Note(
         organisation_id=current_user.organisation_id,
@@ -569,6 +589,7 @@ def confirm_tasks(
             assignee_id=assignee_id,
             assignee_contact_id=assignee_contact_id,
             due_date=_parse_due_date(t.get("due_date")),
+            due_time=_parse_due_time(t.get("due_time")),
             priority=t.get("priority", "medium"),
             project_id=project_id,
             source="ai",

@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 
 import { fetchMe, getToken, logout as authLogout } from '@/services/auth'
+import { syncUserTimezone } from '@/services/timezoneSync'
 import { clearPlanAccess } from '@/composables/useWriteAccess'
 import { maybeCheckOverdueTasks, resetOverdueCheck } from '@/services/overdueNotifications'
 import { maybeCheckTrialWarning, resetTrialWarningCheck } from '@/services/trialNotifications'
@@ -30,6 +31,7 @@ export async function loadSessionUser() {
   loadingUser.value = true
   try {
     user.value = await fetchMe()
+    await syncUserTimezone()
     maybeCheckOverdueTasks()
     maybeCheckTrialWarning()
     return user.value

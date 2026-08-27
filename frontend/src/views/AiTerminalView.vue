@@ -189,8 +189,14 @@
               </span>
             </div>
             <div class="field field--flush">
-              <label>Due Date</label>
+              <label>Due date</label>
               <DatePicker v-model="task.due_date" />
+              <input
+                v-model="task.due_time"
+                type="time"
+                class="due-time-input"
+                :disabled="!task.due_date"
+              />
               <span class="ai-hint ai-hint--empty" aria-hidden="true">&nbsp;</span>
             </div>
             <div class="field field--flush">
@@ -262,6 +268,7 @@ import {
   parseAssigneeKey,
   taskAssigneeKey,
 } from '@/utils/assignee'
+import { normalizeDueTime } from '@/utils/taskDue'
 
 const NEW_PROJECT_VALUE = '__new__'
 const CREATE_PROJECT_PREFIX = 'new:'
@@ -567,6 +574,7 @@ async function parseNote() {
         create_project_title: suggestedProject && !matchedProject ? suggestedProject : null,
         create_contact_name:
           suggestedContact && !matchedAssignee && canAddMembers.value ? suggestedContact : null,
+        due_time: normalizeDueTime(t.due_time),
       }
     })
     if (extractedTasks.value.length > 0) {
@@ -611,6 +619,7 @@ async function confirmTasks() {
         assignee_contact_id: createContact ? null : assignee_contact_id,
         create_contact_name: createContact,
         due_date: t.due_date || null,
+        due_time: t.due_date && t.due_time ? t.due_time : null,
         priority: t.priority,
         project_id: createTitle ? null : t.project_id ?? form.value.project_id ?? null,
         create_project_title: createTitle,
@@ -815,7 +824,8 @@ function reset() {
 
 input,
 select,
-textarea {
+textarea,
+.due-time-input {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 0.65rem 0.9rem;
@@ -829,7 +839,8 @@ textarea {
 
 input:focus,
 select:focus,
-textarea:focus {
+textarea:focus,
+.due-time-input:focus {
   border-color: var(--color-accent);
 }
 
@@ -931,6 +942,12 @@ textarea {
 
 .task-fields > .field:last-child {
   margin-bottom: 0;
+}
+
+.due-time-input {
+  margin-top: 0.45rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .row-fields {

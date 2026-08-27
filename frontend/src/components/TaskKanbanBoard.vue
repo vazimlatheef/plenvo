@@ -68,7 +68,7 @@
                 </span>
                 <span class="kanban-card__due" :class="{ 'kanban-card__due--overdue': isOverdue(task) }">
                   <Calendar :size="12" :stroke-width="1.75" />
-                  {{ task.due_date ? formatShortDate(task.due_date) : 'No due date' }}
+                  {{ formatTaskDue(task) }}
                 </span>
                 <span v-if="task.priority" class="priority-pill" :data-p="task.priority">
                   {{ task.priority }}
@@ -136,9 +136,10 @@ import {
   STATUS_GROUPS,
   STATUS_OPTIONS,
   avatarTone,
-  formatShortDate,
   getInitials,
 } from '@/utils/ui'
+import { formatTaskDue } from '@/utils/taskDue'
+import { isTaskOverdue } from '@/utils/taskInsights'
 
 const props = defineProps({
   tasks: { type: Array, required: true },
@@ -210,12 +211,7 @@ function onStatusSelect(task, event) {
 }
 
 function isOverdue(task) {
-  if (!task.due_date || task.status === 'completed') return false
-  const due = new Date(task.due_date)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  due.setHours(0, 0, 0, 0)
-  return due < today
+  return isTaskOverdue(task)
 }
 
 function updateMediaFlags() {

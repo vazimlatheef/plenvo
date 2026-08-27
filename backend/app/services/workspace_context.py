@@ -10,6 +10,8 @@ from datetime import date, datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.models.models import Contact, Project, Task, User
+from app.services.task_due import is_task_overdue
+from app.services.timezones import today_in_timezone
 
 
 def _iso(d) -> str | None:
@@ -74,19 +76,23 @@ def build_workspace_snapshot(
         project_lines.append(f"- {p.title} [{p.status}] (~{n} tasks in snapshot)")
 
     open_statuses = {"pending", "in_progress", "todo"}
+    asker_tz = asker.timezone
     task_lines = []
     overdue = 0
     for t in tasks:
         status = (t.status or "pending").lower()
         due = t.due_date
-        is_overdue = bool(due and due < today and status not in {"completed", "done", "cancelled"})
+        is_overdue = is_task_overdue(t, tz_name=asker_tz)
         if is_overdue:
             overdue += 1
         who = _person_label(t, users_by_id, contacts_by_id)
         proj = projects_by_id[t.project_id].title if t.project_id and t.project_id in projects_by_id else "—"
         flag = " OVERDUE" if is_overdue else ""
+        due_label = _iso(due) or "none"
+        if t.due_time:
+            due_label = f"{due_label} {t.due_time.strftime('%H:%M')}"
         task_lines.append(
-            f"- [{status}] p={t.priority} due={_iso(due) or 'none'} "
+            f"- [{status}] p={t.priority} due={due_label} "
             f"assignee={who} project={proj}{flag} :: {t.title}"
         )
 
@@ -94,8 +100,9 @@ def build_workspace_snapshot(
     open_n = sum(1 for t in tasks if (t.status or "").lower() not in {"completed", "done", "cancelled"})
 
     asker_name = asker.full_name or asker.email
+    snapshot_today = today or today_in_timezone(asker_tz)
     return f"""Asker: {asker_name} (auth_role={asker.role})
-Today: {today.isoformat()}
+Today: {snapshot_today.isoformat()} (timezone={asker_tz or 'UTC'})
 Counts in snapshot: {len(tasks)} tasks ({open_n} open, {completed} completed, {overdue} overdue), {len(users)} accounts, {len(contacts)} contacts, {len(projects)} projects.
 
 PEOPLE:

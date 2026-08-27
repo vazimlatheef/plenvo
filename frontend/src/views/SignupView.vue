@@ -55,7 +55,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { apiJson } from '@/api/client'
 import { useCurrency } from '@/composables/useCurrency'
-import { setSessionUser } from '@/composables/session'
+import { getBrowserTimezone } from '@/services/timezoneSync'
 import { login } from '@/services/auth'
 
 const router = useRouter()
@@ -99,6 +99,7 @@ async function onSubmit() {
         currency: currency.value || 'USD',
         country_code: country.value || null,
         plan_tier: selectedPlan.value,
+        timezone: getBrowserTimezone(),
       }),
     })
 

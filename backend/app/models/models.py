@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, JSON, String, Text, UniqueConstraint, false, func, true
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, JSON, String, Text, Time, UniqueConstraint, false, func, true
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -190,6 +190,7 @@ class Task(Base):
     priority: Mapped[str] = mapped_column(String(20), nullable=False, server_default="medium")
     source: Mapped[str] = mapped_column(String(20), nullable=False, server_default="manual")
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    due_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     project_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
     )

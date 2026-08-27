@@ -68,6 +68,17 @@
                 </label>
                 <DatePicker id="task-due" v-model="form.due_date" :disabled="saving" />
               </div>
+
+              <div class="task-drawer__field">
+                <label for="task-due-time">Due time <span class="optional">(optional)</span></label>
+                <input
+                  id="task-due-time"
+                  v-model="form.due_time"
+                  type="time"
+                  :disabled="saving || !form.due_date"
+                  class="task-drawer__time-input"
+                />
+              </div>
             </div>
 
             <div class="task-drawer__field">
@@ -117,6 +128,7 @@ import DatePicker from '@/components/DatePicker.vue'
 import LinksEditor from '@/components/LinksEditor.vue'
 import { assigneeOptionLabel } from '@/utils/assignee'
 import { linksForApi } from '@/utils/links'
+import { normalizeDueTime } from '@/utils/taskDue'
 import { STATUS_OPTIONS } from '@/utils/ui'
 
 const props = defineProps({
@@ -135,6 +147,7 @@ const props = defineProps({
       links: [],
       assignee_key: null,
       due_date: '',
+      due_time: '',
       status: 'pending',
       project_id: null,
     }),
@@ -149,6 +162,7 @@ const form = reactive({
   links: [],
   assignee_key: null,
   due_date: '',
+  due_time: '',
   status: 'pending',
   project_id: null,
 })
@@ -179,10 +193,18 @@ watch(
     form.links = Array.isArray(init.links) ? init.links.map((l) => ({ ...l })) : []
     form.assignee_key = init.assignee_key ?? null
     form.due_date = init.due_date || ''
+    form.due_time = normalizeDueTime(init.due_time)
     form.status = init.status || 'pending'
     form.project_id = init.project_id ?? null
   },
   { immediate: true, deep: true },
+)
+
+watch(
+  () => form.due_date,
+  (value) => {
+    if (!value) form.due_time = ''
+  },
 )
 
 function emitClose() {
@@ -197,6 +219,7 @@ function onSubmit() {
     links: linksForApi(form.links),
     assignee_key: form.assignee_key,
     due_date: form.due_date || null,
+    due_time: form.due_date && form.due_time ? form.due_time : null,
     status: form.status || 'pending',
     project_id: form.project_id ?? null,
   })
@@ -338,8 +361,16 @@ function onSubmit() {
   box-shadow: 0 0 0 3px rgba(196, 163, 90, 0.12);
 }
 
+.task-drawer__field label .optional {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.75;
+}
+
 .task-drawer__select,
 .task-drawer__textarea,
+.task-drawer__time-input,
 .task-drawer__field :deep(input) {
   font-family: var(--font-body);
   font-size: 0.95rem;
@@ -359,6 +390,7 @@ function onSubmit() {
 
 .task-drawer__select:focus,
 .task-drawer__textarea:focus,
+.task-drawer__time-input:focus,
 .task-drawer__field :deep(input:focus) {
   outline: none;
   border-color: rgba(196, 163, 90, 0.55);

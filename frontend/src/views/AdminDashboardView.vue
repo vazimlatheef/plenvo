@@ -90,7 +90,7 @@
               </span>
               <span v-if="task.due_date" class="meta-text">
                 <Calendar :size="13" :stroke-width="1.75" />
-                Due {{ formatDueDate(task.due_date) }}
+                Due {{ formatTaskDue(task) }}
               </span>
               <span v-else class="meta-text">No due date</span>
             </div>
@@ -156,7 +156,7 @@
               </span>
               <span class="meta-text">
                 <Calendar :size="13" :stroke-width="1.75" />
-                Due {{ formatDate(task.due_date) }}
+                Due {{ formatTaskDue(task) }}
               </span>
             </div>
           </div>
@@ -247,6 +247,7 @@ import {
   taskAssigneeKey,
 } from '@/utils/assignee'
 import { focusTasksForUser, isTaskOverdue } from '@/utils/taskInsights'
+import { formatTaskDue, normalizeDueTime } from '@/utils/taskDue'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -266,6 +267,7 @@ const taskModalInitial = ref({
   links: [],
   assignee_key: null,
   due_date: '',
+  due_time: '',
   status: 'pending',
   project_id: null,
 })
@@ -379,10 +381,10 @@ async function fetchDashboardData() {
     stats.value.tasks = tasks.length
     const now = new Date()
     overdueTasks.value = tasks
-      .filter((t) => t.due_date && new Date(t.due_date) < now && t.status !== 'completed')
+      .filter((t) => isTaskOverdue(t))
       .slice(0, 5)
     stats.value.overdue = tasks.filter(
-      (t) => t.due_date && new Date(t.due_date) < now && t.status !== 'completed',
+      (t) => isTaskOverdue(t),
     ).length
   } catch (err) {
     console.error('Failed to load tasks:', err)
@@ -451,6 +453,7 @@ function openCreateTask() {
     links: [],
     assignee_key: user.value?.id ? `user:${user.value.id}` : null,
     due_date: '',
+  due_time: '',
     status: 'pending',
     project_id: null,
   }
@@ -468,6 +471,7 @@ function openEditTask(task) {
     links: task.links || [],
     assignee_key: taskAssigneeKey(task),
     due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
+    due_time: normalizeDueTime(task.due_time),
     status: task.status || 'pending',
     project_id: task.project_id ?? null,
   }
@@ -484,10 +488,10 @@ function closeTaskModal() {
 function refreshOverdueList(tasks) {
   const now = new Date()
   overdueTasks.value = tasks
-    .filter((t) => t.due_date && new Date(t.due_date) < now && t.status !== 'completed')
+    .filter((t) => isTaskOverdue(t))
     .slice(0, 5)
   stats.value.overdue = tasks.filter(
-    (t) => t.due_date && new Date(t.due_date) < now && t.status !== 'completed',
+    (t) => isTaskOverdue(t),
   ).length
 }
 
@@ -503,6 +507,7 @@ async function saveTaskFromModal(payload) {
       links: payload.links,
       status: payload.status || 'pending',
       due_date: payload.due_date || null,
+      due_time: payload.due_date && payload.due_time ? payload.due_time : null,
       project_id: payload.project_id ?? null,
     }
     if (!assignee_id && !assignee_contact_id) {

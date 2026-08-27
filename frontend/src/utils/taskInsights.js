@@ -1,3 +1,6 @@
+import { isTimedTaskOverdue } from '@/utils/taskDue'
+import { effectiveTimezone } from '@/utils/timezone'
+
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 }
 
 export function startOfToday() {
@@ -20,12 +23,9 @@ export function isTaskOpen(task) {
   return !isTaskCompleted(task)
 }
 
-export function isTaskOverdue(task, today = startOfToday()) {
+export function isTaskOverdue(task, tz = effectiveTimezone.value) {
   if (!isTaskOpen(task) || !task?.due_date) return false
-  const due = parseInstant(task.due_date)
-  if (!due) return false
-  due.setHours(0, 0, 0, 0)
-  return due < today
+  return isTimedTaskOverdue(task, tz)
 }
 
 export function canUseWorkloadView({ plan_tier: tier } = {}) {

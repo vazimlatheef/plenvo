@@ -395,6 +395,8 @@ def send_overdue_tasks_email(
     for task in tasks:
         title = getattr(task, "title", "Task")
         due = task.due_date.strftime("%d %b %Y") if getattr(task, "due_date", None) else "No due date"
+        if getattr(task, "due_time", None):
+            due = f"{due} {task.due_time.strftime('%H:%M')}"
         rows_html.append(
             f'<li style="margin:0 0 8px;"><strong>{_esc(title)}</strong> — due {_esc(due)}</li>'
         )

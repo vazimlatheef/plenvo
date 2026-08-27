@@ -1,6 +1,7 @@
 import { apiJson } from '@/api/client'
 import { ACCESS_TOKEN_KEY } from '@/constants'
 import { maybeCheckOverdueTasks } from '@/services/overdueNotifications'
+import { syncUserTimezone } from '@/services/timezoneSync'
 
 export function getToken() {
   return localStorage.getItem(ACCESS_TOKEN_KEY)
@@ -35,6 +36,7 @@ export async function login(email, password) {
   }
   setToken(data.access_token)
   const me = await fetchMe()
+  await syncUserTimezone()
   maybeCheckOverdueTasks()
   return me
 }

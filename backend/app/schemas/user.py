@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator
 
 from app.schemas.profile_validators import normalize_optional_str, validate_linkedin_url, validate_phone
+from app.services.timezones import normalize_timezone
 
 
 class UserCreate(BaseModel):
@@ -56,6 +57,18 @@ class UserUpdate(BaseModel):
             return None
         if isinstance(v, str):
             return normalize_optional_str(v, max_len=500)
+        return v
+
+    @field_validator("timezone", mode="before")
+    @classmethod
+    def check_timezone(cls, v: object) -> object:
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            normalized = normalize_timezone(v)
+            if normalized is None:
+                raise ValueError("Invalid timezone. Use an IANA name like Europe/London.")
+            return normalized
         return v
 
     @field_validator("phone", "phone_number", mode="before")

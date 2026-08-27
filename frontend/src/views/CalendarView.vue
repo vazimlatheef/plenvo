@@ -131,7 +131,7 @@
             </div>
             <span class="dense-row__due">
               <Calendar class="dense-row__due-icon" :size="13" :stroke-width="1.75" />
-              {{ formatShortDate(task.due_date) }}
+              {{ formatTaskDue(task) }}
             </span>
             <div class="dense-row__actions" />
             <span class="status-pill" :data-s="task.status">{{ statusLabel(task.status) }}</span>
@@ -291,10 +291,10 @@ import {
 } from '@/utils/assignee'
 import {
   avatarTone,
-  formatShortDate,
   getInitials,
   statusLabel,
 } from '@/utils/ui'
+import { formatTaskDue, normalizeDueTime, taskDueSortKey } from '@/utils/taskDue'
 
 const mode = ref('calendar')
 const gridSpan = ref(readStored('plenvo_cal_span', 'month'))
@@ -331,6 +331,7 @@ const modalInitial = ref({
   links: [],
   assignee_key: null,
   due_date: '',
+  due_time: '',
   status: 'pending',
   project_id: null,
 })
@@ -391,7 +392,7 @@ const tasksByDate = computed(() => {
     map.get(key).push(task)
   }
   for (const list of map.values()) {
-    list.sort((a, b) => String(a.title).localeCompare(String(b.title)))
+    list.sort((a, b) => taskDueSortKey(a).localeCompare(taskDueSortKey(b)) || String(a.title).localeCompare(String(b.title)))
   }
   return map
 })
@@ -647,6 +648,7 @@ function openEdit(task) {
     links: task.links || [],
     assignee_key: taskAssigneeKey(task),
     due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
+    due_time: normalizeDueTime(task.due_time),
     status: task.status || 'pending',
     project_id: task.project_id ?? null,
   }
@@ -664,6 +666,7 @@ function openCreate(isoDate) {
     links: [],
     assignee_key: null,
     due_date: isoDate || selectedDate.value || '',
+    due_time: '',
     status: 'pending',
     project_id: null,
   }
@@ -689,6 +692,7 @@ async function saveFromModal(payload) {
         links: payload.links,
         status: payload.status,
         due_date: payload.due_date,
+        due_time: payload.due_date && payload.due_time ? payload.due_time : null,
         project_id: payload.project_id,
       }
       if (assignee_id) body.assignee_id = assignee_id
@@ -707,6 +711,7 @@ async function saveFromModal(payload) {
         links: payload.links,
         status: payload.status,
         due_date: payload.due_date,
+        due_time: payload.due_date && payload.due_time ? payload.due_time : null,
         project_id: payload.project_id ?? null,
       }
       if (!assignee_id && !assignee_contact_id) {

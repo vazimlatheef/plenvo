@@ -29,6 +29,7 @@ from app.services.email import (
     send_verification_email,
 )
 from app.services.plan_limits import assert_can_add_team_members, bump_trial_peak_member_count, team_limit_snapshot
+from app.services.timezones import normalize_timezone
 
 router = APIRouter(tags=["organisations"])
 
@@ -44,6 +45,8 @@ class SignupRequest(BaseModel):
     country_code: str | None = Field(default=None, max_length=8)
     # From pricing card CTA (?plan=personal|team|enterprise); omitted → team.
     plan_tier: str | None = Field(default=None, max_length=32)
+    # IANA timezone from the browser (e.g. Europe/London).
+    timezone: str | None = Field(default=None, max_length=64)
 
 
 _CONSUMER_EMAIL_DOMAINS = frozenset(
@@ -185,6 +188,7 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         db.add(org)
         db.flush()
 
+        signup_tz = normalize_timezone(payload.timezone)
         user = User(
             organisation_id=org.id,
             email=email,
@@ -194,6 +198,7 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             role="admin",
             company_name=company_name,
             team_size=None,
+            timezone=signup_tz,
             is_verified=False,
             do_not_email=False,
             email_unsubscribe_token=generate_unsubscribe_token(),

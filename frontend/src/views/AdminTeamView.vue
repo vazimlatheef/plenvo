@@ -405,6 +405,7 @@ import { apiJson } from '@/api/client'
 import { user } from '@/composables/session'
 import { useWriteAccess } from '@/composables/useWriteAccess'
 import { avatarTone, getInitials } from '@/utils/ui'
+import { formatTaskDue } from '@/utils/taskDue'
 import {
   DEFAULT_ROLE,
   OTHER_ROLE,
@@ -562,11 +563,6 @@ function formatDate(dateString) {
   if (!dateString) return ''
   const date = new Date(dateString)
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function formatTaskDue(task) {
-  if (!task?.due_date) return 'No due date'
-  return formatDate(task.due_date)
 }
 
 async function loadTeamLimits() {

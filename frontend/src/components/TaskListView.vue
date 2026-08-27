@@ -49,7 +49,7 @@
           </div>
           <span class="dense-row__due">
             <Calendar class="dense-row__due-icon" :size="13" :stroke-width="1.75" />
-            {{ task.due_date ? formatShortDate(task.due_date) : 'No due date' }}
+            {{ formatTaskDue(task) }}
           </span>
           <div class="dense-row__actions">
             <template v-if="canManageActions">
@@ -98,7 +98,9 @@
 import { Calendar, Pencil, Trash2, UserRound } from '@lucide/vue'
 
 import LinksList from '@/components/LinksList.vue'
-import { STATUS_OPTIONS, avatarTone, formatShortDate, getInitials } from '@/utils/ui'
+import { STATUS_OPTIONS, avatarTone, getInitials } from '@/utils/ui'
+import { formatTaskDue } from '@/utils/taskDue'
+import { isTaskOverdue } from '@/utils/taskInsights'
 
 defineProps({
   statusGroups: { type: Array, required: true },
