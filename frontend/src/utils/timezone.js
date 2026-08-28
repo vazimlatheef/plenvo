@@ -9,22 +9,34 @@ export const effectiveTimezone = computed(
 )
 
 export function getZonedNowParts(tz = effectiveTimezone.value) {
-  const fmt = new Intl.DateTimeFormat('en-GB', {
-    timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-  const parts = Object.fromEntries(fmt.formatToParts(new Date()).map((p) => [p.type, p.value]))
-  return {
-    year: parts.year,
-    month: parts.month,
-    day: parts.day,
-    hour: Number(parts.hour),
-    minute: Number(parts.minute),
+  const safeTz = tz && typeof tz === 'string' ? tz : 'UTC'
+  try {
+    const fmt = new Intl.DateTimeFormat('en-GB', {
+      timeZone: safeTz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+    const parts = Object.fromEntries(fmt.formatToParts(new Date()).map((p) => [p.type, p.value]))
+    return {
+      year: parts.year,
+      month: parts.month,
+      day: parts.day,
+      hour: Number(parts.hour),
+      minute: Number(parts.minute),
+    }
+  } catch {
+    const now = new Date()
+    return {
+      year: String(now.getFullYear()),
+      month: String(now.getMonth() + 1).padStart(2, '0'),
+      day: String(now.getDate()).padStart(2, '0'),
+      hour: now.getHours(),
+      minute: now.getMinutes(),
+    }
   }
 }
 

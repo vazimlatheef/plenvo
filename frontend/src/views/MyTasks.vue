@@ -69,6 +69,7 @@
 import { ClipboardList } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 
+import { apiJson } from '@/api/client'
 import { normalizeDueTime } from '@/utils/taskDue'
 import TaskEditModal from '@/components/TaskEditModal.vue'
 import TaskKanbanBoard from '@/components/TaskKanbanBoard.vue'

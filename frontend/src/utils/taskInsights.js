@@ -151,10 +151,9 @@ export function taskAssignedToUser(task, userId, contactId = null) {
 }
 
 export function sortFocusTasks(tasks) {
-  const today = startOfToday()
   return [...tasks].sort((a, b) => {
-    const aOver = isTaskOverdue(a, today) ? 0 : 1
-    const bOver = isTaskOverdue(b, today) ? 0 : 1
+    const aOver = isTaskOverdue(a) ? 0 : 1
+    const bOver = isTaskOverdue(b) ? 0 : 1
     if (aOver !== bOver) return aOver - bOver
 
     const aDue = parseInstant(a.due_date)
