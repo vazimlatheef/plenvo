@@ -12,7 +12,7 @@
           <SiteAccountMenu v-if="signedIn" />
           <template v-else>
             <RouterLink to="/login" class="nav-link nav-link--auth">Sign in</RouterLink>
-            <RouterLink to="/signup?plan=team" class="nav-cta">Start for free</RouterLink>
+            <a href="#pricing" class="nav-cta" @click.prevent="scrollToPricing">Start for free</a>
           </template>
         </div>
       </div>
@@ -60,7 +60,7 @@
               <RouterLink :to="workspaceTo" class="btn-ghost">Open workspace</RouterLink>
             </template>
             <template v-else>
-              <RouterLink to="/signup?plan=team" class="btn-primary">Start for free — takes 60 seconds →</RouterLink>
+              <a href="#pricing" class="btn-primary" @click.prevent="scrollToPricing">Start for free →</a>
             </template>
           </div>
 
@@ -179,36 +179,7 @@
       <div class="hero-glow" />
     </section>
 
-    <section class="features" ref="featuresRef">
-      <div class="section-inner">
-        <p class="section-eyebrow">What's inside</p>
-        <h2 class="section-heading" :class="{ visible: show.features }">
-          Work, assigned.<br />Progress, visible.
-        </h2>
-        <div class="feature-grid">
-          <div
-            v-for="(f, i) in features"
-            :key="f.title"
-            class="feature-card"
-            :class="{ visible: show.featureCards[i] }"
-            :style="{ transitionDelay: `${i * 0.07}s` }"
-          >
-            <span class="f-icon">{{ f.icon }}</span>
-            <h3>{{ f.title }}</h3>
-            <p>{{ f.desc }}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="security-strip" ref="secRef">
-      <p class="security-line" :class="{ visible: show.security }">
-        Your data is encrypted, isolated, and never sold.
-        <RouterLink to="/security" class="btn-ghost-sm">Security details →</RouterLink>
-      </p>
-    </section>
-
-    <section v-if="showPublicPricing" class="pricing-section" ref="pricingRef">
+    <section v-if="showPublicPricing" id="pricing" class="pricing-section" ref="pricingRef">
       <div class="section-inner">
         <p class="section-eyebrow">Pricing</p>
         <p v-if="signedIn && billing?.on_trial" class="pricing-trial-note">
@@ -257,6 +228,35 @@
       </div>
     </section>
 
+    <section class="features" ref="featuresRef">
+      <div class="section-inner">
+        <p class="section-eyebrow">What's inside</p>
+        <h2 class="section-heading" :class="{ visible: show.features }">
+          Work, assigned.<br />Progress, visible.
+        </h2>
+        <div class="feature-grid">
+          <div
+            v-for="(f, i) in features"
+            :key="f.title"
+            class="feature-card"
+            :class="{ visible: show.featureCards[i] }"
+            :style="{ transitionDelay: `${i * 0.07}s` }"
+          >
+            <span class="f-icon">{{ f.icon }}</span>
+            <h3>{{ f.title }}</h3>
+            <p>{{ f.desc }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="security-strip" ref="secRef">
+      <p class="security-line" :class="{ visible: show.security }">
+        Your data is encrypted, isolated, and never sold.
+        <RouterLink to="/security" class="btn-ghost-sm">Security details →</RouterLink>
+      </p>
+    </section>
+
     <section v-if="signedIn && !showPublicPricing" class="final-cta" ref="ctaRefPaid">
       <div class="cta-inner" :class="{ visible: show.finalCta }">
         <h2>Welcome back, {{ firstName }}.</h2>
@@ -277,15 +277,6 @@
           <RouterLink v-if="user?.role === 'admin'" to="/app/admin/ai-terminal" class="btn-ghost large">Open Plenvo AI →</RouterLink>
           <RouterLink :to="workspaceTo" class="btn-ghost large">Open workspace →</RouterLink>
         </div>
-      </div>
-    </section>
-
-    <section v-else class="final-cta" ref="ctaRefSignup">
-      <div class="cta-inner" :class="{ visible: show.finalCta }">
-        <h2>Start today. Free for 14 days.</h2>
-        <p>No payment friction. Sign up and start organising work in one place.</p>
-        <RouterLink to="/signup?plan=team" class="btn-primary large">Start for free →</RouterLink>
-        <p class="cta-note">Cancel anytime · {{ symbol }}0 today · Takes 60 seconds</p>
       </div>
     </section>
 
@@ -322,7 +313,7 @@ import PlenvoLogo from '@/components/PlenvoLogo.vue'
 import { appHomeRoute, loadSessionUser, user } from '@/composables/session'
 import { useCurrency } from '@/composables/useCurrency'
 
-const { symbol, currencyLabel, personalPrice, teamPrice, enterprisePrice } = useCurrency()
+const { currencyLabel, personalPrice, teamPrice, enterprisePrice } = useCurrency()
 
 const signedIn = computed(() => !!user.value)
 const firstName = computed(() => user.value?.first_name || 'there')
@@ -346,7 +337,10 @@ const secRef = ref(null)
 const pricingRef = ref(null)
 const ctaRefPaid = ref(null)
 const ctaRefTrial = ref(null)
-const ctaRefSignup = ref(null)
+
+function scrollToPricing() {
+  document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 const demoAudience = ref('team')
 const demoMode = ref('capture')
@@ -676,7 +670,7 @@ onMounted(async () => {
   observe(featuresRef.value, 'features', 'featureCards', features.length)
   observe(secRef.value, 'security')
   revealPricingSection()
-  const ctaEl = ctaRefPaid.value || ctaRefTrial.value || ctaRefSignup.value
+  const ctaEl = ctaRefPaid.value || ctaRefTrial.value
   if (ctaEl) observe(ctaEl, 'finalCta')
 })
 
@@ -1230,6 +1224,7 @@ onBeforeUnmount(() => {
 
 .pricing-section {
   padding: 4rem 1.5rem 3.5rem;
+  scroll-margin-top: 4.5rem;
 }
 .pricing-trial-note {
   text-align: center;

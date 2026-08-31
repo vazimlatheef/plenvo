@@ -13,7 +13,7 @@
         </template>
         <template v-else>
           <RouterLink to="/login" class="nav-link nav-link--auth">Sign in</RouterLink>
-          <RouterLink to="/signup?plan=team" class="nav-cta">Start for free</RouterLink>
+          <RouterLink to="/#pricing" class="nav-cta">Start for free</RouterLink>
         </template>
       </div>
     </div>
