@@ -172,6 +172,53 @@
         </button>
       </div>
     </form>
+
+    <form v-if="!loading && !loadError" class="profile-form password-form" @submit.prevent="changePassword">
+      <section class="profile-section">
+        <h2>Password</h2>
+        <p class="section-lede">Change the password you use to sign in.</p>
+        <div class="field-stack">
+          <label>
+            Current password
+            <PasswordField
+              v-model="passwordForm.current"
+              autocomplete="current-password"
+              :disabled="savingPassword"
+              required
+            />
+          </label>
+          <label>
+            New password
+            <PasswordField
+              v-model="passwordForm.next"
+              autocomplete="new-password"
+              placeholder="Min 8 characters"
+              :minlength="8"
+              :disabled="savingPassword"
+              required
+            />
+          </label>
+          <label>
+            Confirm new password
+            <PasswordField
+              v-model="passwordForm.confirm"
+              autocomplete="new-password"
+              placeholder="Repeat new password"
+              :minlength="8"
+              :disabled="savingPassword"
+              required
+            />
+          </label>
+        </div>
+        <p v-if="passwordError" class="error-line">{{ passwordError }}</p>
+        <p v-if="passwordSuccess" class="success-line">{{ passwordSuccess }}</p>
+        <div class="profile-actions">
+          <button type="submit" class="btn-primary" :disabled="savingPassword || !canChangePassword">
+            {{ savingPassword ? 'Updating…' : 'Update password' }}
+          </button>
+        </div>
+      </section>
+    </form>
   </div>
 </template>
 
@@ -181,6 +228,7 @@ import { VueTelInput } from 'vue-tel-input'
 import 'vue-tel-input/vue-tel-input.css'
 
 import { apiJson } from '@/api/client'
+import PasswordField from '@/components/PasswordField.vue'
 import { user } from '@/composables/session'
 import { formatTimezoneLabel } from '@/utils/timezone'
 import {
@@ -202,6 +250,15 @@ const savingAllEmailPref = ref(false)
 const overduePrefError = ref('')
 const saveError = ref('')
 const saveSuccess = ref('')
+
+const savingPassword = ref(false)
+const passwordError = ref('')
+const passwordSuccess = ref('')
+const passwordForm = reactive({
+  current: '',
+  next: '',
+  confirm: '',
+})
 
 /** E.164 value sent to the API (+countrycode…). */
 const phoneE164 = ref('')
@@ -252,6 +309,14 @@ const phoneInputOptions = {
 const hasClientErrors = computed(() => !!(errors.phone || errors.linkedin_url))
 
 const timezoneLabel = computed(() => formatTimezoneLabel(user.value?.timezone))
+
+const canChangePassword = computed(
+  () =>
+    passwordForm.current.length > 0 &&
+    passwordForm.next.length >= 8 &&
+    passwordForm.next === passwordForm.confirm &&
+    passwordForm.next !== passwordForm.current,
+)
 
 function nationalDigits(phoneObject) {
   const raw = phoneObject?.nationalNumber ?? ''
@@ -415,12 +480,53 @@ async function saveProfile() {
   }
 }
 
+async function changePassword() {
+  passwordError.value = ''
+  passwordSuccess.value = ''
+  if (passwordForm.next !== passwordForm.confirm) {
+    passwordError.value = 'New passwords do not match.'
+    return
+  }
+  if (passwordForm.next.length < 8) {
+    passwordError.value = 'New password must be at least 8 characters.'
+    return
+  }
+  savingPassword.value = true
+  try {
+    const res = await apiJson('/api/v1/users/me/change-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        current_password: passwordForm.current,
+        new_password: passwordForm.next,
+      }),
+    })
+    passwordForm.current = ''
+    passwordForm.next = ''
+    passwordForm.confirm = ''
+    passwordSuccess.value = res.message || 'Your password has been updated.'
+    setTimeout(() => {
+      passwordSuccess.value = ''
+    }, 2500)
+  } catch (err) {
+    passwordError.value = err.message || 'Failed to update password'
+  } finally {
+    savingPassword.value = false
+  }
+}
+
 onMounted(loadProfile)
 </script>
 
 <style scoped>
 .profile-page {
   max-width: 560px;
+}
+
+.password-form :deep(.password-wrap input) {
+  font-size: 0.95rem;
+  padding: 0.55rem 2.5rem 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
 }
 
 .profile-form {
@@ -507,6 +613,7 @@ onMounted(loadProfile)
 .profile-actions {
   display: flex;
   justify-content: flex-start;
+  margin-top: 1.1rem;
 }
 
 .success-line {

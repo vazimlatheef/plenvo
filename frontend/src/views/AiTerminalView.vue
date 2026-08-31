@@ -317,7 +317,7 @@ const examples = [
   },
   {
     label: 'Personal',
-    text: 'What should I focus on today? Renew passport and finish landing page copy.',
+    text: 'What should I focus on today?',
   },
 ]
 const projects = ref([])

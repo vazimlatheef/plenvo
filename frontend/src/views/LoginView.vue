@@ -21,9 +21,8 @@
         </label>
         <label class="field">
           <span>Password</span>
-          <input
+          <PasswordField
             v-model="password"
-            type="password"
             autocomplete="current-password"
             placeholder="••••••••"
             :disabled="loading"
@@ -50,6 +49,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { setSessionUser } from '@/composables/session'
+import PasswordField from '@/components/PasswordField.vue'
 import { login } from '@/services/auth'
 
 const route = useRoute()

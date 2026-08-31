@@ -217,9 +217,17 @@ function onLogout() {
   flex-direction: column;
   gap: 0.35rem;
   padding: 1.1rem 0.85rem 1.25rem;
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
   background: var(--color-bg-elevated);
   border-right: 1px solid var(--color-border);
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   position: sticky;
   top: 0;
   align-self: flex-start;
@@ -256,6 +264,11 @@ function onLogout() {
   cursor: pointer;
 }
 
+.sidebar-nav,
+.sidebar-section {
+  flex-shrink: 0;
+}
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;
@@ -283,6 +296,7 @@ function onLogout() {
 
 .sidebar-footer {
   margin-top: auto;
+  flex-shrink: 0;
   padding-top: 1rem;
   border-top: 1px solid var(--color-border);
   display: flex;
@@ -384,10 +398,14 @@ function onLogout() {
     left: 0;
     top: 0;
     bottom: 0;
+    height: 100%;
+    height: 100dvh;
+    max-height: 100%;
+    max-height: 100dvh;
+    min-height: 0;
     transform: translateX(-105%);
     transition: transform 0.2s ease;
     box-shadow: var(--shadow);
-    min-height: 100%;
   }
 
   .sidebar--open {
@@ -404,6 +422,10 @@ function onLogout() {
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
     z-index: 35;
+  }
+
+  .sidebar-footer {
+    margin-top: 1.25rem;
   }
 }
 </style>

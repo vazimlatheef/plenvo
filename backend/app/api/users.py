@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin_user, get_current_user, get_db, require_admin_full_write_access
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models import User
 from app.models.models import Organisation
 from app.schemas.user import UserCreate, UserPublic, UserUpdate
@@ -32,6 +32,15 @@ class TimezoneSyncRequest(BaseModel):
 class TimezoneSyncResponse(BaseModel):
     timezone: str
     synced: bool
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class ChangePasswordResponse(BaseModel):
+    message: str
 
 
 @router.get("/me", response_model=UserPublic)
@@ -84,6 +93,30 @@ def update_me(
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+@router.post("/me/change-password", response_model=ChangePasswordResponse)
+def change_password(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ChangePasswordResponse:
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect.",
+        )
+    if payload.current_password == payload.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be different from the current password.",
+        )
+    current_user.password_hash = hash_password(payload.new_password)
+    current_user.reset_token = None
+    current_user.reset_token_expires_at = None
+    db.add(current_user)
+    db.commit()
+    return ChangePasswordResponse(message="Your password has been updated.")
 
 
 @router.post("/me/sync-timezone", response_model=TimezoneSyncResponse)

@@ -23,12 +23,11 @@
         </label>
         <label class="field">
           <span>Password</span>
-          <input
+          <PasswordField
             v-model="password"
-            type="password"
             autocomplete="new-password"
             placeholder="Min 8 characters"
-            minlength="8"
+            :minlength="8"
             required
             :disabled="loading"
           />
@@ -54,6 +53,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiJson } from '@/api/client'
+import PasswordField from '@/components/PasswordField.vue'
 import { useCurrency } from '@/composables/useCurrency'
 import { setSessionUser } from '@/composables/session'
 import { getBrowserTimezone } from '@/services/timezoneSync'

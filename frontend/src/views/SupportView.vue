@@ -13,10 +13,7 @@
             Email <a href="mailto:hi@plenvo.io">hi@plenvo.io</a> with questions about your account,
             billing, or how to use Plenvo.
           </p>
-          <p class="note">
-            We aim to reply within one to two business days. During busy periods it may take a little longer.
-          </p>
-          <a href="mailto:hi@plenvo.io" class="btn-primary">Email hi@plenvo.io</a>
+          <p class="note">We aim to reply within one to two business days.</p>
         </section>
 
         <section class="faq">
@@ -125,36 +122,19 @@ h1 {
   font-weight: 300;
 }
 
-.contact-card a:not(.btn-primary) {
+.contact-card a {
   color: var(--color-accent);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.contact-card a:not(.btn-primary):hover {
+.contact-card a:hover {
   color: #d4b76a;
 }
 
 .note {
   font-size: 0.88rem !important;
-}
-
-.btn-primary {
-  display: inline-block;
-  margin-top: 0.5rem;
-  font-weight: 600;
-  font-size: 0.9rem;
-  padding: 0.7rem 1.4rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--color-accent), #a6853a);
-  color: #0f1210;
-  text-decoration: none;
-}
-
-.btn-primary:hover {
-  filter: brightness(1.08);
-  text-decoration: none;
 }
 
 .faq h2 {
