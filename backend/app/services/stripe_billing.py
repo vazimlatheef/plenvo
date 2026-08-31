@@ -128,7 +128,8 @@ def ensure_stripe_customer(db: Session, org: Organisation, admin: User) -> str:
     if org.stripe_customer_id:
         return org.stripe_customer_id
 
-    customer = stripe.Customer.create(
+    customer = _call_stripe(
+        stripe.Customer.create,
         email=admin.email,
         name=org.name,
         metadata={"organisation_id": str(org.id)},
@@ -144,6 +145,115 @@ def _has_active_paid_subscription(org: Organisation) -> bool:
     return has_paid_subscription(org)
 
 
+def _stripe_user_message(exc: BaseException) -> str:
+    msg = getattr(exc, "user_message", None) or getattr(exc, "_message", None) or str(exc)
+    text = str(msg or "").strip()
+    if not text or text.startswith("Request req_"):
+        return "Stripe could not update this subscription. Try again or email hi@plenvo.io."
+    return text.split("\n")[0][:300]
+
+
+def _call_stripe(fn, *args, **kwargs):
+    """Run a Stripe SDK call; never leak raw SDK crashes to the client."""
+    try:
+        return fn(*args, **kwargs)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        name = type(exc).__name__
+        code = status.HTTP_400_BAD_REQUEST
+        if "InvalidRequest" not in name and "Idempotency" not in name:
+            code = status.HTTP_502_BAD_GATEWAY
+        raise HTTPException(status_code=code, detail=_stripe_user_message(exc)) from exc
+
+
+def _subscription_items(sub: Any) -> list:
+    items = _get(sub, "items") or {}
+    data = items.get("data") if isinstance(items, dict) else _get(items, "data")
+    return list(data or [])
+
+
+def _modify_or_resume_subscription(
+    db: Session,
+    org: Organisation,
+    *,
+    tier: str,
+    price_id: str,
+) -> dict | None:
+    """Update an existing Stripe sub in place, or resume if cancel-at-period-end.
+
+    Returns a result dict, or None if Checkout should start instead. Never pass
+    ``currency`` on Subscription.modify — Stripe rejects that on a subscription
+    that already has a currency (Keep this plan was failing here).
+    """
+    if not org.stripe_subscription_id:
+        return None
+    local_status = (org.subscription_status or "active").strip().lower()
+    if local_status in ("canceled", "incomplete_expired", "unpaid"):
+        return None
+
+    try:
+        sub = _call_stripe(stripe.Subscription.retrieve, org.stripe_subscription_id)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_400_BAD_REQUEST:
+            org.stripe_subscription_id = None
+            org.subscription_status = "canceled"
+            db.add(org)
+            db.commit()
+            return None
+        raise
+
+    remote_status = (_get(sub, "status") or "active").strip().lower()
+    if remote_status in ("canceled", "incomplete_expired", "unpaid"):
+        org.stripe_subscription_id = None
+        org.subscription_status = remote_status
+        org.cancel_at_period_end = False
+        db.add(org)
+        db.commit()
+        return None
+
+    if remote_status not in ("active", "trialing", "past_due"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This subscription cannot be updated right now. Try again or email hi@plenvo.io.",
+        )
+
+    items = _subscription_items(sub)
+    if not items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not read current Stripe subscription items.",
+        )
+    item_id = _get(items[0], "id")
+    current_price = _get(_get(items[0], "price"), "id")
+    was_canceling = bool(_get(sub, "cancel_at_period_end", False)) or bool(org.cancel_at_period_end)
+
+    params: dict[str, Any] = {
+        "cancel_at_period_end": False,
+        "metadata": {
+            "organisation_id": str(org.id),
+            "plan_tier": tier,
+        },
+    }
+    if current_price and current_price != price_id:
+        params["items"] = [{"id": item_id, "price": price_id}]
+        params["proration_behavior"] = "create_prorations"
+
+    updated = _call_stripe(stripe.Subscription.modify, org.stripe_subscription_id, **params)
+    _apply_subscription_to_org(db, org, updated)
+    org.plan_tier = tier
+    org.trial_ends_at = None
+    org.cancel_at_period_end = False
+    db.add(org)
+    db.commit()
+    db.refresh(org)
+    return {
+        "updated": True,
+        "plan_tier": tier,
+        "resumed": was_canceling,
+    }
+
+
 def create_checkout_session(
     db: Session,
     *,
@@ -152,7 +262,7 @@ def create_checkout_session(
     plan: str,
     subscribe: bool = False,
 ) -> dict:
-    """Start Checkout for a new subscription, or switch price on an existing one.
+    """Start Checkout for a new subscription, or switch/resume an existing one.
 
     During an unpaid trial, ``subscribe=False`` updates the trial plan locally
     (no card). ``subscribe=True`` opens Stripe Checkout immediately.
@@ -190,44 +300,15 @@ def create_checkout_session(
 
     assert_checkout_meets_minimum_tier(db, org, tier)
 
-    # Existing paid subscription → change price in place (avoid a second sub).
-    if org.stripe_subscription_id and (org.subscription_status or "active") in (
-        "active",
-        "trialing",
-        "past_due",
-    ):
-        sub = stripe.Subscription.retrieve(org.stripe_subscription_id)
-        items = _get(sub, "items") or {}
-        data = items.get("data") if isinstance(items, dict) else _get(items, "data")
-        if not data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Could not read current Stripe subscription items.",
-            )
-        item_id = _get(data[0], "id")
-        updated = stripe.Subscription.modify(
-            org.stripe_subscription_id,
-            items=[{"id": item_id, "price": price_id}],
-            currency=currency,
-            cancel_at_period_end=False,
-            metadata={
-                "organisation_id": str(org.id),
-                "plan_tier": tier,
-            },
-            proration_behavior="create_prorations",
-        )
-        _apply_subscription_to_org(db, org, updated)
-        org.plan_tier = tier
-        org.trial_ends_at = None
-        org.cancel_at_period_end = False
-        db.add(org)
-        db.commit()
-        return {"updated": True, "plan_tier": tier}
+    in_place = _modify_or_resume_subscription(db, org, tier=tier, price_id=price_id)
+    if in_place is not None:
+        return in_place
 
     customer_id = ensure_stripe_customer(db, org, admin)
     base = _frontend_base()
 
-    session = stripe.checkout.Session.create(
+    session = _call_stripe(
+        stripe.checkout.Session.create,
         mode="subscription",
         customer=customer_id,
         currency=currency,
@@ -248,30 +329,42 @@ def create_checkout_session(
         },
         allow_promotion_codes=True,
     )
-    if not session.url:
+    url = _get(session, "url")
+    if not url:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Stripe did not return a Checkout URL.",
         )
-    return {"url": session.url}
+    return {"url": url}
 
 
 def cancel_subscription_at_period_end(db: Session, org: Organisation) -> dict:
     """Schedule cancellation at period end; returns access-end date."""
     _require_stripe()
-    if not org.stripe_subscription_id:
+    if not org.stripe_subscription_id or not has_paid_subscription(org):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No active paid subscription to cancel.",
         )
+    if org.cancel_at_period_end:
+        return {
+            "cancel_at_period_end": True,
+            "access_ends_at": (
+                org.subscription_current_period_end.isoformat()
+                if org.subscription_current_period_end
+                else None
+            ),
+            "subscription_status": org.subscription_status,
+        }
 
-    sub = stripe.Subscription.modify(
+    sub = _call_stripe(
+        stripe.Subscription.modify,
         org.stripe_subscription_id,
         cancel_at_period_end=True,
     )
     period_end = _subscription_period_end(sub)
     if period_end is None:
-        retrieved = stripe.Subscription.retrieve(org.stripe_subscription_id)
+        retrieved = _call_stripe(stripe.Subscription.retrieve, org.stripe_subscription_id)
         period_end = _subscription_period_end(retrieved)
     org.cancel_at_period_end = True
     org.subscription_current_period_end = period_end

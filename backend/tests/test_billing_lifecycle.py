@@ -473,3 +473,110 @@ def test_trial_local_plan_switch_does_not_send_thank_you(db, stripe_test_env):
     db.refresh(org)
     assert org.paid_welcome_email_sent_at is None
     assert org.trial_ends_at is not None
+
+
+@patch("app.services.stripe_billing.stripe.Subscription.modify")
+@patch("app.services.stripe_billing.stripe.Subscription.retrieve")
+def test_keep_this_plan_resumes_without_currency_or_item_change(
+    mock_retrieve,
+    mock_modify,
+    db,
+    stripe_test_env,
+):
+    data = _seed_solo_org(db)
+    org = data["org"]
+    admin = data["admin"]
+    org.cancel_at_period_end = True
+    org.plan_tier = "personal"
+    db.add(org)
+    db.commit()
+
+    period_end = int(datetime.now(timezone.utc).timestamp()) + 86400 * 10
+    current = {
+        "id": "sub_personal",
+        "status": "active",
+        "cancel_at_period_end": True,
+        "current_period_end": period_end,
+        "metadata": {"organisation_id": str(org.id), "plan_tier": "personal"},
+        "items": {"data": [{"id": "si_test", "price": {"id": "price_personal_test"}}]},
+    }
+    mock_retrieve.return_value = current
+    resumed = {**current, "cancel_at_period_end": False}
+    mock_modify.return_value = resumed
+
+    result = create_checkout_session(db, org=org, admin=admin, plan="personal")
+    assert result["updated"] is True
+    assert result["resumed"] is True
+    mock_modify.assert_called_once()
+    kwargs = mock_modify.call_args.kwargs
+    assert kwargs.get("cancel_at_period_end") is False
+    assert "currency" not in kwargs
+    assert "items" not in kwargs
+    db.refresh(org)
+    assert org.cancel_at_period_end is False
+
+
+@patch("app.services.stripe_billing.stripe.Subscription.modify")
+@patch("app.services.stripe_billing.stripe.Subscription.retrieve")
+def test_plan_switch_while_canceling_changes_price_without_currency(
+    mock_retrieve,
+    mock_modify,
+    db,
+    stripe_test_env,
+):
+    data = _seed_solo_org(db)
+    org = data["org"]
+    admin = data["admin"]
+    org.cancel_at_period_end = True
+    org.plan_tier = "personal"
+    db.add(org)
+    db.commit()
+
+    mock_retrieve.return_value = {
+        "id": "sub_personal",
+        "status": "active",
+        "cancel_at_period_end": True,
+        "metadata": {"organisation_id": str(org.id), "plan_tier": "personal"},
+        "items": {"data": [{"id": "si_test", "price": {"id": "price_personal_test"}}]},
+    }
+    mock_modify.return_value = {
+        "id": "sub_personal",
+        "status": "active",
+        "cancel_at_period_end": False,
+        "metadata": {"organisation_id": str(org.id), "plan_tier": "team"},
+        "items": {"data": [{"id": "si_test", "price": {"id": "price_team_test"}}]},
+    }
+
+    result = create_checkout_session(db, org=org, admin=admin, plan="team")
+    assert result["updated"] is True
+    kwargs = mock_modify.call_args.kwargs
+    assert "currency" not in kwargs
+    assert kwargs["items"] == [{"id": "si_test", "price": "price_team_test"}]
+    db.refresh(org)
+    assert org.plan_tier == "team"
+    assert org.cancel_at_period_end is False
+
+
+@patch("app.services.stripe_billing.stripe.Subscription.modify")
+@patch("app.services.stripe_billing.stripe.Subscription.retrieve")
+def test_in_place_stripe_error_is_http_not_crash(mock_retrieve, mock_modify, db, stripe_test_env):
+    data = _seed_solo_org(db)
+    org = data["org"]
+    admin = data["admin"]
+    mock_retrieve.return_value = {
+        "id": "sub_personal",
+        "status": "active",
+        "cancel_at_period_end": True,
+        "items": {"data": [{"id": "si_test", "price": {"id": "price_personal_test"}}]},
+    }
+
+    class FakeInvalidRequestError(Exception):
+        user_message = "You cannot currently combine currencies on a subscription."
+
+    FakeInvalidRequestError.__name__ = "InvalidRequestError"
+    mock_modify.side_effect = FakeInvalidRequestError()
+
+    with pytest.raises(HTTPException) as exc:
+        create_checkout_session(db, org=org, admin=admin, plan="personal")
+    assert exc.value.status_code == 400
+    assert "currencies" in exc.value.detail.lower()

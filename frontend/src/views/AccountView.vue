@@ -88,6 +88,7 @@
           <template v-if="account.on_trial && !account.has_paid_subscription">
             Subscribe now on your current plan to pay immediately via Stripe — you do not have to wait until the trial ends.
             You can also switch to a higher trial plan without a card; limits update immediately. Downgrades are not available during trial.
+            No card is on file, so you will not be charged unless you subscribe. There is nothing to cancel during trial — if you stop using Plenvo, the trial simply ends.
           </template>
           <template v-else-if="account.restricted">
             Subscribe to restore full create and edit access for your {{ account.project_count }} projects and
@@ -325,6 +326,8 @@ async function startCheckout(planId) {
       const name = String(result.plan_tier || planId).replace(/^\w/, (c) => c.toUpperCase())
       if (result.on_trial) {
         banner.value = `Trial plan updated to ${name}. New limits apply immediately.`
+      } else if (result.resumed) {
+        banner.value = `Subscription will renew on ${name}. You keep full access.`
       } else {
         banner.value = `Plan updated to ${name}.`
       }

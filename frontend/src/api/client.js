@@ -28,7 +28,16 @@ export async function apiFetch(path, options = {}) {
 }
 
 export async function apiJson(path, options = {}) {
-  const res = await apiFetch(path, options)
+  let res
+  try {
+    res = await apiFetch(path, options)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : ''
+    if (msg === 'Failed to fetch' || err?.name === 'TypeError') {
+      throw new Error('Could not reach the server. Try again in a moment.')
+    }
+    throw err
+  }
   if (res.status === 204) return null
   const text = await res.text()
   let data = null
