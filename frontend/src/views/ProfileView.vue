@@ -44,7 +44,6 @@
           <label>
             Timezone
             <input :value="timezoneLabel" type="text" readonly class="input-readonly" />
-            <span class="field-hint">Detected from your browser. Updates automatically when you sign in or return to Plenvo.</span>
           </label>
         </div>
       </section>

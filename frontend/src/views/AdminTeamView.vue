@@ -187,7 +187,7 @@
                 </tbody>
               </table>
               <p class="insights-footnote">
-                Sorted by overdue first, then due date, then priority — same logic as your dashboard focus list.
+                Overdue first, then due date, then priority.
               </p>
             </div>
           </template>

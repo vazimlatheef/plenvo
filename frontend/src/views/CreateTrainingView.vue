@@ -27,13 +27,13 @@
           <span>YouTube video ID or URL</span>
           <input
             v-model="youtubeVideoId"
-            placeholder="Paste a link or video ID (e.g. dQw4w9WgXcQ)"
+            placeholder="youtube.com/watch?v=…"
             :disabled="busy"
           />
         </label>
         <label v-if="contentType === 'external_link'" class="field">
           <span>Resource URL</span>
-          <input v-model="externalUrl" type="url" placeholder="https://…" :disabled="busy" />
+          <input v-model="externalUrl" type="text" inputmode="url" placeholder="docs.google.com" :disabled="busy" />
         </label>
         <button type="submit" class="btn" :disabled="busy">{{ busy ? 'Saving…' : 'Publish training' }}</button>
       </form>
@@ -60,6 +60,7 @@ import { apiJson } from '@/api/client'
 import PageHeader from '@/components/PageHeader.vue'
 import { extractYoutubeId } from '@/utils/youtube'
 import { rememberLastTraining } from '@/utils/trainingCatalog'
+import { normalizeLinkUrl } from '@/utils/links'
 
 const title = ref('')
 const description = ref('')
@@ -91,7 +92,7 @@ async function onSubmit() {
     title: title.value.trim(),
     description: description.value.trim() || null,
     content_type: contentType.value,
-    external_url: contentType.value === 'external_link' ? externalUrl.value.trim() || null : null,
+    external_url: contentType.value === 'external_link' ? normalizeLinkUrl(externalUrl.value) || null : null,
     youtube_video_id: contentType.value === 'youtube' ? yt : null,
   }
   busy.value = true

@@ -53,7 +53,7 @@
         No one assigned yet. Assign team members from the dashboard, then refresh this page.
       </p>
       <p v-if="!loading && !error && summary" class="foot muted small">
-        Use this in meetings: who still owes the training, who’s done — without another spreadsheet.
+        Who has started. Who has finished.
       </p>
     </template>
   </div>
