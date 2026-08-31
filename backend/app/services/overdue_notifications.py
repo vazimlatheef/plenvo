@@ -34,6 +34,7 @@ def check_and_send_overdue_notifications(db: Session, user: User) -> int:
         to_email=user.email,
         user_name=user.full_name,
         tasks=newly_overdue,
+        unsubscribe_token=user.email_unsubscribe_token,
     )
     if not sent:
         return 0

@@ -66,7 +66,18 @@
                   <Calendar :size="14" :stroke-width="1.75" />
                   Due date
                 </label>
-                <DatePicker id="task-due" v-model="form.due_date" :disabled="saving" />
+                <DatePicker input-id="task-due" v-model="form.due_date" :disabled="saving" />
+              </div>
+
+              <div class="task-drawer__field">
+                <label for="task-priority">
+                  Priority
+                </label>
+                <select id="task-priority" v-model="form.priority" :disabled="saving" class="task-drawer__select">
+                  <option v-for="opt in PRIORITY_OPTIONS" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
               </div>
 
               <div class="task-drawer__field">
@@ -79,6 +90,26 @@
                   class="task-drawer__time-input"
                 />
               </div>
+            </div>
+
+            <div class="task-drawer__field">
+              <label for="task-repeat">Repeat</label>
+              <select
+                id="task-repeat"
+                v-model="form.recurrence"
+                :disabled="saving || mode !== 'create' || !form.due_date"
+                class="task-drawer__select"
+              >
+                <option value="none">Does not repeat</option>
+                <option value="weekly">Weekly (12 weeks)</option>
+                <option value="monthly">Monthly (12 months)</option>
+              </select>
+              <p v-if="mode === 'create'" class="task-drawer__hint">
+                Weekly and monthly create a series. Deleting one occurrence removes the whole series.
+              </p>
+              <p v-else-if="form.series_id" class="task-drawer__hint">
+                Repeating series — delete removes every occurrence.
+              </p>
             </div>
 
             <div class="task-drawer__field">
@@ -129,7 +160,7 @@ import LinksEditor from '@/components/LinksEditor.vue'
 import { assigneeOptionLabel } from '@/utils/assignee'
 import { linksForApi } from '@/utils/links'
 import { normalizeDueTime } from '@/utils/taskDue'
-import { STATUS_OPTIONS } from '@/utils/ui'
+import { STATUS_OPTIONS, PRIORITY_OPTIONS, normalizePriority } from '@/utils/ui'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -148,7 +179,9 @@ const props = defineProps({
       assignee_key: null,
       due_date: '',
       due_time: '',
+      recurrence: 'none',
       status: 'pending',
+      priority: 'medium',
       project_id: null,
     }),
   },
@@ -163,7 +196,10 @@ const form = reactive({
   assignee_key: null,
   due_date: '',
   due_time: '',
+  recurrence: 'none',
+  series_id: null,
   status: 'pending',
+  priority: 'medium',
   project_id: null,
 })
 
@@ -194,7 +230,10 @@ watch(
     form.assignee_key = init.assignee_key ?? null
     form.due_date = init.due_date || ''
     form.due_time = normalizeDueTime(init.due_time)
+    form.recurrence = init.recurrence || 'none'
+    form.series_id = init.series_id || null
     form.status = init.status || 'pending'
+    form.priority = normalizePriority(init.priority)
     form.project_id = init.project_id ?? null
   },
   { immediate: true, deep: true },
@@ -203,7 +242,10 @@ watch(
 watch(
   () => form.due_date,
   (value) => {
-    if (!value) form.due_time = ''
+    if (!value) {
+      form.due_time = ''
+      form.recurrence = 'none'
+    }
   },
 )
 
@@ -220,7 +262,9 @@ function onSubmit() {
     assignee_key: form.assignee_key,
     due_date: form.due_date || null,
     due_time: form.due_date && form.due_time ? form.due_time : null,
+    recurrence: props.mode === 'create' && form.due_date ? form.recurrence || 'none' : 'none',
     status: form.status || 'pending',
+    priority: normalizePriority(form.priority),
     project_id: form.project_id ?? null,
   })
 }
@@ -405,7 +449,14 @@ function onSubmit() {
 .task-drawer__error {
   margin: 0;
   font-size: 0.88rem;
-  color: var(--color-danger);
+  color: var(--color-text-muted);
+}
+
+.task-drawer__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
 }
 
 .task-drawer__footer {

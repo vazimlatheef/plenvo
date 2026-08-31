@@ -191,6 +191,8 @@ class Task(Base):
     source: Mapped[str] = mapped_column(String(20), nullable=False, server_default="manual")
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     due_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    recurrence: Mapped[str] = mapped_column(String(20), nullable=False, server_default="none")
+    series_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     project_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
     )

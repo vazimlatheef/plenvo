@@ -22,6 +22,7 @@ import SecurityView from '@/views/SecurityView.vue'
 import SupportView from '@/views/SupportView.vue'
 import PrivacyView from '@/views/PrivacyView.vue'
 import TermsView from '@/views/TermsView.vue'
+import UnsubscribeView from '@/views/UnsubscribeView.vue'
 import AdminProjectsView from '@/views/AdminProjectsView.vue'
 import AdminProjectTasksView from '@/views/AdminProjectTasksView.vue'
 import AdminTeamView from '@/views/AdminTeamView.vue'
@@ -99,6 +100,12 @@ const router = createRouter({
     },
     { path: '/privacy', name: 'privacy', component: PrivacyView, meta: { public: true, title: 'Privacy Policy' } },
     { path: '/terms', name: 'terms', component: TermsView, meta: { public: true, title: 'Terms of Service' } },
+    {
+      path: '/unsubscribe',
+      name: 'unsubscribe',
+      component: UnsubscribeView,
+      meta: { public: true, title: 'Unsubscribe' },
+    },
     {
       path: '/training/:token',
       name: 'training-magic-link',

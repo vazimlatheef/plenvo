@@ -1,7 +1,6 @@
 import { ACCESS_TOKEN_KEY } from '@/constants'
 
-const BASE = import.meta.env.VITE_API_URL ?? ''
-console.log('API BASE URL:', BASE)
+const BASE = String(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
 function formatErrorDetail(data, res) {
   const d = data?.detail

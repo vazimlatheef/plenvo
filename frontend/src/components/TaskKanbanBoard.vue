@@ -59,13 +59,7 @@
               </div>
 
               <div class="kanban-card__meta">
-                <span
-                  class="avatar kanban-card__avatar"
-                  :class="`avatar-tone-${avatarTone(assigneeSeed(task))}`"
-                  :title="assigneeName(task)"
-                >
-                  {{ getInitials(assigneeName(task)) }}
-                </span>
+                <span class="kanban-card__assignee">{{ assigneeName(task) }}</span>
                 <span class="kanban-card__due" :class="{ 'kanban-card__due--overdue': isOverdue(task) }">
                   <Calendar :size="12" :stroke-width="1.75" />
                   {{ formatTaskDue(task) }}
@@ -135,8 +129,6 @@ import draggable from 'vuedraggable'
 import {
   STATUS_GROUPS,
   STATUS_OPTIONS,
-  avatarTone,
-  getInitials,
 } from '@/utils/ui'
 import { formatTaskDue } from '@/utils/taskDue'
 import { isTaskOverdue } from '@/utils/taskInsights'
@@ -376,10 +368,15 @@ onUnmounted(() => {
   gap: 0.4rem 0.55rem;
 }
 
-.kanban-card__avatar {
-  width: 22px;
-  height: 22px;
-  font-size: 0.58rem;
+.kanban-card__assignee {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kanban-card__due {
@@ -403,10 +400,11 @@ onUnmounted(() => {
   border: 1px solid transparent;
 }
 
-.priority-pill[data-p='high'] {
-  color: #e8a0a0;
-  background: rgba(232, 160, 160, 0.12);
-  border-color: rgba(232, 160, 160, 0.28);
+.priority-pill[data-p='high'],
+.priority-pill[data-p='critical'] {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border-color: rgba(196, 163, 90, 0.28);
 }
 
 .priority-pill[data-p='medium'] {

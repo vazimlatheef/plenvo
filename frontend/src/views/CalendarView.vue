@@ -333,6 +333,7 @@ const modalInitial = ref({
   due_date: '',
   due_time: '',
   status: 'pending',
+  priority: 'medium',
   project_id: null,
 })
 
@@ -649,7 +650,10 @@ function openEdit(task) {
     assignee_key: taskAssigneeKey(task),
     due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
     due_time: normalizeDueTime(task.due_time),
+    recurrence: task.recurrence || 'none',
+    series_id: task.series_id || null,
     status: task.status || 'pending',
+    priority: task.priority || 'medium',
     project_id: task.project_id ?? null,
   }
   formError.value = ''
@@ -667,7 +671,9 @@ function openCreate(isoDate) {
     assignee_key: null,
     due_date: isoDate || selectedDate.value || '',
     due_time: '',
+    recurrence: 'none',
     status: 'pending',
+    priority: 'medium',
     project_id: null,
   }
   formError.value = ''
@@ -691,8 +697,10 @@ async function saveFromModal(payload) {
         description: payload.description,
         links: payload.links,
         status: payload.status,
+        priority: payload.priority || 'medium',
         due_date: payload.due_date,
         due_time: payload.due_date && payload.due_time ? payload.due_time : null,
+        recurrence: payload.recurrence || 'none',
         project_id: payload.project_id,
       }
       if (assignee_id) body.assignee_id = assignee_id
@@ -701,7 +709,11 @@ async function saveFromModal(payload) {
         method: 'POST',
         body: JSON.stringify(body),
       })
-      upsertTask(created)
+      if (created.series_id) {
+        await loadMonth()
+      } else {
+        upsertTask(created)
+      }
       if (created.due_date) selectedDate.value = String(created.due_date).slice(0, 10)
       triggerFlash(created.id)
     } else {
@@ -710,6 +722,7 @@ async function saveFromModal(payload) {
         description: payload.description,
         links: payload.links,
         status: payload.status,
+        priority: payload.priority || 'medium',
         due_date: payload.due_date,
         due_time: payload.due_date && payload.due_time ? payload.due_time : null,
         project_id: payload.project_id ?? null,

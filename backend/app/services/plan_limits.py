@@ -127,17 +127,17 @@ def count_team_members(db: Session, organisation_id: int) -> int:
 
 def plan_limit_message(org: Organisation, limit: int, *, now: datetime | None = None) -> str:
     tier = (org.plan_tier or _DEFAULT_TIER).strip().lower() or _DEFAULT_TIER
-    trial_suffix = " trial" if is_on_trial(org, now=now) else ""
+    label = {"personal": "Personal", "team": "Team", "enterprise": "Enterprise"}.get(tier, "this")
     if tier == "personal":
-        shown = "1 member (solo — no additional team members)"
-    elif limit is None:
-        shown = "unlimited team members"
-    else:
-        shown = f"up to {limit} team members"
-    return (
-        f"Your {tier}{trial_suffix} plan is at capacity ({shown}). "
-        "Upgrade in Account to add more."
-    )
+        return "Personal is for one person. Upgrade to Team to add members."
+    if limit is None:
+        return f"You've reached the member limit for the {label} plan."
+    if is_on_trial(org, now=now):
+        return (
+            f"Your {label} trial includes up to {limit} members. "
+            "Upgrade in Account to add more."
+        )
+    return f"Your {label} plan includes up to {limit} members. Upgrade in Account to add more."
 
 
 def can_add_team_members(

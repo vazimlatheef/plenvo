@@ -85,7 +85,7 @@ def build_account_url() -> str:
 
 
 def build_unsubscribe_url(token: str) -> str:
-    return f"{API_BASE_URL}/api/v1/email/unsubscribe?token={quote(token, safe='')}"
+    return f"{FRONTEND_URL}/unsubscribe?token={quote(token, safe='')}"
 
 
 def _esc(text: str) -> str:
@@ -317,10 +317,12 @@ def send_training_magic_link_email(
     *,
     due_date: str | None = None,
     link_valid_days: int = 7,
+    unsubscribe_token: str | None = None,
 ) -> bool:
     """Send employee a magic link to complete assigned training without logging in."""
     greeting = greeting_name(employee_name)
     subject = f"Training assigned: {training_title}"
+    unsub_url = build_unsubscribe_url(unsubscribe_token) if unsubscribe_token else None
     due_line_html = ""
     due_line_text = ""
     if due_date:
@@ -336,14 +338,14 @@ def send_training_magic_link_email(
       {_cta_button(magic_url, "Open training")}
       <p style="margin:0;font-size:13px;color:#555555;">This link works for {link_valid_days} {day_word}.</p>
     """
-    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=unsub_url))
     plain_text = (
         f"Hello {greeting},\n\n"
         f"{assigned_by_name} has assigned you training: {training_title}.\n\n"
         f"{due_line_text}"
         f"Open your training: {magic_url}\n\n"
         f"This link works for {link_valid_days} {day_word}.\n\n"
-        f"{_footer_text()}"
+        f"{_footer_text(unsubscribe_url=unsub_url)}"
     )
     return _send_email(to_email, greeting, subject, plain_text, html_content)
 
@@ -353,11 +355,14 @@ def send_manager_training_complete_email(
     manager_name: str,
     employee_name: str,
     training_title: str,
+    *,
+    unsubscribe_token: str | None = None,
 ) -> bool:
     """Notify manager when an employee completes training via magic link."""
     greeting = greeting_name(manager_name)
     subject = f"Training completed: {training_title}"
     dash = f"{FRONTEND_URL}/app/admin"
+    unsub_url = build_unsubscribe_url(unsubscribe_token) if unsubscribe_token else None
     body_html = f"""
       <p style="margin:0 0 14px;">Hello {_esc(greeting)},</p>
       <p style="margin:0 0 14px;">
@@ -365,12 +370,12 @@ def send_manager_training_complete_email(
       </p>
       {_cta_button(dash, "View dashboard")}
     """
-    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=unsub_url))
     plain_text = (
         f"Hello {greeting},\n\n"
         f"{employee_name} has completed {training_title}.\n\n"
         f"View progress: {dash}\n\n"
-        f"{_footer_text()}"
+        f"{_footer_text(unsubscribe_url=unsub_url)}"
     )
     return _send_email(to_email, greeting, subject, plain_text, html_content)
 
@@ -379,6 +384,8 @@ def send_overdue_tasks_email(
     to_email: str,
     user_name: str,
     tasks: list,
+    *,
+    unsubscribe_token: str | None = None,
 ) -> bool:
     """Notify assignee about tasks that just became overdue (one email per batch)."""
     count = len(tasks)
@@ -389,6 +396,7 @@ def send_overdue_tasks_email(
     noun = "task" if count == 1 else "tasks"
     subject = f"You have {count} overdue {noun}"
     tasks_url = build_my_tasks_url()
+    unsub_url = build_unsubscribe_url(unsubscribe_token) if unsubscribe_token else None
 
     rows_html = []
     rows_text = []
@@ -408,13 +416,13 @@ def send_overdue_tasks_email(
       <ul style="margin:0 0 14px;padding-left:20px;">{''.join(rows_html)}</ul>
       {_cta_button(tasks_url, "Open My Tasks")}
     """
-    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=unsub_url))
     plain_text = (
         f"Hello {greeting},\n\n"
         f"The following {noun} are now overdue:\n\n"
         f"{chr(10).join(rows_text)}\n\n"
         f"Open My Tasks: {tasks_url}\n\n"
-        f"{_footer_text()}"
+        f"{_footer_text(unsubscribe_url=unsub_url)}"
     )
     return _send_email(to_email, greeting, subject, plain_text, html_content)
 
@@ -426,12 +434,14 @@ def send_trial_ending_email(
     days_left: int,
     project_count: int,
     task_count: int,
+    unsubscribe_token: str | None = None,
 ) -> bool:
     """Warn org admin that trial ends soon."""
     greeting = greeting_name(user_name)
     day_word = "day" if days_left == 1 else "days"
     subject = f"Your Plenvo trial ends in {days_left} {day_word}"
     account_url = build_account_url()
+    unsub_url = build_unsubscribe_url(unsubscribe_token) if unsubscribe_token else None
     body_html = f"""
       <p style="margin:0 0 14px;">Hello {_esc(greeting)},</p>
       <p style="margin:0 0 14px;">
@@ -441,13 +451,13 @@ def send_trial_ending_email(
       </p>
       {_cta_button(account_url, "Upgrade in Account")}
     """
-    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=unsub_url))
     plain_text = (
         f"Hello {greeting},\n\n"
         f"Your trial ends in {days_left} {day_word}. You currently have {project_count} projects "
         f"and {task_count} tasks. Upgrade to keep full access.\n\n"
         f"Upgrade: {account_url}\n\n"
-        f"{_footer_text()}"
+        f"{_footer_text(unsubscribe_url=unsub_url)}"
     )
     return _send_email(to_email, greeting, subject, plain_text, html_content)
 

@@ -10,6 +10,7 @@ from app.models.models import Organisation
 from app.schemas.user import UserCreate, UserPublic, UserUpdate
 from app.services.overdue_notifications import check_and_send_overdue_notifications
 from app.services.plan_limits import assert_can_add_team_members, bump_trial_peak_member_count
+from app.services.team_members import remove_team_member
 from app.services.trial_notifications import check_and_send_trial_warning
 from app.services.timezones import normalize_timezone
 
@@ -76,6 +77,8 @@ def update_me(
         current_user.timezone = data["timezone"]
     if "overdue_email_enabled" in data and data["overdue_email_enabled"] is not None:
         current_user.overdue_email_enabled = bool(data["overdue_email_enabled"])
+    if "do_not_email" in data and data["do_not_email"] is not None:
+        current_user.do_not_email = bool(data["do_not_email"])
 
     db.add(current_user)
     db.commit()
@@ -178,3 +181,19 @@ def list_users(
     if role:
         query = query.filter(User.role == role)
     return query.all()
+
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_full_write_access),
+) -> None:
+    if current_user.organisation_id is None:
+        raise HTTPException(status_code=400, detail="No organisation on account.")
+    remove_team_member(
+        db,
+        org_id=current_user.organisation_id,
+        admin=current_user,
+        user_id=user_id,
+    )

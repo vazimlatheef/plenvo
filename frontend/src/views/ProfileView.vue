@@ -138,12 +138,26 @@
           <input
             v-model="form.overdue_email_enabled"
             type="checkbox"
-            :disabled="savingOverduePref"
+            :disabled="savingOverduePref || form.do_not_email"
             @change="saveOverduePref"
           />
           <span class="toggle-label">
             Email me when my tasks are overdue
             <span class="toggle-hint">One email per task when it first becomes overdue.</span>
+          </span>
+        </label>
+        <label class="toggle-row">
+          <input
+            v-model="form.do_not_email"
+            type="checkbox"
+            :disabled="savingAllEmailPref"
+            @change="saveAllEmailPref"
+          />
+          <span class="toggle-label">
+            Unsubscribe from all Plenvo emails
+            <span class="toggle-hint">
+              Stops training, overdue, trial, and product emails. Password resets still send when required.
+            </span>
           </span>
         </label>
         <p v-if="overduePrefError" class="error-line">{{ overduePrefError }}</p>
@@ -184,6 +198,7 @@ const loading = ref(true)
 const loadError = ref('')
 const saving = ref(false)
 const savingOverduePref = ref(false)
+const savingAllEmailPref = ref(false)
 const overduePrefError = ref('')
 const saveError = ref('')
 const saveSuccess = ref('')
@@ -209,6 +224,7 @@ const form = reactive({
   phone: '',
   linkedin_url: '',
   overdue_email_enabled: true,
+  do_not_email: false,
 })
 
 const errors = reactive({
@@ -279,6 +295,7 @@ function applyUser(u) {
   errors.phone = ''
   form.linkedin_url = u.linkedin_url || ''
   form.overdue_email_enabled = u.overdue_email_enabled !== false
+  form.do_not_email = !!u.do_not_email
 }
 
 function validateField(field) {
@@ -323,6 +340,25 @@ async function loadProfile() {
     loadError.value = err.message || 'Failed to load profile'
   } finally {
     loading.value = false
+  }
+}
+
+async function saveAllEmailPref() {
+  overduePrefError.value = ''
+  savingAllEmailPref.value = true
+  try {
+    const updated = await apiJson('/api/v1/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ do_not_email: form.do_not_email }),
+    })
+    applyUser(updated)
+    if (user.value) user.value = { ...user.value, ...updated }
+  } catch (err) {
+    console.error('[Profile] email pref save failed', err)
+    overduePrefError.value = err.message || 'Failed to save notification preference'
+    form.do_not_email = !form.do_not_email
+  } finally {
+    savingAllEmailPref.value = false
   }
 }
 

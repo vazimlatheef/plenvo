@@ -1,21 +1,36 @@
 <template>
   <div ref="root" class="dp" :class="{ 'dp--open': open, 'dp--disabled': disabled }">
-    <button
-      type="button"
-      class="dp-trigger"
-      :disabled="disabled"
-      :aria-expanded="open"
-      aria-haspopup="dialog"
-      @click="toggle"
-    >
-      <span :class="{ 'dp-placeholder': !displayValue }">{{ displayValue || placeholder }}</span>
-      <span class="dp-icon" aria-hidden="true">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <div class="dp-field">
+      <input
+        :id="inputId"
+        v-model="typedValue"
+        type="text"
+        class="dp-input"
+        :class="{ 'dp-input--placeholder': !typedValue }"
+        :disabled="disabled"
+        :placeholder="placeholder"
+        inputmode="numeric"
+        autocomplete="off"
+        aria-label="Due date"
+        @focus="onInputFocus"
+        @blur="commitTyped"
+        @keydown.enter.prevent="commitTyped"
+      />
+      <button
+        type="button"
+        class="dp-cal-btn"
+        :disabled="disabled"
+        :aria-expanded="open"
+        aria-haspopup="dialog"
+        aria-label="Open calendar"
+        @click="toggle"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.75" />
           <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
         </svg>
-      </span>
-    </button>
+      </button>
+    </div>
 
     <Teleport to="body">
       <div
@@ -77,6 +92,7 @@ const props = defineProps({
   modelValue: { type: String, default: '' },
   disabled: { type: Boolean, default: false },
   placeholder: { type: String, default: 'dd/mm/yyyy' },
+  inputId: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -107,7 +123,14 @@ const yearOptions = computed(() => {
   return years
 })
 
-const displayValue = computed(() => isoToDisplay(props.modelValue))
+const typedValue = ref(isoToDisplay(props.modelValue))
+
+watch(
+  () => props.modelValue,
+  (val) => {
+    typedValue.value = isoToDisplay(val)
+  },
+)
 
 const dayCells = computed(() => {
   const year = viewYear.value
@@ -173,6 +196,46 @@ function isoToDisplay(value) {
   return `${d}/${m}/${date.getFullYear()}`
 }
 
+function parseTypedDate(raw) {
+  const s = String(raw || '').trim()
+  if (!s) return ''
+  const iso = parseIso(s)
+  if (iso) return toIso(iso.getFullYear(), iso.getMonth(), iso.getDate())
+  const m = /^(\d{1,2})[/\-. ](\d{1,2})[/\-. ](\d{4})$/.exec(s)
+  if (!m) return null
+  const day = Number(m[1])
+  const month = Number(m[2])
+  const year = Number(m[3])
+  const date = new Date(year, month - 1, day)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null
+  }
+  return toIso(year, month - 1, day)
+}
+
+function commitTyped() {
+  const parsed = parseTypedDate(typedValue.value)
+  if (parsed === '') {
+    emit('update:modelValue', '')
+    typedValue.value = ''
+    return
+  }
+  if (!parsed) {
+    typedValue.value = isoToDisplay(props.modelValue)
+    return
+  }
+  emit('update:modelValue', parsed)
+  typedValue.value = isoToDisplay(parsed)
+}
+
+function onInputFocus() {
+  if (open.value) close()
+}
+
 function shiftMonth(delta) {
   let m = viewMonth.value + delta
   let y = viewYear.value
@@ -196,6 +259,7 @@ async function toggle() {
   open.value = true
   await nextTick()
   positionPanel()
+  requestAnimationFrame(() => positionPanel())
 }
 
 function close() {
@@ -225,21 +289,30 @@ function positionPanel() {
   const pop = panel.value
   if (!el || !pop) return
   const rect = el.getBoundingClientRect()
-  const popH = pop.offsetHeight || 320
-  const popW = Math.max(rect.width, 280)
-  const spaceBelow = window.innerHeight - rect.bottom
-  const openUp = spaceBelow < popH + 12 && rect.top > popH
-  const top = openUp ? rect.top - popH - 6 : rect.bottom + 6
+  const margin = 8
+  const gap = 6
+  const maxH = Math.max(180, window.innerHeight - margin * 2)
+  const naturalH = pop.scrollHeight || pop.offsetHeight || 320
+  const popH = Math.min(naturalH, maxH)
+  const popW = Math.min(Math.max(rect.width, 280), window.innerWidth - margin * 2)
+  const spaceBelow = window.innerHeight - rect.bottom - margin
+  const spaceAbove = rect.top - margin
+  const openUp = spaceBelow < popH + gap && spaceAbove > spaceBelow
+  let top = openUp ? rect.top - popH - gap : rect.bottom + gap
+  top = Math.min(Math.max(margin, top), window.innerHeight - popH - margin)
   let left = rect.left
-  if (left + popW > window.innerWidth - 8) {
-    left = Math.max(8, window.innerWidth - popW - 8)
+  if (left + popW > window.innerWidth - margin) {
+    left = window.innerWidth - popW - margin
   }
+  left = Math.max(margin, left)
   panelStyle.value = {
     position: 'fixed',
-    top: `${Math.max(8, top)}px`,
+    top: `${top}px`,
     left: `${left}px`,
     width: `${popW}px`,
-    zIndex: 1000,
+    maxHeight: `${popH}px`,
+    overflowY: naturalH > popH ? 'auto' : 'visible',
+    zIndex: 1200,
   }
 }
 
@@ -279,51 +352,63 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.dp-trigger {
+.dp-field {
   width: 100%;
   min-height: var(--control-height);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  padding: 0.65rem 0.9rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: var(--color-bg);
-  color: var(--color-text);
-  cursor: pointer;
-  text-align: left;
   box-sizing: border-box;
 }
 
-.dp-trigger:hover:not(:disabled) {
+.dp-field:hover {
   border-color: rgba(196, 163, 90, 0.45);
 }
 
-.dp-trigger:focus-visible {
-  outline: none;
+.dp--open .dp-field,
+.dp-field:focus-within {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 2px var(--color-accent-soft);
 }
 
-.dp-trigger:disabled {
+.dp--disabled .dp-field {
   opacity: 0.55;
-  cursor: not-allowed;
 }
 
-.dp-placeholder {
+.dp-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  padding: 0.65rem 0.5rem 0.65rem 0.9rem;
+  outline: none;
+}
+
+.dp-input--placeholder::placeholder {
   color: var(--color-text-muted);
 }
 
-.dp-icon {
-  color: var(--color-text-muted);
+.dp-cal-btn {
+  flex-shrink: 0;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 100%;
+  min-height: var(--control-height);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
 }
 
-.dp--open .dp-trigger {
-  border-color: var(--color-accent);
+.dp-cal-btn:disabled {
+  cursor: not-allowed;
 }
 </style>
 

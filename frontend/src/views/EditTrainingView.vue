@@ -30,7 +30,7 @@
           <span>YouTube video ID or URL</span>
           <input
             v-model="youtubeVideoId"
-            placeholder="youtube.com/watch?v=…"
+            placeholder="youtube.com/watch?v=… or youtube.com/shorts/…"
             :disabled="busy"
           />
         </label>
@@ -59,9 +59,8 @@ import { useRoute } from 'vue-router'
 
 import { apiJson } from '@/api/client'
 import PageHeader from '@/components/PageHeader.vue'
-import { extractYoutubeId } from '@/utils/youtube'
+import { resolveTrainingMedia } from '@/utils/trainingMedia'
 import { rememberLastTraining } from '@/utils/trainingCatalog'
-import { normalizeLinkUrl } from '@/utils/links'
 
 const route = useRoute()
 const trainingId = computed(() => route.params.trainingId)
@@ -102,20 +101,21 @@ async function load() {
 async function onSubmit() {
   error.value = ''
   savedOk.value = false
-  let yt = null
-  if (contentType.value === 'youtube') {
-    yt = extractYoutubeId(youtubeVideoId.value)
-    if (!yt) {
-      error.value = 'Enter a valid YouTube link or 11-character video ID.'
-      return
-    }
+  const media = resolveTrainingMedia({
+    contentType: contentType.value,
+    youtubeInput: youtubeVideoId.value,
+    externalInput: externalUrl.value,
+  })
+  if (media.error) {
+    error.value = media.error
+    return
   }
   const body = {
     title: title.value.trim(),
     description: description.value.trim() || null,
-    content_type: contentType.value,
-    external_url: contentType.value === 'external_link' ? normalizeLinkUrl(externalUrl.value) || null : null,
-    youtube_video_id: contentType.value === 'youtube' ? yt : null,
+    content_type: media.content_type,
+    external_url: media.external_url,
+    youtube_video_id: media.youtube_video_id,
   }
   busy.value = true
   try {
@@ -223,9 +223,9 @@ onMounted(load)
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
   font-size: 0.85rem;
-  color: #f0d0d0;
-  background: rgba(180, 60, 60, 0.2);
-  border: 1px solid rgba(180, 60, 60, 0.35);
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
 }
 
 .ok {

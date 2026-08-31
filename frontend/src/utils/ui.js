@@ -1,5 +1,17 @@
 /** Shared UI helpers for authenticated app views. */
 
+export const PRIORITY_OPTIONS = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'critical', label: 'Critical' },
+]
+
+export function normalizePriority(value) {
+  const key = String(value || '').trim().toLowerCase()
+  return PRIORITY_OPTIONS.some((p) => p.value === key) ? key : 'medium'
+}
+
 export const STATUS_OPTIONS = [
   { value: 'pending', label: 'To Do' },
   { value: 'in_progress', label: 'In Progress' },

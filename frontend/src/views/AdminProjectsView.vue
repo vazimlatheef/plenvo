@@ -33,11 +33,8 @@
 
     <ul v-else class="dense-list">
       <li v-for="project in projects" :key="project.id" class="dense-row project-row">
-        <span
-          class="avatar avatar--lg"
-          :class="`avatar-tone-${avatarTone(project.id || project.title)}`"
-        >
-          {{ getInitials(project.title) }}
+        <span class="project-mark" aria-hidden="true">
+          <FolderKanban :size="16" :stroke-width="1.75" />
         </span>
         <div class="dense-row__meta project-meta">
           <span class="dense-row__title">{{ project.title }}</span>
@@ -55,6 +52,16 @@
             @click="openEditModal(project)"
           >
             <Pencil :size="15" :stroke-width="1.75" />
+          </button>
+          <button
+            type="button"
+            class="row-icon-btn row-icon-btn--danger"
+            aria-label="Delete project"
+            :disabled="writeRestricted || deletingId === project.id"
+            :title="writeRestricted ? writeDisabledTitle : 'Delete project'"
+            @click="confirmDeleteProject(project)"
+          >
+            <Trash2 :size="15" :stroke-width="1.75" />
           </button>
           <RouterLink :to="`/app/projects/${project.id}/tasks`" class="btn-outline link-btn btn-with-icon">
             View tasks
@@ -145,7 +152,7 @@
 </template>
 
 <script setup>
-import { ArrowRight, Pencil, Plus, X } from '@lucide/vue'
+import { ArrowRight, FolderKanban, Pencil, Plus, Trash2, X } from '@lucide/vue'
 import { onMounted, ref } from 'vue'
 
 import { apiJson } from '@/api/client'
@@ -153,7 +160,6 @@ import LinksEditor from '@/components/LinksEditor.vue'
 import LinksList from '@/components/LinksList.vue'
 import { linksForApi } from '@/utils/links'
 import { useWriteAccess } from '@/composables/useWriteAccess'
-import { avatarTone, getInitials } from '@/utils/ui'
 
 const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 
@@ -170,6 +176,7 @@ const creating = ref(false)
 const savingEdit = ref(false)
 const createError = ref('')
 const editError = ref('')
+const deletingId = ref(null)
 
 function openCreateModal() {
   if (writeRestricted.value) return
@@ -268,12 +275,44 @@ function cancelCreate() {
   createError.value = ''
 }
 
+async function confirmDeleteProject(project) {
+  if (writeRestricted.value) return
+  const ok = window.confirm(
+    `Delete “${project.title}”? Tasks in this project stay in the workspace, unlinked from the project.`,
+  )
+  if (!ok) return
+  deletingId.value = project.id
+  error.value = ''
+  try {
+    await apiJson(`/api/v1/projects/${project.id}`, { method: 'DELETE' })
+    projects.value = projects.value.filter((p) => p.id !== project.id)
+  } catch (err) {
+    console.error('[AdminProjects] delete failed', err)
+    error.value = err.message || 'Failed to delete project'
+  } finally {
+    deletingId.value = null
+  }
+}
+
 onMounted(fetchProjects)
 </script>
 
 <style scoped>
 .project-row {
   grid-template-columns: 36px minmax(0, 1fr) auto auto;
+}
+
+.project-mark {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #14170f;
+  border: 1px solid rgba(196, 163, 90, 0.45);
+  color: #c4a35a;
+  flex-shrink: 0;
 }
 
 .project-row-actions {

@@ -85,6 +85,7 @@ import {
   taskAssigneeKey,
 } from '@/utils/assignee'
 import { STATUS_GROUPS } from '@/utils/ui'
+import { confirmDeleteTask, removeDeletedTask } from '@/utils/recurrence'
 
 const loading = ref(true)
 const error = ref('')
@@ -110,6 +111,7 @@ const modalInitial = ref({
   due_date: '',
   due_time: '',
   status: 'pending',
+  priority: 'medium',
 })
 
 const { viewMode } = useTaskViewMode('kanban')
@@ -167,7 +169,10 @@ function openEdit(task) {
     assignee_key: taskAssigneeKey(task),
     due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
     due_time: normalizeDueTime(task.due_time),
+    recurrence: task.recurrence || 'none',
+    series_id: task.series_id || null,
     status: task.status || 'pending',
+    priority: task.priority || 'medium',
   }
   formError.value = ''
   showModal.value = true
@@ -176,7 +181,7 @@ function openEdit(task) {
 function closeModal() {
   showModal.value = false
   editingTaskId.value = null
-  modalInitial.value = { title: '', description: '', links: [], assignee_key: null, due_date: '', due_time: '', status: 'pending' }
+  modalInitial.value = { title: '', description: '', links: [], assignee_key: null, due_date: '', due_time: '', status: 'pending', priority: 'medium' }
   formError.value = ''
 }
 
@@ -253,6 +258,7 @@ async function saveFromModal(payload) {
       description: payload.description,
       links: payload.links,
       status: payload.status || 'pending',
+      priority: payload.priority || 'medium',
       due_date: payload.due_date || null,
       due_time: payload.due_date && payload.due_time ? payload.due_time : null,
     }
@@ -288,13 +294,13 @@ async function saveFromModal(payload) {
 async function confirmDelete(task) {
   if (writeRestricted.value) return
   if (!canManageTasks.value) return
-  if (!window.confirm('Delete this task?')) return
+  if (!confirmDeleteTask(task)) return
 
   busyId.value = task.id
   error.value = ''
   try {
     await apiJson(`/api/v1/tasks/${task.id}`, { method: 'DELETE' })
-    tasks.value = tasks.value.filter((t) => t.id !== task.id)
+    tasks.value = removeDeletedTask(tasks.value, task)
   } catch (err) {
     console.error('[MyTasks] delete failed', err)
     error.value = err.message || 'Failed to delete task'

@@ -22,6 +22,7 @@ from app.services.mention_match import (
 )
 from app.services.due_times import parse_time_string, resolve_task_due_time
 from app.services.plan_limits import assert_can_add_team_members, bump_trial_peak_member_count
+from app.services.recurrence import expand_series, infer_recurrence, normalize_recurrence
 from app.services.relative_dates import resolve_task_due_date
 from app.services.timezones import today_in_timezone
 from app.services.workspace_context import build_workspace_snapshot
@@ -79,6 +80,7 @@ class ExtractedTask(BaseModel):
     project_name: str | None = None
     due_date: str | None = None
     due_time: str | None = None
+    recurrence: str | None = None
     priority: str = "medium"
     # Populated after conservative org directory match (null if none / ambiguous).
     assignee_id: int | None = None
@@ -195,6 +197,11 @@ def _resolve_extracted_tasks(
             description=task.description,
         )
         data["due_time"] = resolved_time if data["due_date"] else None
+        data["recurrence"] = infer_recurrence(
+            recurrence=task.recurrence,
+            title=task.title,
+            description=task.description,
+        )
 
         assignee_name = _normalize_person_name(task.assignee_name)
         data["assignee_name"] = assignee_name
@@ -264,12 +271,16 @@ Task object fields:
 - project_name (string or null)
 - due_date (string ISO YYYY-MM-DD or null)
 - due_time (string HH:MM 24-hour or null — use when a specific time is mentioned, e.g. standup at 9am → "09:00")
-- priority ("low" | "medium" | "high")
+- recurrence ("none" | "weekly" | "monthly")
+- priority ("low" | "medium" | "high" | "critical")
 
 Date rules:
 - Convert relative phrases using today: tomorrow, Thursday, next Monday, in 2 weeks, by Friday.
 - Never leave due_date null when a day/date is mentioned.
 - When a clock time is mentioned (9am, 14:30, at 6pm), set due_time in 24-hour HH:MM.
+- If they say weekly / every week / every Monday (or another weekday every week), set recurrence to "weekly" and due_date to the next matching weekday.
+- If they say monthly / every month, set recurrence to "monthly".
+- Recurring meetings are a series, not a single next occurrence.
 
 What to capture as tasks (do not skip):
 - Action items, meetings, calls, standups
@@ -583,21 +594,34 @@ def confirm_tasks(
             if not project or project.organisation_id != current_user.organisation_id:
                 raise HTTPException(status_code=404, detail="Project not found.")
 
-        task = Task(
-            title=t["title"],
-            description=t.get("description"),
-            assignee_id=assignee_id,
-            assignee_contact_id=assignee_contact_id,
-            due_date=_parse_due_date(t.get("due_date")),
-            due_time=_parse_due_time(t.get("due_time")),
-            priority=t.get("priority", "medium"),
-            project_id=project_id,
-            source="ai",
-            organisation_id=current_user.organisation_id,
-            created_by_id=current_user.id,
+        due_date = _parse_due_date(t.get("due_date"))
+        due_time = _parse_due_time(t.get("due_time"))
+        try:
+            rec_in = normalize_recurrence(t.get("recurrence"))
+        except ValueError:
+            rec_in = "none"
+        rec, series_id, dates = expand_series(
+            due_date,
+            infer_recurrence(recurrence=rec_in, title=t.get("title"), description=t.get("description")),
         )
-        db.add(task)
-        created_tasks.append(task)
+        for due in dates:
+            task = Task(
+                title=t["title"],
+                description=t.get("description"),
+                assignee_id=assignee_id,
+                assignee_contact_id=assignee_contact_id,
+                due_date=due,
+                due_time=due_time if due is not None else None,
+                recurrence=rec,
+                series_id=series_id,
+                priority=t.get("priority", "medium"),
+                project_id=project_id,
+                source="ai",
+                organisation_id=current_user.organisation_id,
+                created_by_id=current_user.id,
+            )
+            db.add(task)
+            created_tasks.append(task)
 
     db.commit()
     return {

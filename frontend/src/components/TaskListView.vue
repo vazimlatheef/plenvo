@@ -1,7 +1,6 @@
 <template>
   <div>
     <div class="dense-row dense-row--task dense-row--head" aria-hidden="true">
-      <span />
       <span class="dense-head-label">Task</span>
       <span class="dense-head-label">Assigned to</span>
       <span class="dense-head-label">Due</span>
@@ -20,13 +19,6 @@
           class="dense-row dense-row--task"
           :class="{ 'dense-row--flash': flashId === task.id }"
         >
-          <span
-            class="avatar"
-            :class="`avatar-tone-${avatarTone(assigneeSeed(task))}`"
-            :title="assigneeName(task)"
-          >
-            {{ getInitials(assigneeName(task)) }}
-          </span>
           <div class="dense-row__meta">
             <button
               v-if="canEdit"
@@ -44,7 +36,6 @@
             <LinksList :links="task.links" compact class="task-links" />
           </div>
           <div class="dense-row__assignee" :title="assigneeName(task)">
-            <UserRound class="dense-row__assignee-icon" :size="13" :stroke-width="1.75" />
             <span class="dense-row__assignee-name">{{ assigneeName(task) }}</span>
           </div>
           <span class="dense-row__due">
@@ -95,10 +86,10 @@
 </template>
 
 <script setup>
-import { Calendar, Pencil, Trash2, UserRound } from '@lucide/vue'
+import { Calendar, Pencil, Trash2 } from '@lucide/vue'
 
 import LinksList from '@/components/LinksList.vue'
-import { STATUS_OPTIONS, avatarTone, getInitials } from '@/utils/ui'
+import { STATUS_OPTIONS } from '@/utils/ui'
 import { formatTaskDue } from '@/utils/taskDue'
 import { isTaskOverdue } from '@/utils/taskInsights'
 

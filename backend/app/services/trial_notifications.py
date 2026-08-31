@@ -41,6 +41,7 @@ def check_and_send_trial_warning(db: Session, user: User) -> bool:
         days_left=days_left,
         project_count=project_count,
         task_count=task_count,
+        unsubscribe_token=user.email_unsubscribe_token,
     )
     if not sent:
         return False

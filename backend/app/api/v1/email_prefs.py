@@ -1,7 +1,7 @@
 """Email preference endpoints (unsubscribe)."""
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
@@ -10,6 +10,17 @@ from app.models.models import User
 router = APIRouter(prefix="/api/v1/email", tags=["email"])
 
 _FOOTER = "Plenvo — Project and task management for professionals"
+_SUCCESS_TITLE = "You're unsubscribed"
+_SUCCESS_BODY = (
+    "You will no longer receive non-essential Plenvo emails at this address. "
+    "Security messages such as password resets may still be sent when required. "
+    "You can change this anytime in Profile → Notifications."
+)
+_INVALID_TITLE = "Link not valid"
+_INVALID_BODY = (
+    "This unsubscribe link is invalid or has already expired. "
+    "If you continue to receive emails you do not want, contact hi@plenvo.io."
+)
 
 
 def _page(title: str, body: str, status_code: int = 200) -> HTMLResponse:
@@ -40,26 +51,28 @@ def _page(title: str, body: str, status_code: int = 200) -> HTMLResponse:
 @router.get("/unsubscribe")
 def unsubscribe_email(
     token: str = Query(..., min_length=8, max_length=128),
+    format: str = Query("html"),
     db: Session = Depends(get_db),
 ):
-    """Opt out of non-critical Plenvo emails (welcome / marketing)."""
+    """Opt out of non-critical Plenvo emails (welcome / product / training / overdue)."""
+    want_json = (format or "").strip().lower() == "json"
     user = (
         db.query(User)
         .filter(User.email_unsubscribe_token == token.strip())
         .first()
     )
     if user is None:
-        return _page(
-            "Link not valid",
-            "This unsubscribe link is invalid or has already expired. If you continue to receive emails you do not want, contact hi@plenvo.io.",
-            status_code=400,
-        )
+        if want_json:
+            return JSONResponse(
+                {"ok": False, "title": _INVALID_TITLE, "body": _INVALID_BODY},
+                status_code=400,
+            )
+        return _page(_INVALID_TITLE, _INVALID_BODY, status_code=400)
 
     if not user.do_not_email:
         user.do_not_email = True
         db.commit()
 
-    return _page(
-        "Email preferences updated",
-        "You will no longer receive non-essential Plenvo emails at this address. Security messages such as password resets may still be sent when required.",
-    )
+    if want_json:
+        return {"ok": True, "title": _SUCCESS_TITLE, "body": _SUCCESS_BODY}
+    return _page(_SUCCESS_TITLE, _SUCCESS_BODY)

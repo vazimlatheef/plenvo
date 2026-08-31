@@ -272,8 +272,8 @@ watch(trainingId, load)
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
   font-size: 0.85rem;
-  color: #f0d0d0;
-  background: rgba(180, 60, 60, 0.2);
-  border: 1px solid rgba(180, 60, 60, 0.35);
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
 }
 </style>

@@ -72,8 +72,8 @@
         <p class="app-lede">
           Prices shown in {{ currencyLabel }}.
           <template v-if="account.on_trial && !account.has_paid_subscription">
-            Upgrade anytime during your trial — limits update immediately, no charge and no card required until trial ends.
-            Downgrades are not available during trial.
+            Subscribe now on your current plan to pay immediately via Stripe — you do not have to wait until the trial ends.
+            You can also switch to a higher trial plan without a card; limits update immediately. Downgrades are not available during trial.
           </template>
           <template v-else-if="account.restricted">
             Subscribe to restore full create and edit access for your {{ account.project_count }} projects and
@@ -101,8 +101,8 @@
             <button
               v-if="account.can_manage_billing"
               type="button"
-              :class="isCurrentPlan(plan.id) ? 'btn-outline' : 'btn-primary'"
-              :disabled="checkoutBusy || isCurrentPlan(plan.id) || !plan.checkout_ready || isPlanSwitchBlocked(plan.id)"
+              :class="canSubscribeNow(plan.id) || !isCurrentPlan(plan.id) ? 'btn-primary' : 'btn-outline'"
+              :disabled="isPlanButtonDisabled(plan.id)"
               :title="planSwitchBlockedTitle(plan.id) || (!plan.checkout_ready ? 'Stripe Price ID not configured' : undefined)"
               @click="startCheckout(plan.id)"
             >
@@ -199,6 +199,11 @@ function formatDate(iso) {
   }
 }
 
+function canSubscribeNow(planId) {
+  const a = account.value
+  return !!(a?.on_trial && !a?.has_paid_subscription && a.plan_tier === planId)
+}
+
 function isCurrentPlan(planId) {
   const a = account.value
   if (!a || a.plan_tier !== planId) return false
@@ -210,6 +215,7 @@ function isCurrentPlan(planId) {
 }
 
 function planCta(planId) {
+  if (canSubscribeNow(planId)) return 'Subscribe now'
   if (isCurrentPlan(planId)) return 'Current plan'
   const a = account.value
   if (isTrialDowngrade(planId)) return 'Upgrade only during trial'
@@ -238,6 +244,15 @@ function isBelowMinimumTier(planId) {
 
 function isPlanSwitchBlocked(planId) {
   return isTrialDowngrade(planId) || isBelowMinimumTier(planId)
+}
+
+function isPlanButtonDisabled(planId) {
+  if (checkoutBusy.value) return true
+  const plan = account.value?.plans?.find((p) => p.id === planId)
+  if (plan && !plan.checkout_ready) return true
+  if (isPlanSwitchBlocked(planId)) return true
+  if (isCurrentPlan(planId) && !canSubscribeNow(planId)) return true
+  return false
 }
 
 function planSwitchBlockedTitle(planId) {
@@ -269,7 +284,10 @@ async function startCheckout(planId) {
   try {
     const result = await apiJson('/api/v1/billing/create-checkout-session', {
       method: 'POST',
-      body: JSON.stringify({ plan: planId }),
+      body: JSON.stringify({
+        plan: planId,
+        subscribe: canSubscribeNow(planId),
+      }),
     })
     if (result?.url) {
       window.location.assign(result.url)

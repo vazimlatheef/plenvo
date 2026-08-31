@@ -17,6 +17,7 @@ from app.services.email import (
     send_invite_email,
 )
 from app.services.plan_limits import assert_can_add_team_members, bump_trial_peak_member_count
+from app.services.team_members import remove_team_member
 
 router = APIRouter(prefix="/api/v1/contacts", tags=["contacts"])
 
@@ -153,11 +154,7 @@ def delete_contact(
     current_user: User = Depends(require_admin_full_write_access),
 ):
     org_id = _require_org(current_user)
-    contact = db.query(Contact).filter(Contact.id == contact_id).first()
-    if not contact or contact.organisation_id != org_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
-    db.delete(contact)
-    db.commit()
+    remove_team_member(db, org_id=org_id, admin=current_user, contact_id=contact_id)
     return None
 
 

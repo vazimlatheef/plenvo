@@ -5,6 +5,18 @@ from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from app.schemas.link import LinkItem
 from app.services.due_times import parse_time_string
+from app.services.recurrence import normalize_recurrence
+
+ALLOWED_PRIORITIES = frozenset({"low", "medium", "high", "critical"})
+
+
+def _coerce_priority(value: str | None, *, default: str | None = "medium") -> str | None:
+    if value is None or value == "":
+        return default
+    key = str(value).strip().lower()
+    if key not in ALLOWED_PRIORITIES:
+        raise ValueError("Priority must be low, medium, high, or critical.")
+    return key
 
 
 def _coerce_time(value) -> time | None:
@@ -23,6 +35,7 @@ class TaskCreate(BaseModel):
     priority: Optional[str] = "medium"
     due_date: Optional[date] = None
     due_time: Optional[time] = None
+    recurrence: Optional[str] = "none"
     project_id: Optional[int] = None
     assignee_id: Optional[int] = None
     assignee_contact_id: Optional[int] = None
@@ -32,12 +45,24 @@ class TaskCreate(BaseModel):
     def _validate_due_time(cls, value):
         return _coerce_time(value)
 
+    @field_validator("priority", mode="before")
+    @classmethod
+    def _validate_priority(cls, value):
+        return _coerce_priority(value, default="medium")
+
+    @field_validator("recurrence", mode="before")
+    @classmethod
+    def _validate_recurrence(cls, value):
+        return normalize_recurrence(value)
+
     @model_validator(mode="after")
     def _assignee_and_due(self):
         if self.assignee_id is not None and self.assignee_contact_id is not None:
             raise ValueError("Provide either assignee_id or assignee_contact_id, not both.")
         if self.due_time is not None and self.due_date is None:
             raise ValueError("due_time requires due_date.")
+        if self.recurrence not in (None, "none") and self.due_date is None:
+            raise ValueError("Repeating tasks need a due date for the first occurrence.")
         return self
 
 
@@ -60,6 +85,11 @@ class TaskUpdate(BaseModel):
     def _validate_due_time(cls, value):
         return _coerce_time(value)
 
+    @field_validator("priority", mode="before")
+    @classmethod
+    def _validate_priority(cls, value):
+        return _coerce_priority(value, default=None)
+
     @model_validator(mode="after")
     def _assignee_and_due(self):
         if self.assignee_id is not None and self.assignee_contact_id is not None:
@@ -80,6 +110,8 @@ class TaskResponse(BaseModel):
     priority: str
     due_date: Optional[date]
     due_time: Optional[time] = None
+    recurrence: str = "none"
+    series_id: Optional[str] = None
     project_id: Optional[int]
     assignee_id: Optional[int]
     assignee_contact_id: Optional[int] = None

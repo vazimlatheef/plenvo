@@ -200,11 +200,21 @@
               <span class="ai-hint ai-hint--empty" aria-hidden="true">&nbsp;</span>
             </div>
             <div class="field field--flush">
+              <label>Repeat</label>
+              <select v-model="task.recurrence" :disabled="!task.due_date">
+                <option value="none">Does not repeat</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+              <span class="ai-hint ai-hint--empty" aria-hidden="true">&nbsp;</span>
+            </div>
+            <div class="field field--flush">
               <label>Priority</label>
               <select v-model="task.priority">
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
+                <option value="critical">Critical</option>
               </select>
               <span class="ai-hint ai-hint--empty" aria-hidden="true">&nbsp;</span>
             </div>
@@ -575,6 +585,7 @@ async function parseNote() {
         create_contact_name:
           suggestedContact && !matchedAssignee && canAddMembers.value ? suggestedContact : null,
         due_time: normalizeDueTime(t.due_time),
+        recurrence: t.recurrence === 'weekly' || t.recurrence === 'monthly' ? t.recurrence : 'none',
       }
     })
     if (extractedTasks.value.length > 0) {
@@ -620,6 +631,7 @@ async function confirmTasks() {
         create_contact_name: createContact,
         due_date: t.due_date || null,
         due_time: t.due_date && t.due_time ? t.due_time : null,
+        recurrence: t.due_date ? t.recurrence || 'none' : 'none',
         priority: t.priority,
         project_id: createTitle ? null : t.project_id ?? form.value.project_id ?? null,
         create_project_title: createTitle,

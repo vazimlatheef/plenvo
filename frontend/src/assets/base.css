@@ -346,7 +346,7 @@ select.status-pill {
 }
 
 .dense-row--task {
-  grid-template-columns: 28px minmax(0, 1.35fr) minmax(7.5rem, 0.85fr) auto auto auto;
+  grid-template-columns: minmax(0, 1.35fr) minmax(7.5rem, 0.85fr) auto auto auto;
 }
 
 .dense-row--head {
@@ -566,9 +566,16 @@ button.dense-row__title:hover {
   font-size: 0.9rem;
 }
 
-.error-line {
-  color: var(--color-danger);
+.error-line,
+.notice-line {
+  color: var(--color-text-muted);
   font-size: 0.9rem;
+}
+
+.notice-line a,
+.error-line a {
+  color: var(--color-accent);
+  font-weight: 600;
 }
 
 .modal-overlay {
@@ -662,7 +669,7 @@ button.dense-row__title:hover {
   }
 
   .dense-row--task {
-    grid-template-columns: 28px minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
   }
 
   .dense-row--head,

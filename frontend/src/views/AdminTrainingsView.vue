@@ -100,6 +100,15 @@
           >
             Edit
           </RouterLink>
+          <button
+            type="button"
+            class="btn-ghost-sm btn-ghost-sm--danger"
+            :disabled="writeRestricted || deletingId === training.id"
+            :title="writeRestricted ? writeDisabledTitle : 'Delete training'"
+            @click="confirmDeleteTraining(training)"
+          >
+            Delete
+          </button>
         </div>
       </li>
     </ul>
@@ -119,6 +128,7 @@ const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 const trainings = ref([])
 const loading = ref(true)
 const error = ref('')
+const deletingId = ref(null)
 
 function contentLabel(type) {
   if (type === 'youtube') return 'YouTube'
@@ -138,6 +148,23 @@ async function loadTrainings() {
     error.value = err.message || 'Failed to load trainings'
   } finally {
     loading.value = false
+  }
+}
+
+async function confirmDeleteTraining(training) {
+  if (writeRestricted.value) return
+  const ok = window.confirm(`Delete “${training.title}”? Assignments for this training are removed.`)
+  if (!ok) return
+  deletingId.value = training.id
+  error.value = ''
+  try {
+    await apiJson(`/api/v1/trainings/${training.id}`, { method: 'DELETE' })
+    trainings.value = trainings.value.filter((t) => t.id !== training.id)
+  } catch (err) {
+    console.error('[TrainingsList] delete failed', err)
+    error.value = err.message || 'Failed to delete training'
+  } finally {
+    deletingId.value = null
   }
 }
 
@@ -211,6 +238,10 @@ onMounted(loadTrainings)
 
 .btn-ghost-sm:hover {
   color: var(--color-accent);
+}
+
+.btn-ghost-sm--danger:hover {
+  color: var(--color-text);
 }
 
 @media (max-width: 720px) {

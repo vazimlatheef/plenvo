@@ -2,7 +2,11 @@
   <div class="app-page">
     <div class="app-page-header">
       <h1>Team</h1>
+      <RouterLink v-if="isPersonalPlan" to="/app/account" class="btn-primary">
+        Upgrade to Team
+      </RouterLink>
       <button
+        v-else
         type="button"
         class="btn-primary"
         :disabled="!canAddMembers || writeRestricted"
@@ -14,9 +18,9 @@
       </button>
     </div>
 
-    <p v-if="teamLimits.limit_message && !canAddMembers" class="error-line">
+    <p v-if="!isPersonalPlan && teamLimits.limit_message && !canAddMembers" class="notice-line">
       {{ teamLimits.limit_message }}
-      <RouterLink to="/app/account" class="inline-upgrade">Open Account</RouterLink>
+      <RouterLink to="/app/account">Upgrade →</RouterLink>
     </p>
 
     <div class="team-tabs" role="tablist" aria-label="Team sections">
@@ -54,14 +58,21 @@
       <p v-else-if="error" class="error-line">{{ error }}</p>
 
       <div v-else-if="rows.length === 0" class="empty-panel">
-        <p>No team members yet — add someone with name and email (no account needed)</p>
-        <button type="button" class="btn-primary" :disabled="!canAddMembers || writeRestricted" :title="writeRestricted ? writeDisabledTitle : undefined" @click="openAddModal">
-          <Plus :size="16" :stroke-width="2" />
-          Add team member
-        </button>
-        <p v-if="!canAddMembers && teamLimits.limit_message" class="error-line" style="margin-top: 0.75rem">
-          {{ teamLimits.limit_message }}
-        </p>
+        <template v-if="isPersonalPlan">
+          <p>Personal is for one person. Upgrade to Team to add members.</p>
+          <RouterLink to="/app/account" class="btn-primary">Upgrade to Team</RouterLink>
+        </template>
+        <template v-else>
+          <p>Add someone with a name and email — no account needed.</p>
+          <button type="button" class="btn-primary" :disabled="!canAddMembers || writeRestricted" :title="writeRestricted ? writeDisabledTitle : undefined" @click="openAddModal">
+            <Plus :size="16" :stroke-width="2" />
+            Add team member
+          </button>
+          <p v-if="!canAddMembers && teamLimits.limit_message" class="notice-line" style="margin-top: 0.75rem">
+            {{ teamLimits.limit_message }}
+            <RouterLink to="/app/account">Upgrade →</RouterLink>
+          </p>
+        </template>
       </div>
 
       <ul v-else class="dense-list">
@@ -98,12 +109,23 @@
             >
               <Pencil :size="14" :stroke-width="1.75" />
             </button>
+            <button
+              v-if="canDeleteRow(row)"
+              type="button"
+              class="row-icon-btn row-icon-btn--danger"
+              aria-label="Remove member"
+              :disabled="writeRestricted || deletingId === row.key"
+              :title="writeRestricted ? writeDisabledTitle : 'Remove from team'"
+              @click="confirmDeleteMember(row)"
+            >
+              <Trash2 :size="14" :stroke-width="1.75" />
+            </button>
             <span class="dense-row__due">{{ row.meta }}</span>
           </div>
         </li>
       </ul>
 
-      <p v-if="actionError" class="error-line">{{ actionError }}</p>
+      <p v-if="actionError" class="notice-line">{{ actionError }}</p>
       <p v-if="actionSuccess" class="success-line">{{ actionSuccess }}</p>
     </template>
 
@@ -298,7 +320,7 @@
             />
             <span v-if="editLinkedInError" class="error-line" style="margin-top: 0.25rem">{{ editLinkedInError }}</span>
           </label>
-          <p v-if="editFormError" class="error-line">{{ editFormError }}</p>
+          <p v-if="editFormError" class="notice-line">{{ editFormError }}</p>
           <div class="modal-actions">
             <button type="button" class="btn-outline" :disabled="savingEdit" @click="cancelEdit">Cancel</button>
             <button type="submit" class="btn-primary" :disabled="savingEdit || !!editLinkedInError">
@@ -355,8 +377,11 @@
             />
             <span v-if="formLinkedInError" class="error-line" style="margin-top: 0.25rem">{{ formLinkedInError }}</span>
           </label>
-          <p v-if="formError" class="error-line">{{ formError }}</p>
-          <p v-if="!canAddMembers && teamLimits.limit_message" class="error-line">{{ teamLimits.limit_message }}</p>
+          <p v-if="formError" class="notice-line">{{ formError }}</p>
+          <p v-if="!canAddMembers && teamLimits.limit_message" class="notice-line">
+            {{ teamLimits.limit_message }}
+            <RouterLink to="/app/account">Upgrade →</RouterLink>
+          </p>
           <div class="modal-actions">
             <button type="button" class="btn-outline" :disabled="saving" @click="cancelAdd">Cancel</button>
             <button
@@ -398,7 +423,7 @@
 </template>
 
 <script setup>
-import { Plus, Pencil, X } from '@lucide/vue'
+import { Plus, Pencil, Trash2, X } from '@lucide/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { apiJson } from '@/api/client'
@@ -442,6 +467,7 @@ const loading = ref(true)
 const error = ref('')
 const actionError = ref('')
 const actionSuccess = ref('')
+const deletingId = ref('')
 const teamLimits = ref({
   can_add_members: true,
   limit_message: null,
@@ -497,6 +523,7 @@ const editLinkedInError = computed(() => {
 })
 
 const canAddMembers = computed(() => teamLimits.value?.can_add_members !== false)
+const isPersonalPlan = computed(() => (teamLimits.value?.plan_tier || '').toLowerCase() === 'personal')
 
 const canWorkload = computed(() => canUseWorkloadView(teamLimits.value))
 const canPerformance = computed(() => canUsePerformanceView(teamLimits.value))
@@ -532,6 +559,7 @@ const rows = computed(() => {
       teamDivision: c.team_division || '',
       company: c.company || '',
       hasAccount: !!c.user_id,
+      userId: c.user_id || null,
       meta: c.user_id
         ? c.invited_at
           ? `Invited ${formatDate(c.invited_at)}`
@@ -546,6 +574,7 @@ const rows = computed(() => {
     list.push({
       key: `u-${emp.id}`,
       contactId: null,
+      userId: emp.id,
       seed: emp.id || emp.email,
       name: emp.full_name || emp.email,
       email: emp.email,
@@ -673,6 +702,39 @@ function cancelEdit() {
   showEditModal.value = false
   editingContactId.value = null
   editFormError.value = ''
+}
+
+function canDeleteRow(row) {
+  if (!row) return false
+  if (row.userId && row.userId === user.value?.id) return false
+  return !!(row.contactId || row.userId)
+}
+
+async function confirmDeleteMember(row) {
+  if (writeRestricted.value || !canDeleteRow(row)) return
+  const ok = window.confirm(
+    `Remove ${row.name} from the team? Assigned tasks stay in the workspace, unassigned from this person.`,
+  )
+  if (!ok) return
+  deletingId.value = row.key
+  actionError.value = ''
+  try {
+    if (row.contactId) {
+      await apiJson(`/api/v1/contacts/${row.contactId}`, { method: 'DELETE' })
+    } else if (row.userId) {
+      await apiJson(`/api/v1/users/${row.userId}`, { method: 'DELETE' })
+    }
+    await Promise.all([loadTeam(), loadTeamLimits()])
+    actionSuccess.value = `Removed ${row.name}`
+    setTimeout(() => {
+      actionSuccess.value = ''
+    }, 2500)
+  } catch (err) {
+    console.error('[AdminTeam] delete member failed', err)
+    actionError.value = err.message || 'Failed to remove team member'
+  } finally {
+    deletingId.value = ''
+  }
 }
 
 async function saveContactEdit() {
@@ -1053,9 +1115,10 @@ onMounted(async () => {
   border: 1px solid var(--color-border);
 }
 
-.priority-pill[data-p='high'] {
-  color: #f87171;
-  border-color: rgba(248, 113, 113, 0.35);
+.priority-pill[data-p='high'],
+.priority-pill[data-p='critical'] {
+  color: var(--color-accent);
+  border-color: rgba(196, 163, 90, 0.35);
 }
 
 .priority-pill[data-p='medium'] {

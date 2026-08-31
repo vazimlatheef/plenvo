@@ -84,9 +84,12 @@ def create_checkout_session(
     org: Organisation,
     admin: User,
     plan: str,
+    subscribe: bool = False,
 ) -> dict:
     """Start Checkout for a new subscription, or switch price on an existing one.
 
+    During an unpaid trial, ``subscribe=False`` updates the trial plan locally
+    (no card). ``subscribe=True`` opens Stripe Checkout immediately.
     Returns ``{"url": "..."}`` for Checkout redirect, or ``{"updated": True}`` when
     an existing subscription was modified in place.
     """
@@ -106,14 +109,18 @@ def create_checkout_session(
     has_paid = _has_active_paid_subscription(org)
     on_trial = is_on_trial(org)
 
-    # Active trial without a paid Stripe sub: upgrade plan locally (limits update immediately).
-    if on_trial and not has_paid:
+    # Active trial without a paid Stripe sub: upgrade plan locally unless they
+    # explicitly chose Subscribe now (card / Checkout).
+    if on_trial and not has_paid and not subscribe:
         assert_trial_plan_upgrade_only(org, tier)
         org.plan_tier = tier
         db.add(org)
         db.commit()
         db.refresh(org)
         return {"updated": True, "plan_tier": tier, "on_trial": True}
+
+    if on_trial and not has_paid and subscribe:
+        assert_trial_plan_upgrade_only(org, tier)
 
     assert_checkout_meets_minimum_tier(db, org, tier)
 

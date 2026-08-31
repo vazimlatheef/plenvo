@@ -71,7 +71,16 @@
         <ListTodo class="nav-icon" :size="18" :stroke-width="1.75" />
         <span>New Task</span>
       </div>
-      <RouterLink to="/app/team" class="nav-item nav-item--action" @click="closeMobile">
+      <RouterLink
+        v-if="isPersonalPlan"
+        to="/app/account"
+        class="nav-item nav-item--action nav-item--locked"
+        @click="closeMobile"
+      >
+        <UserPlus class="nav-icon" :size="18" :stroke-width="1.75" />
+        <span>Add Team Member</span>
+      </RouterLink>
+      <RouterLink v-else to="/app/team" class="nav-item nav-item--action" @click="closeMobile">
         <UserPlus class="nav-icon" :size="18" :stroke-width="1.75" />
         <span>Add Team Member</span>
       </RouterLink>

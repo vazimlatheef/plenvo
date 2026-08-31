@@ -1,7 +1,7 @@
 import { isTimedTaskOverdue } from '@/utils/taskDue'
 import { effectiveTimezone } from '@/utils/timezone'
 
-const PRIORITY_RANK = { high: 0, medium: 1, low: 2 }
+const PRIORITY_RANK = { critical: 0, high: 1, medium: 2, low: 3 }
 
 export function startOfToday() {
   const d = new Date()

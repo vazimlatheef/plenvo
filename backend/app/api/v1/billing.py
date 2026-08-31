@@ -26,6 +26,7 @@ router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
 
 class CheckoutRequest(BaseModel):
     plan: str = Field(..., min_length=3, max_length=32)
+    subscribe: bool = False
 
 
 def _org_for_user(db: Session, user: User) -> Organisation:
@@ -62,7 +63,9 @@ def post_create_checkout_session(
     db: Session = Depends(get_db),
 ):
     org = _org_for_user(db, current_user)
-    return create_checkout_session(db, org=org, admin=current_user, plan=payload.plan)
+    return create_checkout_session(
+        db, org=org, admin=current_user, plan=payload.plan, subscribe=payload.subscribe
+    )
 
 
 @router.post("/cancel-subscription")

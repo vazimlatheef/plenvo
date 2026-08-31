@@ -8,6 +8,7 @@ from app.api.deps import get_current_user, get_db, require_admin_full_write_acce
 from app.models.models import Contact, Project, Task, User
 from app.schemas.link import normalize_links
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
+from app.services.recurrence import expand_series
 
 router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
 
@@ -59,24 +60,31 @@ def create_task(
         if contact.user_id:
             assignee_id = contact.user_id
 
-    task = Task(
-        title=task_in.title,
-        description=task_in.description,
-        links=normalize_links([l.model_dump() for l in task_in.links] if task_in.links else None),
-        status=task_in.status or "pending",
-        priority=task_in.priority or "medium",
-        due_date=task_in.due_date,
-        due_time=task_in.due_time,
-        project_id=task_in.project_id,
-        assignee_id=assignee_id,
-        assignee_contact_id=assignee_contact_id,
-        organisation_id=org_id,
-        created_by_id=current_user.id,
-    )
-    db.add(task)
+    rec, series_id, dates = expand_series(task_in.due_date, task_in.recurrence)
+    first = None
+    for due in dates:
+        task = Task(
+            title=task_in.title,
+            description=task_in.description,
+            links=normalize_links([l.model_dump() for l in task_in.links] if task_in.links else None),
+            status=task_in.status or "pending",
+            priority=task_in.priority or "medium",
+            due_date=due,
+            due_time=task_in.due_time if due is not None else None,
+            recurrence=rec,
+            series_id=series_id,
+            project_id=task_in.project_id,
+            assignee_id=assignee_id,
+            assignee_contact_id=assignee_contact_id,
+            organisation_id=org_id,
+            created_by_id=current_user.id,
+        )
+        db.add(task)
+        if first is None:
+            first = task
     db.commit()
-    db.refresh(task)
-    return task
+    db.refresh(first)
+    return first
 
 
 @router.get("", response_model=List[TaskResponse])
@@ -205,6 +213,12 @@ def delete_task(
     if current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can delete tasks")
 
-    db.delete(task)
+    if task.series_id:
+        db.query(Task).filter(
+            Task.organisation_id == org_id,
+            Task.series_id == task.series_id,
+        ).delete(synchronize_session=False)
+    else:
+        db.delete(task)
     db.commit()
     return None

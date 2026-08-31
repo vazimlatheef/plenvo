@@ -183,12 +183,19 @@
     <section class="section">
       <div class="section-header">
         <h2>Team</h2>
-        <RouterLink to="/app/team" class="link-button">
+        <RouterLink v-if="isPersonalPlan" to="/app/account" class="link-button">
+          Upgrade to Team
+          <ArrowRight :size="14" :stroke-width="1.75" />
+        </RouterLink>
+        <RouterLink v-else to="/app/team" class="link-button">
           Manage team
           <ArrowRight :size="14" :stroke-width="1.75" />
         </RouterLink>
       </div>
       <div v-if="loadingTeam" class="loading-state">Loading team…</div>
+      <div v-else-if="isPersonalPlan" class="empty-state">
+        <p>Personal is for one person. Upgrade to Team to add members.</p>
+      </div>
       <div v-else-if="recentEmployees.length === 0" class="empty-state">
         <p>No team members yet. <RouterLink to="/app/team">Add your first team member</RouterLink></p>
       </div>
@@ -238,7 +245,6 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { apiJson } from '@/api/client'
 import TaskEditModal from '@/components/TaskEditModal.vue'
-import { getToken } from '@/services/auth'
 import { user } from '@/composables/session'
 import { useWriteAccess } from '@/composables/useWriteAccess'
 import {
@@ -248,12 +254,13 @@ import {
 } from '@/utils/assignee'
 import { focusTasksForUser, isTaskOverdue } from '@/utils/taskInsights'
 import { formatTaskDue, normalizeDueTime } from '@/utils/taskDue'
-import axios from 'axios'
+import { confirmDeleteTask, removeDeletedTask } from '@/utils/recurrence'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const router = useRouter()
 const route = useRoute()
 const { writeRestricted, writeDisabledTitle } = useWriteAccess()
+const planTier = ref(null)
+const isPersonalPlan = computed(() => (planTier.value || '').toLowerCase() === 'personal')
 const aiQuery = ref('')
 const busyTaskId = ref(null)
 const showTaskModal = ref(false)
@@ -268,7 +275,10 @@ const taskModalInitial = ref({
   assignee_key: null,
   due_date: '',
   due_time: '',
+  recurrence: 'none',
+  series_id: null,
   status: 'pending',
+  priority: 'medium',
   project_id: null,
 })
 
@@ -350,22 +360,25 @@ function submitAiQuery() {
 }
 
 function priorityIcon(priority) {
-  if (priority === 'high') return ArrowUp
+  if (priority === 'critical' || priority === 'high') return ArrowUp
   if (priority === 'low') return ArrowDown
   return Minus
 }
 
 async function fetchDashboardData() {
-  const token = getToken()
+  try {
+    const limits = await apiJson('/api/v1/organisations/me/team-limits')
+    planTier.value = limits?.plan_tier || null
+  } catch {
+    planTier.value = null
+  }
 
   try {
-    const projectsRes = await axios.get(`${API_URL}/api/v1/projects`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    const projects = projectsRes.data
-    stats.value.projects = projects.length
-    recentProjects.value = projects.slice(0, 3)
-    dashboardProjects.value = projects
+    const projects = await apiJson('/api/v1/projects')
+    const list = Array.isArray(projects) ? projects : []
+    stats.value.projects = list.length
+    recentProjects.value = list.slice(0, 3)
+    dashboardProjects.value = list
   } catch (err) {
     console.error('Failed to load projects:', err)
   } finally {
@@ -373,19 +386,12 @@ async function fetchDashboardData() {
   }
 
   try {
-    const tasksRes = await axios.get(`${API_URL}/api/v1/tasks`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    const tasks = tasksRes.data
-    allTasks.value = tasks
-    stats.value.tasks = tasks.length
-    const now = new Date()
-    overdueTasks.value = tasks
-      .filter((t) => isTaskOverdue(t))
-      .slice(0, 5)
-    stats.value.overdue = tasks.filter(
-      (t) => isTaskOverdue(t),
-    ).length
+    const tasks = await apiJson('/api/v1/tasks')
+    const list = Array.isArray(tasks) ? tasks : []
+    allTasks.value = list
+    stats.value.tasks = list.length
+    overdueTasks.value = list.filter((t) => isTaskOverdue(t)).slice(0, 5)
+    stats.value.overdue = list.filter((t) => isTaskOverdue(t)).length
   } catch (err) {
     console.error('Failed to load tasks:', err)
   } finally {
@@ -393,18 +399,12 @@ async function fetchDashboardData() {
   }
 
   try {
-    const [employeesRes, contactsRes] = await Promise.all([
-      axios.get(`${API_URL}/api/v1/users?role=employee`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-      axios
-        .get(`${API_URL}/api/v1/contacts`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        .catch(() => ({ data: [] })),
+    const [employeeList, contactList] = await Promise.all([
+      apiJson('/api/v1/users?role=employee').catch(() => []),
+      apiJson('/api/v1/contacts').catch(() => []),
     ])
-    employees.value = employeesRes.data
-    contacts.value = Array.isArray(contactsRes.data) ? contactsRes.data : []
+    employees.value = Array.isArray(employeeList) ? employeeList : []
+    contacts.value = Array.isArray(contactList) ? contactList : []
     const contactEmails = new Set(contacts.value.map((c) => (c.email || '').toLowerCase()))
     const preview = [
       ...contacts.value.map((c) => ({
@@ -453,8 +453,11 @@ function openCreateTask() {
     links: [],
     assignee_key: user.value?.id ? `user:${user.value.id}` : null,
     due_date: '',
-  due_time: '',
+    due_time: '',
+    recurrence: 'none',
+    series_id: null,
     status: 'pending',
+    priority: 'medium',
     project_id: null,
   }
   taskFormError.value = ''
@@ -472,7 +475,10 @@ function openEditTask(task) {
     assignee_key: taskAssigneeKey(task),
     due_date: task.due_date ? String(task.due_date).slice(0, 10) : '',
     due_time: normalizeDueTime(task.due_time),
+    recurrence: task.recurrence || 'none',
+    series_id: task.series_id || null,
     status: task.status || 'pending',
+    priority: task.priority || 'medium',
     project_id: task.project_id ?? null,
   }
   taskFormError.value = ''
@@ -506,9 +512,13 @@ async function saveTaskFromModal(payload) {
       description: payload.description,
       links: payload.links,
       status: payload.status || 'pending',
+      priority: payload.priority || 'medium',
       due_date: payload.due_date || null,
       due_time: payload.due_date && payload.due_time ? payload.due_time : null,
       project_id: payload.project_id ?? null,
+    }
+    if (taskModalMode.value === 'create') {
+      body.recurrence = payload.recurrence || 'none'
     }
     if (!assignee_id && !assignee_contact_id) {
       body.clear_assignee = true
@@ -521,9 +531,13 @@ async function saveTaskFromModal(payload) {
         method: 'POST',
         body: JSON.stringify(body),
       })
-      allTasks.value = [created, ...allTasks.value]
-      stats.value.tasks = (stats.value.tasks || 0) + 1
-      refreshOverdueList(allTasks.value)
+      if (created.series_id) {
+        await fetchDashboardData()
+      } else {
+        allTasks.value = [created, ...allTasks.value]
+        stats.value.tasks = (stats.value.tasks || 0) + 1
+        refreshOverdueList(allTasks.value)
+      }
       closeTaskModal()
       return
     }
@@ -545,13 +559,15 @@ async function saveTaskFromModal(payload) {
 
 async function deleteOverdueTask(task) {
   if (writeRestricted.value) return
-  if (!window.confirm('Delete this task?')) return
+  if (!confirmDeleteTask(task)) return
   busyTaskId.value = task.id
   try {
     await apiJson(`/api/v1/tasks/${task.id}`, { method: 'DELETE' })
-    overdueTasks.value = overdueTasks.value.filter((t) => t.id !== task.id)
-    stats.value.overdue = overdueTasks.value.length
-    stats.value.tasks = Math.max(0, (stats.value.tasks || 1) - 1)
+    const remaining = removeDeletedTask(allTasks.value, task)
+    overdueTasks.value = removeDeletedTask(overdueTasks.value, task)
+    stats.value.overdue = remaining.filter((t) => isTaskOverdue(t)).length
+    stats.value.tasks = remaining.length
+    allTasks.value = remaining
   } catch (err) {
     console.error('Failed to delete task:', err)
   } finally {
@@ -1014,9 +1030,10 @@ button.task-item--clickable {
   color: var(--color-accent);
 }
 
-.priority-badge.high {
-  background: rgba(248, 113, 113, 0.16);
-  color: var(--color-danger);
+.priority-badge.high,
+.priority-badge.critical {
+  background: rgba(196, 163, 90, 0.22);
+  color: var(--color-accent);
 }
 
 .team-preview {

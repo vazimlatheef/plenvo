@@ -107,6 +107,25 @@ def test_active_trial_upgrade_allowed(db, stripe_test_env):
 
 
 @patch("app.services.stripe_billing.stripe.checkout.Session.create")
+def test_active_trial_subscribe_now_opens_stripe(mock_session_create, db, stripe_test_env):
+    data = _seed_trial_org(db, plan_tier="personal", peak=1)
+    org = data["org"]
+    admin = data["admin"]
+    org.stripe_customer_id = "cus_test"
+    db.add(org)
+    db.commit()
+    db.refresh(org)
+    mock_session_create.return_value = MagicMock(url="https://checkout.stripe.test/personal")
+
+    result = create_checkout_session(db, org=org, admin=admin, plan="personal", subscribe=True)
+    assert result["url"] == "https://checkout.stripe.test/personal"
+    mock_session_create.assert_called_once()
+    db.refresh(org)
+    assert org.plan_tier == "personal"
+    assert org.trial_ends_at is not None
+
+
+@patch("app.services.stripe_billing.stripe.checkout.Session.create")
 def test_expired_trial_personal_checkout_blocked_peak_four(mock_session_create, db, stripe_test_env):
     data = _seed_trial_org(db, plan_tier="team", trial_days=-1, peak=4, extra_contacts=3)
     org = data["org"]

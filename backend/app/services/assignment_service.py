@@ -248,12 +248,16 @@ def _send_assignment_email(db: Session, row: Assignment, training: Training, ass
     if not assigner:
         return
 
+    unsub_token = None
     if row.assignee_user_id is not None:
         assignee = db.get(User, row.assignee_user_id)
         if not assignee:
             return
+        if assignee.do_not_email:
+            return
         to_email = assignee.email
         employee_name = assignee.full_name
+        unsub_token = assignee.email_unsubscribe_token
     elif row.assignee_contact_id is not None:
         contact = db.get(Contact, row.assignee_contact_id)
         if not contact:
@@ -275,6 +279,7 @@ def _send_assignment_email(db: Session, row: Assignment, training: Training, ass
         magic_url=magic_url,
         due_date=due_label,
         link_valid_days=7,
+        unsubscribe_token=unsub_token,
     )
 
 
@@ -356,11 +361,14 @@ def _notify_manager_if_needed(db: Session, assignment: Assignment) -> None:
     training = assignment.training or db.get(Training, assignment.training_id)
     if not (manager and training):
         return
+    if manager.do_not_email:
+        return
     sent = send_manager_training_complete_email(
         to_email=manager.email,
         manager_name=manager.full_name,
         employee_name=employee_name,
         training_title=training.title,
+        unsubscribe_token=manager.email_unsubscribe_token,
     )
     if sent:
         assignment.manager_notified_at = datetime.now(timezone.utc)
