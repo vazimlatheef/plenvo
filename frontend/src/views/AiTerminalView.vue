@@ -13,52 +13,11 @@
     <!-- Step 1: Input -->
     <div v-if="step === 'input'" class="card">
       <div class="field">
-        <label>Note title <span class="optional">(optional)</span></label>
-        <input v-model="form.title" placeholder="e.g. Monday standup" />
-      </div>
-
-      <div class="field">
-        <label>Project <span class="optional">(optional)</span></label>
-        <select :value="projectSelectValue" :disabled="creatingProject" @change="onProjectChange">
-          <option value="">No project</option>
-          <option v-for="p in projects" :key="p.id" :value="String(p.id)">{{ p.title }}</option>
-          <option value="__new__">+ New project</option>
-        </select>
-        <p v-if="projectsLoadError" class="field-hint field-hint--error">{{ projectsLoadError }}</p>
-        <div v-if="showInlineCreate" class="inline-create">
-          <input
-            ref="newProjectInput"
-            v-model="newProjectTitle"
-            type="text"
-            maxlength="100"
-            placeholder="Project name"
-            :disabled="creatingProject"
-            @keydown.enter.prevent="createInlineProject"
-            @keydown.escape.prevent="cancelInlineCreate"
-          />
-          <div class="inline-create__actions">
-            <button type="button" class="btn-secondary btn-compact" :disabled="creatingProject" @click="cancelInlineCreate">
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="btn-primary btn-compact"
-              :disabled="creatingProject || !newProjectTitle.trim()"
-              @click="createInlineProject"
-            >
-              {{ creatingProject ? 'Creating…' : 'Create' }}
-            </button>
-          </div>
-          <p v-if="createProjectError" class="field-hint field-hint--error">{{ createProjectError }}</p>
-        </div>
-      </div>
-
-      <div class="field">
         <label>What do you want to capture or ask?</label>
         <textarea
           v-model="form.raw_text"
-          placeholder="Paste notes, add team members and work, or ask a question — e.g. what's next, how the team is tracking."
-          rows="8"
+          placeholder="Paste notes, add people and work, or ask a question. Plenvo matches projects and people from what you write."
+          rows="10"
         />
       </div>
 
@@ -280,7 +239,6 @@ import {
 } from '@/utils/assignee'
 import { normalizeDueTime } from '@/utils/taskDue'
 
-const NEW_PROJECT_VALUE = '__new__'
 const CREATE_PROJECT_PREFIX = 'new:'
 const CREATE_CONTACT_PREFIX = 'contact:'
 
@@ -293,7 +251,7 @@ const error = ref(null)
 const noteId = ref(null)
 const lastCreatedCount = ref(0)
 
-const form = ref({ title: '', raw_text: '', project_id: null })
+const form = ref({ raw_text: '' })
 const extractedTasks = ref([])
 const briefing = ref('')
 const intent = ref('capture')
@@ -332,12 +290,6 @@ const teamLimits = ref({
   plan_tier: 'team',
 })
 
-const showInlineCreate = ref(false)
-const newProjectTitle = ref('')
-const newProjectInput = ref(null)
-const creatingProject = ref(false)
-const createProjectError = ref('')
-
 const canAddMembers = computed(() => teamLimits.value?.can_add_members !== false)
 
 const assigneeOptions = computed(() =>
@@ -346,10 +298,6 @@ const assigneeOptions = computed(() =>
     contacts: contacts.value,
     currentUser: user.value,
   }),
-)
-
-const projectSelectValue = computed(() =>
-  form.value.project_id == null ? '' : String(form.value.project_id),
 )
 
 function createProjectOptionValue(title) {
@@ -471,57 +419,6 @@ async function loadProjects() {
   }
 }
 
-function onProjectChange(event) {
-  const value = event.target.value
-  if (value === NEW_PROJECT_VALUE) {
-    event.target.value = projectSelectValue.value
-    openInlineCreate()
-    return
-  }
-  form.value.project_id = value === '' ? null : Number(value)
-  showInlineCreate.value = false
-  createProjectError.value = ''
-}
-
-async function openInlineCreate() {
-  showInlineCreate.value = true
-  createProjectError.value = ''
-  newProjectTitle.value = ''
-  await nextTick()
-  newProjectInput.value?.focus?.()
-}
-
-function cancelInlineCreate() {
-  showInlineCreate.value = false
-  newProjectTitle.value = ''
-  createProjectError.value = ''
-}
-
-async function createInlineProject() {
-  const title = newProjectTitle.value.trim()
-  if (!title || creatingProject.value) return
-
-  creatingProject.value = true
-  createProjectError.value = ''
-  try {
-    const created = await apiJson('/api/v1/projects', {
-      method: 'POST',
-      body: JSON.stringify({
-        title,
-        description: null,
-      }),
-    })
-    projects.value = [created, ...projects.value.filter((p) => p.id !== created.id)]
-    form.value.project_id = created.id
-    cancelInlineCreate()
-  } catch (err) {
-    console.error('[AiTerminal] create project failed', err)
-    createProjectError.value = err.message || 'Failed to create project'
-  } finally {
-    creatingProject.value = false
-  }
-}
-
 onMounted(async () => {
   await Promise.all([loadProjects(), loadTeamLimits()])
   try {
@@ -555,8 +452,8 @@ async function parseNote() {
       method: 'POST',
       body: JSON.stringify({
         raw_text: form.value.raw_text,
-        title: form.value.title || null,
-        project_id: form.value.project_id,
+        title: null,
+        project_id: null,
       }),
     })
     noteId.value = data.note_id
@@ -568,7 +465,7 @@ async function parseNote() {
         assignee_contact_id: t.assignee_contact_id,
       })
       const matchedProject = t.project_matched && t.project_id != null ? Number(t.project_id) : null
-      const noteProject = form.value.project_id != null ? Number(form.value.project_id) : null
+      const noteProject = null
       const suggestedProject = (t.suggested_new_project || '').trim() || null
       const suggestedContact = (t.suggested_new_contact || '').trim() || null
       const matchedAssignee = Boolean(t.assignee_matched && assignee_key)
@@ -633,7 +530,7 @@ async function confirmTasks() {
         due_time: t.due_date && t.due_time ? t.due_time : null,
         recurrence: t.due_date ? t.recurrence || 'none' : 'none',
         priority: t.priority,
-        project_id: createTitle ? null : t.project_id ?? form.value.project_id ?? null,
+        project_id: createTitle ? null : t.project_id ?? null,
         create_project_title: createTitle,
       }
     })
@@ -665,13 +562,12 @@ function removeTask(i) {
 
 function reset() {
   step.value = 'input'
-  form.value = { title: '', raw_text: '', project_id: form.value.project_id }
+  form.value = { raw_text: '' }
   extractedTasks.value = []
   briefing.value = ''
   intent.value = 'capture'
   noteId.value = null
   error.value = null
-  cancelInlineCreate()
 }
 </script>
 

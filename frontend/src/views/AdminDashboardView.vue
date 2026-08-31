@@ -5,7 +5,17 @@
       <p class="subtitle">{{ greeting }}, {{ userName }}</p>
     </div>
 
-    <section class="ai-hero">
+    <section v-if="aiHeroCollapsed" class="ai-hero ai-hero--compact">
+      <div class="ai-hero__icon ai-hero__icon--sm">
+        <Sparkles :size="16" :stroke-width="1.75" />
+      </div>
+      <RouterLink to="/app/admin/ai-terminal" class="ai-hero__compact-link">
+        Paste notes in Plenvo AI
+      </RouterLink>
+      <button type="button" class="ai-hero__restore" @click="expandAiHero">Show capture</button>
+    </section>
+
+    <section v-else class="ai-hero">
       <div class="ai-hero__icon">
         <Sparkles :size="22" :stroke-width="1.75" />
       </div>
@@ -40,6 +50,9 @@
           </button>
         </div>
       </div>
+      <button type="button" class="ai-hero__close" aria-label="Hide Plenvo AI" @click="collapseAiHero">
+        <X :size="16" :stroke-width="1.75" />
+      </button>
     </section>
 
     <div class="stats-grid">
@@ -239,6 +252,7 @@ import {
   Trash2,
   UserRound,
   Users,
+  X,
 } from '@lucide/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -259,6 +273,15 @@ import { confirmDeleteTask, removeDeletedTask } from '@/utils/recurrence'
 const router = useRouter()
 const route = useRoute()
 const { writeRestricted, writeDisabledTitle } = useWriteAccess()
+const AI_HERO_STORAGE_KEY = 'plenvo_dashboard_ai_hero_collapsed'
+function readAiHeroCollapsed() {
+  try {
+    return localStorage.getItem(AI_HERO_STORAGE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+const aiHeroCollapsed = ref(readAiHeroCollapsed())
 const planTier = ref(null)
 const isPersonalPlan = computed(() => (planTier.value || '').toLowerCase() === 'personal')
 const aiQuery = ref('')
@@ -342,6 +365,24 @@ const aiPromptChips = computed(() =>
     ? ['How is my team performing?', "What's overdue this week?", 'What should I focus on today?']
     : ['What should I focus on today?', "What's coming up this week?"],
 )
+
+function collapseAiHero() {
+  aiHeroCollapsed.value = true
+  try {
+    localStorage.setItem(AI_HERO_STORAGE_KEY, '1')
+  } catch {
+    /* ignore */
+  }
+}
+
+function expandAiHero() {
+  aiHeroCollapsed.value = false
+  try {
+    localStorage.removeItem(AI_HERO_STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
 
 function openAiWithQuery(text) {
   router.push({
@@ -619,6 +660,7 @@ onMounted(() => {
 }
 
 .ai-hero {
+  position: relative;
   display: flex;
   gap: 1rem;
   align-items: flex-start;
@@ -628,6 +670,67 @@ onMounted(() => {
   border-radius: var(--radius-md);
   background: linear-gradient(135deg, rgba(196, 163, 90, 0.1), rgba(0, 0, 0, 0.12));
   animation: appContentIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ai-hero--compact {
+  align-items: center;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1.5rem;
+  gap: 0.75rem;
+}
+
+.ai-hero__close {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: -0.25rem -0.35rem 0 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.ai-hero__close:hover {
+  color: var(--color-text);
+  background: rgba(196, 163, 90, 0.12);
+}
+
+.ai-hero__icon--sm {
+  width: 32px;
+  height: 32px;
+}
+
+.ai-hero__compact-link {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.ai-hero__compact-link:hover {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.ai-hero__restore {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0.25rem 0.15rem;
+}
+
+.ai-hero__restore:hover {
+  color: var(--color-accent);
 }
 
 .ai-hero__icon {
