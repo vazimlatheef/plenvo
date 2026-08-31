@@ -20,6 +20,7 @@ from app.core.pricing import (
     stripe_product_image_url,
 )
 from app.models.models import Organisation, User
+from app.services.email import send_subscription_cancelled_email, send_subscription_thank_you_email
 from app.services.plan_access import has_paid_subscription, plan_access_snapshot
 from app.services.plan_limits import (
     assert_checkout_meets_minimum_tier,
@@ -55,6 +56,71 @@ def _ts_to_dt(ts: int | None) -> datetime | None:
     if not ts:
         return None
     return datetime.fromtimestamp(int(ts), tz=timezone.utc)
+
+
+def _subscription_period_end(sub: Any) -> datetime | None:
+    dt = _ts_to_dt(_get(sub, "current_period_end"))
+    if dt:
+        return dt
+    items = _get(sub, "items") or {}
+    data = items.get("data") if isinstance(items, dict) else _get(items, "data")
+    if data:
+        return _ts_to_dt(_get(data[0], "current_period_end"))
+    return None
+
+
+def _format_access_date(dt: datetime | None) -> str | None:
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.strftime("%d %b %Y")
+
+
+def _org_admin(db: Session, org: Organisation) -> User | None:
+    return (
+        db.query(User)
+        .filter(User.organisation_id == org.id, User.role == "admin")
+        .order_by(User.id.asc())
+        .first()
+    )
+
+
+def _maybe_send_paid_welcome(db: Session, org: Organisation) -> None:
+    if org.paid_welcome_email_sent_at or not has_paid_subscription(org):
+        return
+    admin = _org_admin(db, org)
+    if admin is None or not (admin.email or "").strip():
+        return
+    sent = send_subscription_thank_you_email(
+        admin.email,
+        admin.first_name,
+        plan_tier=org.plan_tier,
+    )
+    if not sent:
+        return
+    org.paid_welcome_email_sent_at = datetime.now(timezone.utc)
+    db.add(org)
+    db.commit()
+
+
+def _maybe_send_cancel_notice(db: Session, org: Organisation) -> None:
+    if not org.cancel_at_period_end or org.cancel_notice_email_sent_at:
+        return
+    admin = _org_admin(db, org)
+    if admin is None or not (admin.email or "").strip():
+        return
+    sent = send_subscription_cancelled_email(
+        admin.email,
+        admin.first_name,
+        access_ends_on=_format_access_date(org.subscription_current_period_end),
+        plan_tier=org.plan_tier,
+    )
+    if not sent:
+        return
+    org.cancel_notice_email_sent_at = datetime.now(timezone.utc)
+    db.add(org)
+    db.commit()
 
 
 def ensure_stripe_customer(db: Session, org: Organisation, admin: User) -> str:
@@ -203,12 +269,17 @@ def cancel_subscription_at_period_end(db: Session, org: Organisation) -> dict:
         org.stripe_subscription_id,
         cancel_at_period_end=True,
     )
-    period_end = _ts_to_dt(_get(sub, "current_period_end"))
+    period_end = _subscription_period_end(sub)
+    if period_end is None:
+        retrieved = stripe.Subscription.retrieve(org.stripe_subscription_id)
+        period_end = _subscription_period_end(retrieved)
     org.cancel_at_period_end = True
     org.subscription_current_period_end = period_end
     org.subscription_status = _get(sub, "status") or "active"
     db.add(org)
     db.commit()
+    db.refresh(org)
+    _maybe_send_cancel_notice(db, org)
     db.refresh(org)
 
     return {
@@ -260,7 +331,7 @@ def _plan_from_subscription(sub: Any) -> str | None:
 def _apply_subscription_to_org(db: Session, org: Organisation, sub: Any) -> None:
     status_val = _get(sub, "status") or "active"
     cancel_at_period_end = bool(_get(sub, "cancel_at_period_end", False))
-    period_end = _ts_to_dt(_get(sub, "current_period_end"))
+    period_end = _subscription_period_end(sub)
 
     sub_id = _get(sub, "id")
     if sub_id:
@@ -275,10 +346,14 @@ def _apply_subscription_to_org(db: Session, org: Organisation, sub: Any) -> None
         org.plan_tier = "personal"
         org.stripe_subscription_id = None
         org.cancel_at_period_end = False
+        org.paid_welcome_email_sent_at = None
+        org.cancel_notice_email_sent_at = None
     elif plan in ("personal", "team", "enterprise"):
         org.plan_tier = plan
         if status_val in ("active", "trialing"):
             org.trial_ends_at = None
+        if not cancel_at_period_end:
+            org.cancel_notice_email_sent_at = None
 
     db.add(org)
     db.commit()
@@ -315,6 +390,7 @@ def handle_checkout_completed(db: Session, session_obj: Any) -> None:
                 org.trial_ends_at = None
                 db.add(org)
                 db.commit()
+            _maybe_send_paid_welcome(db, org)
             return
         except Exception:
             org.stripe_subscription_id = subscription_id
@@ -328,6 +404,7 @@ def handle_checkout_completed(db: Session, session_obj: Any) -> None:
 
     db.add(org)
     db.commit()
+    _maybe_send_paid_welcome(db, org)
 
 
 def handle_subscription_updated(db: Session, sub: Any) -> None:
@@ -344,6 +421,8 @@ def handle_subscription_updated(db: Session, sub: Any) -> None:
     if org is None:
         return
     _apply_subscription_to_org(db, org, sub)
+    db.refresh(org)
+    _maybe_send_cancel_notice(db, org)
 
 
 def handle_subscription_deleted(db: Session, sub: Any) -> None:
@@ -364,7 +443,9 @@ def handle_subscription_deleted(db: Session, sub: Any) -> None:
     org.stripe_subscription_id = None
     org.subscription_status = "canceled"
     org.cancel_at_period_end = False
-    org.subscription_current_period_end = _ts_to_dt(_get(sub, "current_period_end"))
+    org.subscription_current_period_end = _subscription_period_end(sub)
+    org.paid_welcome_email_sent_at = None
+    org.cancel_notice_email_sent_at = None
     db.add(org)
     db.commit()
 

@@ -12,9 +12,12 @@ from app.models.models import Contact, Organisation, Project, Task, Training, Us
 from app.services.plan_access import assert_full_write_access, has_full_write_access, is_restricted
 from app.services.plan_limits import assert_can_add_team_members, can_add_team_members, team_limit_snapshot
 from app.services.stripe_billing import (
+    account_snapshot,
+    cancel_subscription_at_period_end,
     create_checkout_session,
     handle_checkout_completed,
     handle_subscription_deleted,
+    handle_subscription_updated,
 )
 
 
@@ -363,3 +366,110 @@ def test_team_resubscribe_checkout_to_webhook_restores_access_and_tier(
     assert limits["member_limit"] == 5
     assert limits["member_count"] == 4
     assert limits["can_add_members"] is True
+
+
+@patch("app.services.stripe_billing.send_subscription_thank_you_email", return_value=True)
+@patch("app.services.stripe_billing.stripe.Subscription.retrieve")
+def test_checkout_completed_sends_thank_you_once(mock_sub_retrieve, mock_thank_you, db, stripe_test_env):
+    data = _seed_solo_org(db)
+    org = data["org"]
+    org.subscription_status = "canceled"
+    org.stripe_subscription_id = None
+    org.trial_ends_at = datetime.now(timezone.utc)
+    db.add(org)
+    db.commit()
+
+    mock_sub_retrieve.return_value = _subscription_payload(
+        sub_id="sub_welcome",
+        org_id=org.id,
+        plan_tier="personal",
+        price_id="price_personal_test",
+    )
+    session = {
+        "metadata": {"organisation_id": str(org.id), "plan_tier": "personal"},
+        "subscription": "sub_welcome",
+        "customer": org.stripe_customer_id,
+    }
+    handle_checkout_completed(db, session)
+    db.refresh(org)
+    assert mock_thank_you.call_count == 1
+    assert org.paid_welcome_email_sent_at is not None
+
+    handle_checkout_completed(db, session)
+    db.refresh(org)
+    assert mock_thank_you.call_count == 1
+
+
+@patch("app.services.stripe_billing.send_subscription_cancelled_email", return_value=True)
+@patch("app.services.stripe_billing.stripe.Subscription.retrieve")
+@patch("app.services.stripe_billing.stripe.Subscription.modify")
+def test_cancel_at_period_end_sets_access_date_and_emails_once(
+    mock_modify,
+    mock_retrieve,
+    mock_cancel_email,
+    db,
+    stripe_test_env,
+):
+    data = _seed_solo_org(db)
+    org = data["org"]
+    period_end = int(datetime.now(timezone.utc).timestamp()) + 86400 * 14
+    # Stripe often puts current_period_end on the item, not the subscription.
+    mock_modify.return_value = {
+        "id": "sub_personal",
+        "status": "active",
+        "cancel_at_period_end": True,
+        "items": {"data": [{"id": "si_1", "current_period_end": period_end}]},
+    }
+    mock_retrieve.return_value = mock_modify.return_value
+
+    result = cancel_subscription_at_period_end(db, org)
+    db.refresh(org)
+
+    assert result["cancel_at_period_end"] is True
+    assert result["access_ends_at"] is not None
+    assert org.cancel_at_period_end is True
+    assert org.subscription_current_period_end is not None
+    assert mock_cancel_email.call_count == 1
+    assert org.cancel_notice_email_sent_at is not None
+
+    snap = account_snapshot(db, org)
+    assert snap["can_cancel"] is False
+    assert snap["access_ends_at"] is not None
+    assert snap["cancel_at_period_end"] is True
+
+    handle_subscription_updated(db, mock_modify.return_value)
+    db.refresh(org)
+    assert mock_cancel_email.call_count == 1
+
+
+def test_trial_local_plan_switch_does_not_send_thank_you(db, stripe_test_env):
+    org = Organisation(
+        id=9,
+        name="Trial Co",
+        slug="trial-co",
+        plan_tier="personal",
+        currency="USD",
+        trial_ends_at=datetime.now(timezone.utc).replace(year=2030),
+        trial_peak_member_count=1,
+    )
+    db.add(org)
+    db.flush()
+    admin = User(
+        id=9,
+        organisation_id=org.id,
+        email="trial@co.com",
+        password_hash="hashed",
+        first_name="Trial",
+        last_name="Admin",
+        role="admin",
+    )
+    db.add(admin)
+    db.commit()
+
+    with patch("app.services.stripe_billing.send_subscription_thank_you_email") as mock_ty:
+        result = create_checkout_session(db, org=org, admin=admin, plan="team", subscribe=False)
+        assert result["updated"] is True
+        mock_ty.assert_not_called()
+    db.refresh(org)
+    assert org.paid_welcome_email_sent_at is None
+    assert org.trial_ends_at is not None

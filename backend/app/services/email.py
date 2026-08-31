@@ -31,13 +31,62 @@ API_BASE_URL = os.getenv("API_BASE_URL", os.getenv("BACKEND_URL", "http://localh
 FOOTER_TAGLINE = "Plenvo — project and task management for professional teams"
 FOOTER_SUPPORT = "Questions? Reply to this email or contact hi@plenvo.io"
 
+# Email local-parts that are mailboxes, not people — never use these as an inviter name.
+_MAILBOX_FIRST_NAMES = frozenset({
+    "hi",
+    "hello",
+    "hey",
+    "info",
+    "admin",
+    "support",
+    "team",
+    "office",
+    "mail",
+    "contact",
+    "sales",
+    "help",
+    "noreply",
+    "no-reply",
+    "me",
+})
+
 
 def greeting_name(display_name: str | None) -> str:
     """First name for email salutations; falls back to 'there'."""
     text = (display_name or "").strip()
     if not text:
         return "there"
-    return text.split()[0]
+    first = text.split()[0]
+    if first.lower() in _MAILBOX_FIRST_NAMES:
+        return "there"
+    return first
+
+
+def organisation_display_name(org: object | None, inviter: object | None = None) -> str:
+    """Prefer the admin's company name over auto-generated workspace labels."""
+    company = getattr(inviter, "company_name", None) if inviter else None
+    if isinstance(company, str) and company.strip():
+        return company.strip()
+    org_name = getattr(org, "name", None) if org else None
+    if isinstance(org_name, str) and org_name.strip():
+        cleaned = org_name.strip()
+        if cleaned.endswith("'s workspace"):
+            return cleaned[: -len("'s workspace")].strip() or cleaned
+        return cleaned
+    return "your organisation"
+
+
+def _usable_inviter_name(inviter_name: str | None, org_name: str) -> str | None:
+    """Skip mailbox-style first names (e.g. hi@…) so invites don't say 'Hi has invited you'."""
+    full = (inviter_name or "").strip()
+    if not full:
+        return None
+    first = full.split()[0]
+    if first.lower() in _MAILBOX_FIRST_NAMES:
+        return None
+    if full.strip().lower() == (org_name or "").strip().lower():
+        return None
+    return full
 
 
 def organisation_display_name(org: object | None, inviter: object | None = None) -> str:
@@ -262,17 +311,27 @@ def send_invite_email(
 ) -> bool:
     """Invite with login credentials (operational). Unsubscribe optional for preference footer."""
     org_name = (organisation_name or "your organisation").strip()
-    inviter = (inviter_name or "Your manager").strip()
+    inviter = _usable_inviter_name(inviter_name, org_name)
     greeting = greeting_name(employee_name)
     subject = f"You have been invited to {org_name} on Plenvo"
     unsub_url = build_unsubscribe_url(unsubscribe_token) if unsubscribe_token else None
     login_url = f"{FRONTEND_URL}/login"
     signup_url = f"{FRONTEND_URL}/signup"
 
+    if inviter:
+        lead_html = (
+            f"<strong>{_esc(inviter)}</strong> has invited you to join "
+            f"<strong>{_esc(org_name)}</strong> on Plenvo."
+        )
+        lead_text = f"{inviter} has invited you to join {org_name} on Plenvo."
+    else:
+        lead_html = f"You've been invited to join <strong>{_esc(org_name)}</strong> on Plenvo."
+        lead_text = f"You've been invited to join {org_name} on Plenvo."
+
     body_html = f"""
       <p style="margin:0 0 14px;">Hello {_esc(greeting)},</p>
       <p style="margin:0 0 14px;">
-        <strong>{_esc(inviter)}</strong> has invited you to join <strong>{_esc(org_name)}</strong> on Plenvo.
+        {lead_html}
         Sign in with the details below, then change your password when prompted.
       </p>
       <p style="margin:0 0 8px;"><strong>Email:</strong> {_esc(to_email)}</p>
@@ -292,7 +351,7 @@ def send_invite_email(
 
     plain_text_content = f"""Hello {greeting},
 
-{inviter} has invited you to join {org_name} on Plenvo.
+{lead_text}
 Sign in with the details below, then change your password when prompted.
 
 Email: {to_email}
@@ -458,6 +517,110 @@ def send_trial_ending_email(
         f"and {task_count} tasks. Upgrade to keep full access.\n\n"
         f"Upgrade: {account_url}\n\n"
         f"{_footer_text(unsubscribe_url=unsub_url)}"
+    )
+    return _send_email(to_email, greeting, subject, plain_text, html_content)
+
+
+def _plan_label(plan_tier: str | None) -> str:
+    key = (plan_tier or "").strip().lower()
+    return {"personal": "Personal", "team": "Team", "enterprise": "Enterprise"}.get(key, "Plenvo")
+
+
+def send_subscription_thank_you_email(
+    to_email: str,
+    user_name: str,
+    *,
+    plan_tier: str,
+) -> bool:
+    """Transactional: thanks after first paid subscription. No unsubscribe."""
+    greeting = greeting_name(user_name)
+    plan = _plan_label(plan_tier)
+    subject = f"Thank you — your {plan} plan is active"
+    account_url = build_account_url()
+    capture_url = f"{FRONTEND_URL}/app/admin/ai-terminal"
+    tasks_url = build_my_tasks_url()
+    calendar_url = f"{FRONTEND_URL}/app/calendar"
+    body_html = f"""
+      <p style="margin:0 0 14px;">Hello {_esc(greeting)},</p>
+      <p style="margin:0 0 14px;">
+        Thank you for subscribing to Plenvo <strong>{_esc(plan)}</strong>. Your workspace is fully unlocked.
+      </p>
+      <p style="margin:0 0 8px;">A few ways to get the most from it:</p>
+      <ul style="margin:0 0 14px;padding-left:20px;">
+        <li style="margin:0 0 6px;">Paste notes in Capture — Plenvo turns them into assigned tasks with dates.</li>
+        <li style="margin:0 0 6px;">Put a due date and time on work that matters; use Repeat for weekly or monthly series.</li>
+        <li style="margin:0 0 6px;">Check Calendar for what is due, and My Tasks for what you personally owe.</li>
+        <li style="margin:0;">Assign training as a link or YouTube video so people can complete it without extra chasing.</li>
+      </ul>
+      {_cta_button(account_url, "Open Account")}
+      <p style="margin:0;font-size:13px;color:#555555;">
+        Capture: {_esc(capture_url)} · Tasks: {_esc(tasks_url)} · Calendar: {_esc(calendar_url)}
+      </p>
+    """
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
+    plain_text = (
+        f"Hello {greeting},\n\n"
+        f"Thank you for subscribing to Plenvo {plan}. Your workspace is fully unlocked.\n\n"
+        "A few ways to get the most from it:\n"
+        "- Paste notes in Capture — Plenvo turns them into assigned tasks with dates.\n"
+        "- Put a due date and time on work that matters; use Repeat for weekly or monthly series.\n"
+        "- Check Calendar for what is due, and My Tasks for what you personally owe.\n"
+        "- Assign training as a link or YouTube video so people can complete it without extra chasing.\n\n"
+        f"Account: {account_url}\n"
+        f"Capture: {capture_url}\n"
+        f"Tasks: {tasks_url}\n"
+        f"Calendar: {calendar_url}\n\n"
+        f"{_footer_text()}"
+    )
+    return _send_email(to_email, greeting, subject, plain_text, html_content)
+
+
+def send_subscription_cancelled_email(
+    to_email: str,
+    user_name: str,
+    *,
+    access_ends_on: str | None,
+    plan_tier: str | None = None,
+) -> bool:
+    """Transactional: cancel-at-period-end confirmation. No unsubscribe."""
+    greeting = greeting_name(user_name)
+    plan = _plan_label(plan_tier)
+    subject = "We're sorry to see you go"
+    account_url = build_account_url()
+    until = (access_ends_on or "").strip()
+    until_html = (
+        f"You keep full access until <strong>{_esc(until)}</strong>. After that date, creating and editing pause. "
+        "Your projects and tasks stay in the workspace."
+        if until
+        else "You keep full access until the end of the current billing period. After that, creating and editing pause. "
+        "Your projects and tasks stay in the workspace."
+    )
+    until_text = (
+        f"You keep full access until {until}. After that date, creating and editing pause. "
+        "Your projects and tasks stay in the workspace."
+        if until
+        else "You keep full access until the end of the current billing period. After that, creating and editing pause. "
+        "Your projects and tasks stay in the workspace."
+    )
+    body_html = f"""
+      <p style="margin:0 0 14px;">Hello {_esc(greeting)},</p>
+      <p style="margin:0 0 14px;">
+        We're sorry to see you go. Your {_esc(plan)} subscription will not renew.
+      </p>
+      <p style="margin:0 0 14px;">{until_html}</p>
+      <p style="margin:0 0 14px;">
+        There are no further charges. You can subscribe again anytime from Account.
+      </p>
+      {_cta_button(account_url, "View Account")}
+    """
+    html_content = _html_shell(body_html, _footer_html(unsubscribe_url=None))
+    plain_text = (
+        f"Hello {greeting},\n\n"
+        f"We're sorry to see you go. Your {plan} subscription will not renew.\n\n"
+        f"{until_text}\n\n"
+        "There are no further charges. You can subscribe again anytime from Account.\n\n"
+        f"Account: {account_url}\n\n"
+        f"{_footer_text()}"
     )
     return _send_email(to_email, greeting, subject, plain_text, html_content)
 

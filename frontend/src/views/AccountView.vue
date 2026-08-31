@@ -29,15 +29,29 @@
             <span v-if="trialDaysLeft != null"> · {{ trialDaysLeft }} day{{ trialDaysLeft === 1 ? '' : 's' }} left</span>
           </template>
         </p>
-        <p v-else-if="account.has_paid_subscription" class="muted-line billing-line">
+        <p v-else-if="account.has_paid_subscription && !account.cancel_at_period_end" class="muted-line billing-line">
           Billed monthly in {{ account.currency }}.
+          <template v-if="account.subscription_current_period_end">
+            Next billing date {{ formatDate(account.subscription_current_period_end) }}.
+          </template>
         </p>
         <p v-else-if="account.restricted" class="warn-line trial-line--prominent">
           {{ account.restriction_message }}
         </p>
+      </section>
 
-        <p v-if="account.cancel_at_period_end && account.access_ends_at" class="warn-line">
-          Cancellation scheduled — access continues until {{ formatDate(account.access_ends_at) }}.
+      <section v-if="account.cancel_at_period_end" class="account-card account-card--scheduled">
+        <h2>Cancellation scheduled</h2>
+        <p class="cancel-lede">We're sorry to see you go.</p>
+        <p v-if="accessEndsAt" class="access-until">
+          You keep full access until <strong>{{ formatDate(accessEndsAt) }}</strong>.
+        </p>
+        <p v-else class="access-until">
+          You keep full access until the end of the current billing period.
+        </p>
+        <p class="app-lede">
+          No further charges after that date. Creating and editing will pause then; your projects and tasks stay in the workspace.
+          Subscribe again below if you want to keep access.
         </p>
       </section>
 
@@ -79,6 +93,10 @@
             Subscribe to restore full create and edit access for your {{ account.project_count }} projects and
             {{ account.task_count }} tasks.
           </template>
+          <template v-else-if="account.cancel_at_period_end">
+            Choose a plan below to keep access after
+            {{ accessEndsAt ? formatDate(accessEndsAt) : 'this billing period' }}.
+          </template>
           <template v-else>
             Checkout stays in Plenvo — you won't be sent to the public pricing page.
           </template>
@@ -119,6 +137,7 @@
         <p class="cancel-lede">We're sorry to see you go.</p>
         <p class="app-lede cancel-copy">
           Your subscription will cancel at the end of the current billing period — you keep full access until then.
+          We will email you a confirmation with the access-until date.
         </p>
         <div class="cancel-actions">
           <button
@@ -169,6 +188,12 @@ const trialDaysLeft = computed(() => {
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)))
 })
 
+const accessEndsAt = computed(() => {
+  const a = account.value
+  if (!a?.cancel_at_period_end) return null
+  return a.access_ends_at || a.subscription_current_period_end || null
+})
+
 const usagePct = computed(() => {
   const a = account.value
   if (!a || a.member_limit == null || a.member_limit <= 0) return a?.member_count ? 8 : 0
@@ -216,8 +241,11 @@ function isCurrentPlan(planId) {
 
 function planCta(planId) {
   if (canSubscribeNow(planId)) return 'Subscribe now'
-  if (isCurrentPlan(planId)) return 'Current plan'
   const a = account.value
+  if (a?.cancel_at_period_end && a.has_paid_subscription && a.plan_tier === planId) {
+    return 'Keep this plan'
+  }
+  if (isCurrentPlan(planId)) return 'Current plan'
   if (isTrialDowngrade(planId)) return 'Upgrade only during trial'
   if (isBelowMinimumTier(planId)) return 'Below trial peak'
   if (a?.on_trial && !a?.has_paid_subscription) return 'Switch to this plan'
@@ -331,7 +359,7 @@ async function confirmCancel() {
 onMounted(async () => {
   const checkout = route.query.checkout
   if (checkout === 'success') {
-    banner.value = 'Payment successful — your plan will update shortly.'
+    banner.value = 'Payment successful — check your inbox for a short guide. Your plan will update shortly.'
   } else if (checkout === 'cancel') {
     banner.value = 'Checkout cancelled — no changes were made.'
   }
@@ -488,6 +516,15 @@ onMounted(async () => {
 .per {
   font-size: 0.8rem;
   opacity: 0.8;
+}
+
+.account-card--scheduled {
+  border-color: rgba(196, 163, 90, 0.35);
+}
+
+.access-until {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
 }
 
 .account-card--cancel {
