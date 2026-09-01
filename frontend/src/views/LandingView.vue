@@ -330,15 +330,15 @@ function scrollToPricing() {
 }
 
 const demoAudience = ref('team')
-const demoMode = ref('capture')
+const demoMode = ref('ask')
 
 const demoCopy = {
   team: {
     capture: {
       input:
-        'Alex on homepage mockups by Friday. Maya’s client deck is late — chase her today. Sam to chase the invoice tomorrow.',
+        'Maya’s client deck is late. Alex on homepage mockups by Friday. Sam to chase the invoice tomorrow.',
       tasks: [
-        'Chase Maya · client deck · today',
+        'Client deck · today · Maya',
         'Homepage mockups · Friday · Alex',
         'Invoice follow-up · tomorrow · Sam',
       ],
@@ -348,16 +348,16 @@ const demoCopy = {
       input: 'What’s the team status this week?',
       tasks: [],
       briefing: [
-        { label: 'Stuck', text: 'Maya’s client deck is overdue. That’s the chase.' },
-        { label: 'Load', text: 'Alex is full this week. Sam has room.' },
-        { label: 'Do this', text: 'Ping Maya. Don’t hand Alex another task.' },
+        { label: 'Stuck', text: 'Maya — client deck overdue.' },
+        { label: 'Load', text: 'Alex is full. Sam has room.' },
+        { label: 'Next', text: 'Ping Maya. Don’t pile onto Alex.' },
       ],
     },
   },
   solo: {
     capture: {
       input:
-        'Proposal has to go Wednesday. Chase last week’s invoice. Mum’s birthday Sunday — don’t forget.',
+        'Proposal has to go Wednesday. Still need to chase last week’s invoice. Mum’s birthday Sunday — don’t forget.',
       tasks: [
         'Client proposal · Wednesday',
         'Invoice follow-up · this week',
@@ -369,9 +369,9 @@ const demoCopy = {
       input: 'I’m overloaded. What do I actually do first?',
       tasks: [],
       briefing: [
-        { label: 'First', text: 'Proposal — Wednesday. That’s the week.' },
-        { label: 'Then', text: 'Chase the invoice while you have momentum.' },
-        { label: 'Later', text: 'Sunday is Mum’s birthday. Don’t let it slip.' },
+        { label: 'First', text: 'The proposal — Wednesday.' },
+        { label: 'Then', text: 'Chase the invoice.' },
+        { label: 'Later', text: 'Mum’s birthday — Sunday.' },
       ],
     },
   },
