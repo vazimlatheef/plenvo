@@ -330,7 +330,7 @@ function scrollToPricing() {
 }
 
 const demoAudience = ref('team')
-const demoMode = ref('ask')
+const demoMode = ref('capture')
 
 const demoCopy = {
   team: {
@@ -345,7 +345,7 @@ const demoCopy = {
       briefing: [],
     },
     ask: {
-      input: 'What’s the team status this week? Who’s stuck, who’s overloaded?',
+      input: 'What’s the team status this week?',
       tasks: [],
       briefing: [
         { label: 'Stuck', text: 'Maya’s client deck is overdue. That’s the chase.' },
