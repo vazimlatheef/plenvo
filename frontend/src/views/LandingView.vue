@@ -41,17 +41,6 @@
             </template>
           </p>
 
-          <ul class="bullets">
-            <li
-              v-for="(b, i) in displayBullets"
-              :key="b"
-              class="bullet"
-              :class="{ visible: show.bullets[i] }"
-            >
-              <span>{{ b }}</span>
-            </li>
-          </ul>
-
           <div class="hero-ctas" :class="{ visible: show.cta }">
             <template v-if="signedIn">
               <RouterLink v-if="user?.role === 'admin'" to="/app/admin/ai-terminal" class="btn-primary">
@@ -64,15 +53,9 @@
             </template>
           </div>
 
-          <div v-if="!signedIn" class="trust-bar" :class="{ visible: show.trust }">
-            <span>✓ No charge for 14 days · No card required</span>
-            <span class="sep">·</span>
-            <span>✓ Cancel anytime</span>
-            <span class="sep">·</span>
-            <span>✓ GDPR compliant</span>
-            <span class="sep">·</span>
-            <span>✓ For managers, professionals, and students</span>
-          </div>
+          <p v-if="!signedIn" class="trust-bar" :class="{ visible: show.trust }">
+            14-day trial · No card · Cancel anytime
+          </p>
         </div>
 
         <div id="demo" class="hero-demo" :class="{ visible: show.demo }">
@@ -116,8 +99,6 @@
               Ask Brief
             </button>
           </div>
-
-          <p class="demo-tagline">Assigned in seconds.</p>
 
           <div class="demo-window">
             <div class="demo-bar">
@@ -169,10 +150,6 @@
                 </div>
               </template>
             </div>
-          </div>
-
-          <div v-if="signedIn && user?.role === 'admin'" class="demo-cta-row">
-            <RouterLink to="/app/admin/ai-terminal" class="btn-primary">Open Plenvo AI →</RouterLink>
           </div>
         </div>
       </div>
@@ -468,20 +445,6 @@ function selectMode(mode) {
   startDemoAnimation()
 }
 
-const bullets = computed(() => [
-  '✓ Projects, tasks, and what’s next — one workspace',
-  '✓ Boards, calendar, and priorities — yours or the team’s',
-  `✓ From ${personalPrice.value}/mo · 14-day trial · No card`,
-])
-
-const signedInBullets = [
-  '✓ Plenvo AI — capture notes or ask what’s next',
-  '✓ Paste notes, assign work, or ask how work is tracking',
-  '✓ Private. Encrypted. Yours.',
-]
-
-const displayBullets = computed(() => (signedIn.value ? signedInBullets : bullets.value))
-
 const trialDaysLeft = computed(() => {
   const iso = billing.value?.trial_ends_at
   if (!iso) return null
@@ -606,7 +569,6 @@ const displayPlans = computed(() => [
 const show = reactive({
   title: false,
   sub: false,
-  bullets: [false, false, false],
   cta: false,
   trust: false,
   demo: false,
@@ -650,18 +612,13 @@ onMounted(async () => {
   setTimeout(() => {
     show.sub = true
   }, delays[1])
-  for (let i = 0; i < displayBullets.value.length; i++) {
-    setTimeout(() => {
-      show.bullets[i] = true
-    }, reduceMotion ? 0 : 420 + i * 120)
-  }
-  const base = reduceMotion ? 0 : 420 + displayBullets.value.length * 120
+  const base = reduceMotion ? 0 : 380
   setTimeout(() => {
     show.cta = true
-  }, base + 80)
+  }, base)
   setTimeout(() => {
     show.trust = true
-  }, base + 180)
+  }, base + 100)
   setTimeout(() => {
     show.demo = true
     startDemoAnimation()
@@ -774,7 +731,6 @@ onBeforeUnmount(() => {
 
 .hero-title,
 .hero-sub,
-.bullet,
 .hero-ctas,
 .trust-bar,
 .hero-demo {
@@ -784,7 +740,6 @@ onBeforeUnmount(() => {
 }
 .hero-title.visible,
 .hero-sub.visible,
-.bullet.visible,
 .hero-ctas.visible,
 .trust-bar.visible,
 .hero-demo.visible {
@@ -795,7 +750,6 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .hero-title,
   .hero-sub,
-  .bullet,
   .hero-ctas,
   .trust-bar,
   .hero-demo,
@@ -830,25 +784,8 @@ onBeforeUnmount(() => {
   font-weight: 300;
   color: var(--color-text-muted);
   max-width: 440px;
-  margin: 0 0 1.75rem;
+  margin: 0 0 1.5rem;
   line-height: 1.7;
-}
-
-.bullets {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 1.75rem;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-.bullet {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: 0.93rem;
-  color: var(--color-text);
 }
 
 .hero-ctas {
@@ -861,16 +798,11 @@ onBeforeUnmount(() => {
 }
 
 .trust-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.55rem;
-  flex-wrap: wrap;
-  font-size: 0.75rem;
+  display: block;
+  margin: 0;
+  font-size: 0.8rem;
   color: var(--color-text-muted);
-}
-.sep {
-  color: var(--color-border);
+  letter-spacing: 0.01em;
 }
 
 .btn-primary {
@@ -1028,13 +960,6 @@ onBeforeUnmount(() => {
   background: rgba(196, 163, 90, 0.16);
   color: var(--color-text);
 }
-.demo-tagline {
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--color-accent);
-  margin: 0 0 0.85rem;
-}
 .demo-briefing p {
   margin: 0 0 0.5rem;
   font-size: 0.82rem;
@@ -1147,9 +1072,6 @@ onBeforeUnmount(() => {
 .demo-task.visible {
   opacity: 1;
   transform: translateY(0);
-}
-.demo-cta-row {
-  margin-top: 1rem;
 }
 
 .cta-row {
@@ -1411,7 +1333,6 @@ onBeforeUnmount(() => {
     text-align: center;
   }
   .hero-sub,
-  .bullets,
   .hero-ctas,
   .trust-bar {
     margin-left: auto;
