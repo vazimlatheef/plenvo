@@ -331,7 +331,7 @@ function scrollToPricing() {
 }
 
 const demoAudience = ref('team')
-const demoMode = ref('capture')
+const demoMode = ref('ask')
 
 const demoCopy = {
   team: {
@@ -447,6 +447,7 @@ function startDemoAnimation() {
 function selectAudience(id) {
   if (demoAudience.value === id) return
   demoAudience.value = id
+  demoMode.value = id === 'solo' ? 'capture' : 'ask'
   startDemoAnimation()
 }
 
