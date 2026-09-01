@@ -412,6 +412,32 @@ onMounted(loadTasks)
 .project-filter select {
   min-width: 11rem;
   max-width: 16rem;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 0.4rem 1.7rem 0.4rem 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background-color: rgba(0, 0, 0, 0.15);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23c4a35a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+  color: var(--color-text);
+  color-scheme: dark;
+  cursor: pointer;
+  appearance: none;
+}
+
+.project-filter select:hover,
+.project-filter select:focus {
+  border-color: rgba(196, 163, 90, 0.45);
+  outline: none;
+}
+
+.project-filter select option {
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
 }
 
 .sr-only {
