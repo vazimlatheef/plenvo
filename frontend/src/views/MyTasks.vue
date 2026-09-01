@@ -7,7 +7,19 @@
           {{ viewMode === 'kanban' ? 'Drag cards between columns to update status.' : 'Track what you owe — grouped by status.' }}
         </p>
       </div>
-      <TaskViewModeToggle v-if="tasks.length" v-model="viewMode" />
+      <div v-if="tasks.length" class="header-actions">
+        <label v-if="showProjectFilter" class="project-filter">
+          <span class="sr-only">Filter by project</span>
+          <select v-model="projectFilter" aria-label="Filter by project">
+            <option value="all">All projects</option>
+            <option v-if="hasUnassignedTasks" value="none">No project</option>
+            <option v-for="p in filterProjects" :key="p.id" :value="String(p.id)">
+              {{ p.title }}
+            </option>
+          </select>
+        </label>
+        <TaskViewModeToggle v-model="viewMode" />
+      </div>
     </div>
 
     <p v-if="loading" class="muted-line">Loading tasks…</p>
@@ -18,9 +30,14 @@
       <p>No tasks assigned to you yet.</p>
     </div>
 
+    <div v-else-if="!visibleTasks.length" class="empty-panel">
+      <ClipboardList class="empty-icon" :size="28" :stroke-width="1.5" />
+      <p>No tasks in this project.</p>
+    </div>
+
     <TaskKanbanBoard
       v-else-if="viewMode === 'kanban'"
-      :tasks="tasks"
+      :tasks="visibleTasks"
       :busy-id="busyId"
       :flash-id="flashId"
       :write-restricted="writeRestricted"
@@ -58,19 +75,23 @@
       :saving="saving"
       :error="formError"
       :assignee-options="assigneeOptions"
+      :show-project="true"
+      :projects="projects"
+      :allow-delete="canManageTasks && !writeRestricted"
       :initial="modalInitial"
       @close="closeModal"
       @save="saveFromModal"
+      @delete="deleteFromModal"
     />
   </div>
 </template>
 
 <script setup>
 import { ClipboardList } from '@lucide/vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { apiJson } from '@/api/client'
-import { normalizeDueTime } from '@/utils/taskDue'
+import { normalizeDueTime, sortStatusTasksByDue } from '@/utils/taskDue'
 import TaskEditModal from '@/components/TaskEditModal.vue'
 import TaskKanbanBoard from '@/components/TaskKanbanBoard.vue'
 import TaskListView from '@/components/TaskListView.vue'
@@ -90,6 +111,7 @@ import { confirmDeleteTask, removeDeletedTask } from '@/utils/recurrence'
 const loading = ref(true)
 const error = ref('')
 const tasks = ref([])
+const projects = ref([])
 const projectsById = ref({})
 const usersById = ref({})
 const contactsById = ref({})
@@ -112,18 +134,55 @@ const modalInitial = ref({
   due_time: '',
   status: 'pending',
   priority: 'medium',
+  project_id: null,
 })
 
 const { viewMode } = useTaskViewMode('kanban')
 const canManageTasks = computed(() => user.value?.role === 'admin')
 const { writeRestricted, writeDisabledTitle } = useWriteAccess()
+const projectFilter = ref('all')
+
+const hasUnassignedTasks = computed(() => tasks.value.some((t) => !t.project_id))
+
+const filterProjects = computed(() => {
+  const ids = new Set()
+  for (const t of tasks.value) {
+    if (t.project_id) ids.add(t.project_id)
+  }
+  return [...ids]
+    .map((id) => projectsById.value[id] || { id, title: `Project #${id}` })
+    .sort((a, b) => String(a.title).localeCompare(String(b.title)))
+})
+
+const showProjectFilter = computed(() => {
+  const projectCount = filterProjects.value.length
+  return projectCount > 1 || (projectCount === 1 && hasUnassignedTasks.value)
+})
+
+const visibleTasks = computed(() => {
+  if (projectFilter.value === 'all') return tasks.value
+  if (projectFilter.value === 'none') return tasks.value.filter((t) => !t.project_id)
+  const id = Number(projectFilter.value)
+  return tasks.value.filter((t) => t.project_id === id)
+})
 
 const statusGroups = computed(() =>
   STATUS_GROUPS.map((group) => ({
     ...group,
-    tasks: tasks.value.filter((t) => t.status === group.key),
+    tasks: sortStatusTasksByDue(visibleTasks.value.filter((t) => t.status === group.key), group.key),
   })),
 )
+
+watch([filterProjects, hasUnassignedTasks], () => {
+  if (projectFilter.value === 'all') return
+  if (projectFilter.value === 'none') {
+    if (!hasUnassignedTasks.value) projectFilter.value = 'all'
+    return
+  }
+  if (!filterProjects.value.some((p) => String(p.id) === projectFilter.value)) {
+    projectFilter.value = 'all'
+  }
+})
 
 const assigneeOptions = computed(() =>
   buildAssigneeOptions({
@@ -173,6 +232,7 @@ function openEdit(task) {
     series_id: task.series_id || null,
     status: task.status || 'pending',
     priority: task.priority || 'medium',
+    project_id: task.project_id ?? null,
   }
   formError.value = ''
   showModal.value = true
@@ -181,7 +241,7 @@ function openEdit(task) {
 function closeModal() {
   showModal.value = false
   editingTaskId.value = null
-  modalInitial.value = { title: '', description: '', links: [], assignee_key: null, due_date: '', due_time: '', status: 'pending', priority: 'medium' }
+  modalInitial.value = { title: '', description: '', links: [], assignee_key: null, due_date: '', due_time: '', status: 'pending', priority: 'medium', project_id: null }
   formError.value = ''
 }
 
@@ -202,8 +262,9 @@ async function loadTasks() {
       apiJson('/api/v1/contacts').catch(() => []),
     ])
     tasks.value = Array.isArray(taskList) ? taskList : []
+    projects.value = Array.isArray(projectList) ? projectList : []
     const pMap = {}
-    for (const p of Array.isArray(projectList) ? projectList : []) pMap[p.id] = p
+    for (const p of projects.value) pMap[p.id] = p
     projectsById.value = pMap
     team.value = Array.isArray(users) ? users : []
     contacts.value = Array.isArray(contactList) ? contactList : []
@@ -261,6 +322,7 @@ async function saveFromModal(payload) {
       priority: payload.priority || 'medium',
       due_date: payload.due_date || null,
       due_time: payload.due_date && payload.due_time ? payload.due_time : null,
+      project_id: payload.project_id ?? null,
     }
     if (!assignee_id && !assignee_contact_id) {
       body.clear_assignee = true
@@ -300,13 +362,23 @@ async function confirmDelete(task) {
   error.value = ''
   try {
     await apiJson(`/api/v1/tasks/${task.id}`, { method: 'DELETE' })
-    tasks.value = removeDeletedTask(tasks.value, task)
+    const remaining = removeDeletedTask(tasks.value, task)
+    tasks.value = remaining
+    if (editingTaskId.value && !remaining.some((t) => t.id === editingTaskId.value)) {
+      closeModal()
+    }
   } catch (err) {
     console.error('[MyTasks] delete failed', err)
     error.value = err.message || 'Failed to delete task'
   } finally {
     busyId.value = null
   }
+}
+
+async function deleteFromModal() {
+  const task = tasks.value.find((t) => t.id === editingTaskId.value)
+  if (!task) return
+  await confirmDelete(task)
 }
 
 onMounted(loadTasks)
@@ -328,5 +400,29 @@ onMounted(loadTasks)
 
 .tasks-page .app-page-header {
   align-items: flex-start;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.project-filter select {
+  min-width: 11rem;
+  max-width: 16rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>

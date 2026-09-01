@@ -130,7 +130,7 @@ import {
   STATUS_GROUPS,
   STATUS_OPTIONS,
 } from '@/utils/ui'
-import { formatTaskDue } from '@/utils/taskDue'
+import { formatTaskDue, sortStatusTasksByDue } from '@/utils/taskDue'
 import { isTaskOverdue } from '@/utils/taskInsights'
 
 const props = defineProps({
@@ -166,10 +166,11 @@ let mediaNarrow = null
 let mediaCoarse = null
 
 function syncColumns(taskList) {
+  const list = Array.isArray(taskList) ? taskList : []
   columnTasks.value = {
-    pending: taskList.filter((t) => t.status === 'pending'),
-    in_progress: taskList.filter((t) => t.status === 'in_progress'),
-    completed: taskList.filter((t) => t.status === 'completed'),
+    pending: sortStatusTasksByDue(list.filter((t) => t.status === 'pending'), 'pending'),
+    in_progress: sortStatusTasksByDue(list.filter((t) => t.status === 'in_progress'), 'in_progress'),
+    completed: sortStatusTasksByDue(list.filter((t) => t.status === 'completed'), 'completed'),
   }
 }
 
@@ -187,6 +188,7 @@ function onDragStart() {
 
 function onDragEnd() {
   isDragging.value = false
+  syncColumns(props.tasks)
 }
 
 function onColumnChange(evt, targetStatus) {
@@ -400,11 +402,10 @@ onUnmounted(() => {
   border: 1px solid transparent;
 }
 
-.priority-pill[data-p='high'],
-.priority-pill[data-p='critical'] {
-  color: var(--color-accent);
-  background: var(--color-accent-soft);
-  border-color: rgba(196, 163, 90, 0.28);
+.priority-pill[data-p='low'] {
+  color: var(--color-text-muted);
+  background: rgba(232, 228, 216, 0.06);
+  border-color: rgba(232, 228, 216, 0.14);
 }
 
 .priority-pill[data-p='medium'] {
@@ -413,10 +414,16 @@ onUnmounted(() => {
   border-color: rgba(196, 163, 90, 0.28);
 }
 
-.priority-pill[data-p='low'] {
-  color: var(--color-text-muted);
-  background: rgba(232, 228, 216, 0.06);
-  border-color: rgba(232, 228, 216, 0.14);
+.priority-pill[data-p='high'] {
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.16);
+  border-color: rgba(251, 146, 60, 0.32);
+}
+
+.priority-pill[data-p='critical'] {
+  color: var(--color-danger);
+  background: rgba(248, 113, 113, 0.16);
+  border-color: rgba(248, 113, 113, 0.35);
 }
 
 .kanban-card__indicator {

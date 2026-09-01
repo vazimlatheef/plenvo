@@ -268,8 +268,10 @@
       :projects="projects"
       :show-project="true"
       :initial="modalInitial"
+      :allow-delete="modalMode === 'edit' && !writeRestricted"
       @close="closeModal"
       @save="saveFromModal"
+      @delete="deleteFromModal"
     />
   </div>
 </template>
@@ -295,6 +297,7 @@ import {
   statusLabel,
 } from '@/utils/ui'
 import { formatTaskDue, normalizeDueTime, taskDueSortKey } from '@/utils/taskDue'
+import { confirmDeleteTask, removeDeletedTask } from '@/utils/recurrence'
 
 const mode = ref('calendar')
 const gridSpan = ref(readStored('plenvo_cal_span', 'month'))
@@ -747,6 +750,29 @@ async function saveFromModal(payload) {
   } finally {
     saving.value = false
   }
+}
+
+async function confirmDelete(task) {
+  if (writeRestricted.value) return
+  if (!confirmDeleteTask(task)) return
+  saving.value = true
+  formError.value = ''
+  try {
+    await apiJson(`/api/v1/tasks/${task.id}`, { method: 'DELETE' })
+    tasks.value = removeDeletedTask(tasks.value, task)
+    closeModal()
+  } catch (err) {
+    console.error('[Calendar] delete failed', err)
+    formError.value = err.message || 'Failed to delete task'
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deleteFromModal() {
+  const task = tasks.value.find((t) => t.id === editingTaskId.value)
+  if (!task) return
+  await confirmDelete(task)
 }
 
 function upsertTask(task) {

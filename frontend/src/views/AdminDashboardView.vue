@@ -86,13 +86,15 @@
         <p>No open tasks assigned to you. <RouterLink to="/app/tasks">Browse tasks</RouterLink></p>
       </div>
       <div v-else class="tasks-list">
-        <button
+        <div
           v-for="task in focusTasks"
           :key="task.id"
-          type="button"
           class="task-item task-item--clickable"
           :class="{ overdue: isFocusOverdue(task) }"
+          role="button"
+          tabindex="0"
           @click="openEditTask(task)"
+          @keydown.enter="openEditTask(task)"
         >
           <div class="task-info">
             <h4>{{ task.title }}</h4>
@@ -108,13 +110,23 @@
               <span v-else class="meta-text">No due date</span>
             </div>
           </div>
-          <div class="task-side">
+          <div class="task-side" @click.stop>
+            <button
+              type="button"
+              class="row-icon-btn row-icon-btn--danger"
+              aria-label="Delete task"
+              :disabled="busyTaskId === task.id || writeRestricted"
+              :title="writeRestricted ? writeDisabledTitle : 'Delete task'"
+              @click="deleteDashboardTask(task)"
+            >
+              <Trash2 :size="15" :stroke-width="1.75" />
+            </button>
             <span class="priority-badge" :class="task.priority">
               <component :is="priorityIcon(task.priority)" :size="12" :stroke-width="2" />
               {{ task.priority }}
             </span>
           </div>
-        </button>
+        </div>
       </div>
     </section>
 
@@ -179,8 +191,9 @@
               class="row-icon-btn row-icon-btn--danger"
               title="Delete task"
               aria-label="Delete task"
-              :disabled="busyTaskId === task.id"
-              @click="deleteOverdueTask(task)"
+              :disabled="busyTaskId === task.id || writeRestricted"
+              :title="writeRestricted ? writeDisabledTitle : 'Delete task'"
+              @click="deleteDashboardTask(task)"
             >
               <Trash2 :size="15" :stroke-width="1.75" />
             </button>
@@ -232,8 +245,10 @@
       :show-project="true"
       :projects="dashboardProjects"
       :initial="taskModalInitial"
+      :allow-delete="!writeRestricted"
       @close="closeTaskModal"
       @save="saveTaskFromModal"
+      @delete="deleteFromTaskModal"
     />
   </div>
 </template>
@@ -598,7 +613,7 @@ async function saveTaskFromModal(payload) {
   }
 }
 
-async function deleteOverdueTask(task) {
+async function deleteDashboardTask(task) {
   if (writeRestricted.value) return
   if (!confirmDeleteTask(task)) return
   busyTaskId.value = task.id
@@ -609,11 +624,20 @@ async function deleteOverdueTask(task) {
     stats.value.overdue = remaining.filter((t) => isTaskOverdue(t)).length
     stats.value.tasks = remaining.length
     allTasks.value = remaining
+    if (editingTaskId.value && !remaining.some((t) => t.id === editingTaskId.value)) {
+      closeTaskModal()
+    }
   } catch (err) {
     console.error('Failed to delete task:', err)
   } finally {
     busyTaskId.value = null
   }
+}
+
+async function deleteFromTaskModal() {
+  const task = allTasks.value.find((t) => t.id === editingTaskId.value)
+  if (!task) return
+  await deleteDashboardTask(task)
 }
 
 function getInitials(name) {
@@ -1133,10 +1157,14 @@ button.task-item--clickable {
   color: var(--color-accent);
 }
 
-.priority-badge.high,
+.priority-badge.high {
+  background: rgba(251, 146, 60, 0.18);
+  color: #fb923c;
+}
+
 .priority-badge.critical {
-  background: rgba(196, 163, 90, 0.22);
-  color: var(--color-accent);
+  background: rgba(248, 113, 113, 0.18);
+  color: var(--color-danger);
 }
 
 .team-preview {

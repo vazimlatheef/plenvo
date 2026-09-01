@@ -87,9 +87,13 @@
       :saving="saving"
       :error="formError"
       :assignee-options="assigneeOptions"
+      :show-project="true"
+      :projects="allProjects"
+      :allow-delete="!!editingTaskId && !writeRestricted"
       :initial="modalInitial"
       @close="closeModal"
       @save="saveFromModal"
+      @delete="deleteFromModal"
     />
 
     <div v-if="showProjectModal" class="modal-overlay" @click.self="closeProjectEdit">
@@ -141,7 +145,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { apiJson } from '@/api/client'
-import { normalizeDueTime } from '@/utils/taskDue'
+import { normalizeDueTime, sortStatusTasksByDue } from '@/utils/taskDue'
 import TaskEditModal from '@/components/TaskEditModal.vue'
 import TaskKanbanBoard from '@/components/TaskKanbanBoard.vue'
 import TaskListView from '@/components/TaskListView.vue'
@@ -166,6 +170,7 @@ const { viewMode } = useTaskViewMode('kanban')
 const { writeRestricted, writeDisabledTitle } = useWriteAccess()
 
 const project = ref(null)
+const allProjects = ref([])
 const tasks = ref([])
 const team = ref([])
 const contacts = ref([])
@@ -190,6 +195,7 @@ const modalInitial = ref({
   due_time: '',
   status: 'pending',
   priority: 'medium',
+  project_id: null,
 })
 
 const showProjectModal = ref(false)
@@ -205,7 +211,7 @@ const projectId = computed(() => {
 const statusGroups = computed(() =>
   STATUS_GROUPS.map((group) => ({
     ...group,
-    tasks: tasks.value.filter((t) => t.status === group.key),
+    tasks: sortStatusTasksByDue(tasks.value.filter((t) => t.status === group.key), group.key),
   })),
 )
 
@@ -248,6 +254,7 @@ function resetForm() {
     recurrence: 'none',
     status: 'pending',
     priority: 'medium',
+    project_id: projectId.value,
   }
   formError.value = ''
   editingTaskId.value = null
@@ -313,6 +320,7 @@ function openEdit(task) {
     series_id: task.series_id || null,
     status: task.status || 'pending',
     priority: task.priority || 'medium',
+    project_id: task.project_id ?? projectId.value,
   }
   formError.value = ''
   showModal.value = true
@@ -334,7 +342,7 @@ async function loadPage() {
   loading.value = true
   error.value = ''
   try {
-    const [proj, taskList, users, contactList] = await Promise.all([
+    const [proj, taskList, users, contactList, projectList] = await Promise.all([
       apiJson(`/api/v1/projects/${projectId.value}`),
       apiJson(`/api/v1/tasks?project_id=${projectId.value}`),
       apiJson('/api/v1/users').catch((err) => {
@@ -345,9 +353,11 @@ async function loadPage() {
         console.error('[AdminProjectTasks] failed to load contacts', err)
         return []
       }),
+      apiJson('/api/v1/projects').catch(() => []),
     ])
 
     project.value = proj
+    allProjects.value = Array.isArray(projectList) ? projectList : []
     tasks.value = Array.isArray(taskList) ? taskList : []
     team.value = Array.isArray(users) ? users : []
     contacts.value = Array.isArray(contactList) ? contactList : []
@@ -419,12 +429,17 @@ async function saveFromModal(payload) {
           priority: payload.priority || 'medium',
           due_date: payload.due_date || null,
           due_time: payload.due_date && payload.due_time ? payload.due_time : null,
+          project_id: payload.project_id ?? null,
           ...assigneePayload,
         }),
       })
-      const idx = tasks.value.findIndex((t) => t.id === editingTaskId.value)
-      if (idx !== -1) tasks.value[idx] = { ...tasks.value[idx], ...updated }
-      triggerFlash(updated.id)
+      if (updated.project_id !== projectId.value) {
+        tasks.value = tasks.value.filter((t) => t.id !== updated.id)
+      } else {
+        const idx = tasks.value.findIndex((t) => t.id === editingTaskId.value)
+        if (idx !== -1) tasks.value[idx] = { ...tasks.value[idx], ...updated }
+        triggerFlash(updated.id)
+      }
     } else {
       if (!projectId.value) return
       const { clear_assignee, ...assignees } = assigneePayload
@@ -434,7 +449,7 @@ async function saveFromModal(payload) {
           title: payload.title.trim(),
           description: payload.description,
           links: payload.links,
-          project_id: projectId.value,
+          project_id: payload.project_id || projectId.value,
           status: payload.status || 'pending',
           priority: payload.priority || 'medium',
           due_date: payload.due_date || null,
@@ -446,7 +461,7 @@ async function saveFromModal(payload) {
       })
       if (created.series_id) {
         await loadPage()
-      } else {
+      } else if ((created.project_id || null) === projectId.value) {
         tasks.value = [created, ...tasks.value]
       }
     }
@@ -467,13 +482,23 @@ async function confirmDelete(task) {
   error.value = ''
   try {
     await apiJson(`/api/v1/tasks/${task.id}`, { method: 'DELETE' })
-    tasks.value = removeDeletedTask(tasks.value, task)
+    const remaining = removeDeletedTask(tasks.value, task)
+    tasks.value = remaining
+    if (editingTaskId.value && !remaining.some((t) => t.id === editingTaskId.value)) {
+      closeModal()
+    }
   } catch (err) {
     console.error('[AdminProjectTasks] delete failed', err)
     error.value = err.message || 'Failed to delete task'
   } finally {
     busyId.value = null
   }
+}
+
+async function deleteFromModal() {
+  const task = tasks.value.find((t) => t.id === editingTaskId.value)
+  if (!task) return
+  await confirmDelete(task)
 }
 
 onMounted(loadPage)

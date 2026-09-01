@@ -139,6 +139,16 @@
             <p v-if="error" class="task-drawer__error">{{ error }}</p>
 
             <footer class="task-drawer__footer">
+              <button
+                v-if="mode === 'edit' && allowDelete"
+                type="button"
+                class="btn-outline task-drawer__delete"
+                :disabled="saving"
+                @click="emit('delete')"
+              >
+                Delete
+              </button>
+              <span class="task-drawer__footer-spacer" />
               <button type="button" class="btn-outline" :disabled="saving" @click="emitClose">Cancel</button>
               <button type="submit" class="btn-primary" :disabled="saving || !form.title.trim()">
                 {{ saving ? 'Saving…' : mode === 'create' ? 'Create task' : 'Save changes' }}
@@ -170,6 +180,7 @@ const props = defineProps({
   assigneeOptions: { type: Array, default: () => [] },
   projects: { type: Array, default: () => [] },
   showProject: { type: Boolean, default: false },
+  allowDelete: { type: Boolean, default: true },
   initial: {
     type: Object,
     default: () => ({
@@ -187,7 +198,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['close', 'save'])
+const emit = defineEmits(['close', 'save', 'delete'])
 
 const form = reactive({
   title: '',
@@ -462,9 +473,23 @@ function onSubmit() {
 .task-drawer__footer {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 0.65rem;
   margin-top: auto;
   padding-top: 0.5rem;
+}
+
+.task-drawer__footer-spacer {
+  flex: 1;
+}
+
+.task-drawer__delete {
+  color: var(--color-danger);
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.task-drawer__delete:hover:not(:disabled) {
+  border-color: var(--color-danger);
 }
 
 .drawer-enter-active,

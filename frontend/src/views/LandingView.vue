@@ -34,7 +34,7 @@
 
           <p class="hero-sub" :class="{ visible: show.sub }">
             <template v-if="signedIn">
-              Paste notes, assign work, or ask how work is tracking.
+              Projects, tasks, and what’s next — one workspace.
             </template>
             <template v-else>
               Paste notes. Get tasks, owners, and what’s next.
@@ -470,13 +470,13 @@ function selectMode(mode) {
 
 const bullets = computed(() => [
   '✓ Paste a note — Plenvo creates the tasks',
-  '✓ For managers, professionals, and students',
+  '✓ Projects, tasks, and what’s next — one workspace',
   `✓ From ${personalPrice.value}/mo · 14-day trial · No card`,
 ])
 
 const signedInBullets = [
   '✓ Plenvo AI — capture notes or ask what’s next',
-  '✓ Projects, tasks, and team — one workspace',
+  '✓ Paste notes, assign work, or ask how work is tracking',
   '✓ Private. Encrypted. Yours.',
 ]
 

@@ -1115,10 +1115,8 @@ onMounted(async () => {
   border: 1px solid var(--color-border);
 }
 
-.priority-pill[data-p='high'],
-.priority-pill[data-p='critical'] {
-  color: var(--color-accent);
-  border-color: rgba(196, 163, 90, 0.35);
+.priority-pill[data-p='low'] {
+  color: var(--color-text-muted);
 }
 
 .priority-pill[data-p='medium'] {
@@ -1126,7 +1124,13 @@ onMounted(async () => {
   border-color: rgba(196, 163, 90, 0.35);
 }
 
-.priority-pill[data-p='low'] {
-  color: var(--color-text-muted);
+.priority-pill[data-p='high'] {
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.4);
+}
+
+.priority-pill[data-p='critical'] {
+  color: var(--color-danger);
+  border-color: rgba(248, 113, 113, 0.4);
 }
 </style>

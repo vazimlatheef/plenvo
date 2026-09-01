@@ -44,6 +44,28 @@ export function taskDueSortKey(task) {
   return `${date}T${time}`
 }
 
+/**
+ * Open work: soonest due first. Done: latest due first.
+ * Tasks with no due date always last.
+ */
+export function sortTasksByDue(tasks, { newestFirst = false } = {}) {
+  if (!Array.isArray(tasks)) return []
+  return [...tasks].sort((a, b) => {
+    const aDated = Boolean(a?.due_date)
+    const bDated = Boolean(b?.due_date)
+    if (!aDated && !bDated) return (Number(a.id) || 0) - (Number(b.id) || 0)
+    if (!aDated) return 1
+    if (!bDated) return -1
+    const cmp = taskDueSortKey(a).localeCompare(taskDueSortKey(b))
+    if (cmp !== 0) return newestFirst ? -cmp : cmp
+    return (Number(a.id) || 0) - (Number(b.id) || 0)
+  })
+}
+
+export function sortStatusTasksByDue(tasks, status) {
+  return sortTasksByDue(tasks, { newestFirst: status === 'completed' })
+}
+
 export function isTimedTaskOverdue(task, tz = effectiveTimezone.value) {
   if (!task?.due_date || task.status === 'completed') return false
   const dateKey = String(task.due_date).slice(0, 10)

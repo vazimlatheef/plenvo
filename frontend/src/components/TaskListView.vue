@@ -7,7 +7,7 @@
       <span />
       <span class="dense-head-label dense-head-label--end">Status</span>
     </div>
-    <section v-for="group in statusGroups" :key="group.key" class="task-group">
+    <section v-for="group in orderedGroups" :key="group.key" class="task-group">
       <div class="group-label">
         <span class="status-pill" :data-s="group.key">{{ group.label }}</span>
         <span class="count">{{ group.tasks.length }}</span>
@@ -86,14 +86,14 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { Calendar, Pencil, Trash2 } from '@lucide/vue'
 
 import LinksList from '@/components/LinksList.vue'
 import { STATUS_OPTIONS } from '@/utils/ui'
-import { formatTaskDue } from '@/utils/taskDue'
-import { isTaskOverdue } from '@/utils/taskInsights'
+import { formatTaskDue, sortStatusTasksByDue } from '@/utils/taskDue'
 
-defineProps({
+const props = defineProps({
   statusGroups: { type: Array, required: true },
   busyId: { type: [Number, String, null], default: null },
   flashId: { type: [Number, String, null], default: null },
@@ -107,6 +107,13 @@ defineProps({
 })
 
 const emit = defineEmits(['edit', 'delete', 'status-change'])
+
+const orderedGroups = computed(() =>
+  (props.statusGroups || []).map((group) => ({
+    ...group,
+    tasks: sortStatusTasksByDue(group.tasks || [], group.key),
+  })),
+)
 
 function onStatusChange(task, event) {
   const next = event.target.value
