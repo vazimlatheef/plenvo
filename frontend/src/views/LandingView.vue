@@ -337,41 +337,42 @@ const demoCopy = {
   team: {
     capture: {
       input:
-        'Team standup Monday 9am. Finish API docs by Thursday — high priority. Assign homepage mockups to Alex by Friday.',
+        'Alex on homepage mockups by Friday. Maya’s client deck is late — chase her today. Sam to chase the invoice tomorrow.',
       tasks: [
-        'Team standup · Monday 9am',
-        'API docs · Thursday · High',
+        'Chase Maya · client deck · today',
         'Homepage mockups · Friday · Alex',
+        'Invoice follow-up · tomorrow · Sam',
       ],
       briefing: [],
     },
     ask: {
-      input: 'How is my team doing this week? Who is carrying the most, and how can I improve performance?',
+      input: 'What’s the team status this week? Who’s stuck, who’s overloaded?',
       tasks: [],
       briefing: [
-        { label: 'Snapshot', text: '4 open tasks, 1 overdue.' },
-        { label: 'Focus', text: 'API docs (Alex, due Thu) is highest priority.' },
-        { label: 'Load', text: 'Alex is carrying the most; Maya has slack. Rebalance one item this week.' },
+        { label: 'Stuck', text: 'Maya’s client deck is overdue. That’s the chase.' },
+        { label: 'Load', text: 'Alex is full this week. Sam has room.' },
+        { label: 'Do this', text: 'Ping Maya. Don’t hand Alex another task.' },
       ],
     },
   },
   solo: {
     capture: {
-      input: 'Finish the client proposal by Wednesday. Renew passport next month. Read chapter 3 this weekend.',
+      input:
+        'Proposal has to go Wednesday. Chase last week’s invoice. Mum’s birthday Sunday — don’t forget.',
       tasks: [
         'Client proposal · Wednesday',
-        'Renew passport · Next month',
-        'Leadership book · Chapter 3',
+        'Invoice follow-up · this week',
+        'Mum’s birthday · Sunday',
       ],
       briefing: [],
     },
     ask: {
-      input: "What's next for me this week?",
+      input: 'I’m overloaded. What do I actually do first?',
       tasks: [],
       briefing: [
-        { label: 'Snapshot', text: '3 open, none overdue.' },
-        { label: 'Next', text: 'Client proposal due Wednesday.' },
-        { label: 'Then', text: 'Chapter 3 this weekend — passport can wait.' },
+        { label: 'First', text: 'Proposal — Wednesday. That’s the week.' },
+        { label: 'Then', text: 'Chase the invoice while you have momentum.' },
+        { label: 'Later', text: 'Sunday is Mum’s birthday. Don’t let it slip.' },
       ],
     },
   },
