@@ -469,8 +469,8 @@ function selectMode(mode) {
 }
 
 const bullets = computed(() => [
-  '✓ Paste a note — Plenvo creates the tasks',
   '✓ Projects, tasks, and what’s next — one workspace',
+  '✓ Boards, calendar, and priorities — yours or the team’s',
   `✓ From ${personalPrice.value}/mo · 14-day trial · No card`,
 ])
 
