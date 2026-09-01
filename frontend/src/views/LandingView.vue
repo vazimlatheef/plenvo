@@ -37,9 +37,20 @@
               Projects, tasks, and what’s next — one workspace.
             </template>
             <template v-else>
-              Paste notes. Get tasks, owners, and what’s next.
+              Paste notes. Get tasks and what’s next.
             </template>
           </p>
+
+          <ul v-if="!signedIn" class="audience-lines" :class="{ visible: show.audience }">
+            <li>
+              <span>Personal</span>
+              Board, calendar, and what’s due — just you.
+            </li>
+            <li>
+              <span>Managers</span>
+              Assign work. See progress. Stop chasing.
+            </li>
+          </ul>
 
           <div class="hero-ctas" :class="{ visible: show.cta }">
             <template v-if="signedIn">
@@ -569,6 +580,7 @@ const displayPlans = computed(() => [
 const show = reactive({
   title: false,
   sub: false,
+  audience: false,
   cta: false,
   trust: false,
   demo: false,
@@ -612,7 +624,10 @@ onMounted(async () => {
   setTimeout(() => {
     show.sub = true
   }, delays[1])
-  const base = reduceMotion ? 0 : 380
+  setTimeout(() => {
+    show.audience = true
+  }, reduceMotion ? 0 : 320)
+  const base = reduceMotion ? 0 : 440
   setTimeout(() => {
     show.cta = true
   }, base)
@@ -731,6 +746,7 @@ onBeforeUnmount(() => {
 
 .hero-title,
 .hero-sub,
+.audience-lines,
 .hero-ctas,
 .trust-bar,
 .hero-demo {
@@ -740,6 +756,7 @@ onBeforeUnmount(() => {
 }
 .hero-title.visible,
 .hero-sub.visible,
+.audience-lines.visible,
 .hero-ctas.visible,
 .trust-bar.visible,
 .hero-demo.visible {
@@ -750,6 +767,7 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .hero-title,
   .hero-sub,
+  .audience-lines,
   .hero-ctas,
   .trust-bar,
   .hero-demo,
@@ -784,8 +802,36 @@ onBeforeUnmount(() => {
   font-weight: 300;
   color: var(--color-text-muted);
   max-width: 440px;
-  margin: 0 0 1.5rem;
+  margin: 0 0 1.15rem;
   line-height: 1.7;
+}
+
+.audience-lines {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-width: 440px;
+}
+
+.audience-lines li {
+  font-size: 0.9rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.audience-lines span {
+  display: inline-block;
+  min-width: 5.6rem;
+  margin-right: 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
 }
 
 .hero-ctas {
@@ -1333,6 +1379,7 @@ onBeforeUnmount(() => {
     text-align: center;
   }
   .hero-sub,
+  .audience-lines,
   .hero-ctas,
   .trust-bar {
     margin-left: auto;
