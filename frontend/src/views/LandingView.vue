@@ -70,8 +70,7 @@
         </div>
 
         <div id="demo" class="hero-demo" :class="{ visible: show.demo }">
-          <p class="section-eyebrow">Plenvo AI</p>
-          <h2 class="demo-title">Paste a note or ask what’s next.</h2>
+          <h2 class="section-eyebrow">Plenvo AI</h2>
 
           <div class="demo-tabs" role="tablist" aria-label="Audience">
             <button
@@ -977,12 +976,8 @@ onBeforeUnmount(() => {
 .hero-demo {
   min-width: 0;
 }
-.demo-title {
-  font-family: 'Instrument Serif', serif;
-  font-size: clamp(1.35rem, 2.2vw, 1.7rem);
-  font-weight: 400;
-  margin: 0.15rem 0 0.85rem;
-  line-height: 1.25;
+.hero-demo .section-eyebrow {
+  margin-bottom: 0.85rem;
 }
 .demo-tabs {
   display: inline-flex;
