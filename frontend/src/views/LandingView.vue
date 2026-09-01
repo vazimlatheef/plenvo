@@ -350,7 +350,7 @@ const demoCopy = {
       briefing: [
         { label: 'Stuck', text: 'Maya — client deck overdue.' },
         { label: 'Load', text: 'Alex is full. Sam has room.' },
-        { label: 'Next', text: 'Ping Maya. Don’t pile onto Alex.' },
+        { label: 'Next', text: 'Ping Maya. Assign pending tasks to Sam.' },
       ],
     },
   },
