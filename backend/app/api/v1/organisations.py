@@ -189,6 +189,8 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         db.flush()
 
         signup_tz = normalize_timezone(payload.timezone)
+        # Persist IP geo country on the user (org only stores billing currency).
+        signup_country = (payload.country_code or "").strip().upper()[:8] or None
         user = User(
             organisation_id=org.id,
             email=email,
@@ -198,6 +200,7 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             role="admin",
             company_name=company_name,
             team_size=None,
+            country=signup_country,
             timezone=signup_tz,
             is_verified=False,
             do_not_email=False,

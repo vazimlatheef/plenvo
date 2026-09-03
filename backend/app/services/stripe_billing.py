@@ -307,6 +307,8 @@ def create_checkout_session(
     customer_id = ensure_stripe_customer(db, org, admin)
     base = _frontend_base()
 
+    # Explicit `currency` is required for multi-currency Price IDs so Stripe
+    # forces the org's locked currency option (gbp/eur/usd/inr) at Checkout.
     session = _call_stripe(
         stripe.checkout.Session.create,
         mode="subscription",

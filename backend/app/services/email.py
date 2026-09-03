@@ -130,6 +130,7 @@ def build_my_tasks_url() -> str:
 
 
 def build_account_url() -> str:
+    """Billing / upgrade page (no query params — Account handles plan CTAs)."""
     return f"{FRONTEND_URL}/app/account"
 
 
