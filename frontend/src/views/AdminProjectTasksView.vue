@@ -158,6 +158,7 @@ import { useTaskViewMode } from '@/composables/useTaskViewMode'
 import { useWriteAccess } from '@/composables/useWriteAccess'
 import {
   buildAssigneeOptions,
+  currentUserAssigneeKey,
   parseAssigneeKey,
   resolveAssigneeName,
   taskAssigneeKey,
@@ -248,7 +249,7 @@ function resetForm() {
     title: '',
     description: '',
     links: [],
-    assignee_key: null,
+    assignee_key: currentUserAssigneeKey(user.value),
     due_date: '',
     due_time: '',
     recurrence: 'none',

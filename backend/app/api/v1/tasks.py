@@ -60,6 +60,10 @@ def create_task(
         if contact.user_id:
             assignee_id = contact.user_id
 
+    # Default: assign to the creating admin when nothing was chosen.
+    if assignee_id is None and assignee_contact_id is None:
+        assignee_id = current_user.id
+
     rec, series_id, dates = expand_series(task_in.due_date, task_in.recurrence)
     first = None
     for due in dates:

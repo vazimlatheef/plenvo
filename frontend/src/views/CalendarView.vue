@@ -287,6 +287,7 @@ import { user } from '@/composables/session'
 import { useWriteAccess } from '@/composables/useWriteAccess'
 import {
   buildAssigneeOptions,
+  currentUserAssigneeKey,
   parseAssigneeKey,
   resolveAssigneeName,
   taskAssigneeKey,
@@ -671,7 +672,7 @@ function openCreate(isoDate) {
     title: '',
     description: '',
     links: [],
-    assignee_key: null,
+    assignee_key: currentUserAssigneeKey(user.value),
     due_date: isoDate || selectedDate.value || '',
     due_time: '',
     recurrence: 'none',

@@ -15,8 +15,8 @@ export function parseAssigneeKey(key) {
     const id = Number(s.slice(2))
     return { assignee_id: null, assignee_contact_id: Number.isFinite(id) ? id : null }
   }
-  if (s.startsWith('u:')) {
-    const id = Number(s.slice(2))
+  if (s.startsWith('u:') || s.startsWith('user:')) {
+    const id = Number(s.includes(':') ? s.slice(s.indexOf(':') + 1) : s)
     return { assignee_id: Number.isFinite(id) ? id : null, assignee_contact_id: null }
   }
   const id = Number(s)
@@ -28,6 +28,11 @@ export function taskAssigneeKey(task) {
   if (task.assignee_id != null) return userAssigneeKey(task.assignee_id)
   if (task.assignee_contact_id != null) return contactAssigneeKey(task.assignee_contact_id)
   return null
+}
+
+/** Default create-form assignee: the logged-in user. */
+export function currentUserAssigneeKey(currentUser) {
+  return currentUser?.id != null ? userAssigneeKey(currentUser.id) : null
 }
 
 /**

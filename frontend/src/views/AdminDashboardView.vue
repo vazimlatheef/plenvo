@@ -278,6 +278,7 @@ import { user } from '@/composables/session'
 import { useWriteAccess } from '@/composables/useWriteAccess'
 import {
   buildAssigneeOptions,
+  currentUserAssigneeKey,
   parseAssigneeKey,
   taskAssigneeKey,
 } from '@/utils/assignee'
@@ -507,7 +508,7 @@ function openCreateTask() {
     title: '',
     description: '',
     links: [],
-    assignee_key: user.value?.id ? `user:${user.value.id}` : null,
+    assignee_key: currentUserAssigneeKey(user.value),
     due_date: '',
     due_time: '',
     recurrence: 'none',

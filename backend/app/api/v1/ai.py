@@ -583,6 +583,10 @@ def confirm_tasks(
             if contact.user_id:
                 assignee_id = contact.user_id
 
+        # Default: assign to the confirming admin when no person was matched/chosen.
+        if not assignee_id and not assignee_contact_id:
+            assignee_id = current_user.id
+
         project_id = t.get("project_id")
         if not project_id:
             create_title = _normalize_project_title(t.get("create_project_title"))

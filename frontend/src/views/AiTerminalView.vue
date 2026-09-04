@@ -234,6 +234,7 @@ import { useWriteAccess } from '@/composables/useWriteAccess'
 import {
   assigneeOptionLabel,
   buildAssigneeOptions,
+  currentUserAssigneeKey,
   parseAssigneeKey,
   taskAssigneeKey,
 } from '@/utils/assignee'
@@ -469,9 +470,14 @@ async function parseNote() {
       const suggestedProject = (t.suggested_new_project || '').trim() || null
       const suggestedContact = (t.suggested_new_contact || '').trim() || null
       const matchedAssignee = Boolean(t.assignee_matched && assignee_key)
+      const willCreateContact = Boolean(suggestedContact && !matchedAssignee && canAddMembers.value)
       return {
         ...t,
-        assignee_key: matchedAssignee ? assignee_key : null,
+        assignee_key: matchedAssignee
+          ? assignee_key
+          : willCreateContact
+            ? null
+            : currentUserAssigneeKey(user.value),
         matched_assignee_label: t.matched_assignee_label || null,
         matched_project_label: t.matched_project_label || null,
         suggested_new_project: suggestedProject,
@@ -479,8 +485,7 @@ async function parseNote() {
         project_id: matchedProject ?? (suggestedProject ? null : noteProject),
         project_matched: Boolean(t.project_matched),
         create_project_title: suggestedProject && !matchedProject ? suggestedProject : null,
-        create_contact_name:
-          suggestedContact && !matchedAssignee && canAddMembers.value ? suggestedContact : null,
+        create_contact_name: willCreateContact ? suggestedContact : null,
         due_time: normalizeDueTime(t.due_time),
         recurrence: t.recurrence === 'weekly' || t.recurrence === 'monthly' ? t.recurrence : 'none',
       }
