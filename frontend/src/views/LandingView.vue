@@ -27,8 +27,8 @@
               <em class="accent">Capture anything. Ask anything.</em>
             </template>
             <template v-else>
-              Type your day.<br />
-              <em class="accent">Plenvo sorts the rest.</em>
+              Your personal command center<br />
+              <em class="accent">from messy notes to tracked execution.</em>
             </template>
           </h1>
 
@@ -37,7 +37,7 @@
               Projects, tasks, and what’s next — one workspace.
             </template>
             <template v-else>
-              Paste notes. Get tasks and what’s next.
+              Paste raw notes or meeting dumps. Plenvo extracts actionable tasks, assigns owners, and flags your next critical move.
             </template>
           </p>
 
@@ -174,7 +174,7 @@
           Pick a plan below{{ canManageBilling ? '' : ' (ask your admin to upgrade)' }}.
         </p>
         <h2 class="section-heading" :class="{ visible: show.pricing }">
-          Simple. Transparent.<br />No per-seat surprises.
+          Transparent pricing.<br />Simple, predictable plans.
         </h2>
         <div class="pricing-grid" :class="{ visible: show.pricing }">
           <div v-for="plan in displayPlans" :key="plan.name" :class="['plan-card', plan.featured ? 'featured' : '']">
@@ -223,15 +223,15 @@
         </h2>
         <div class="feature-grid">
           <div
-            v-for="(f, i) in features"
-            :key="f.title"
+            v-for="(feat, i) in features"
+            :key="feat.title"
             class="feature-card"
             :class="{ visible: show.featureCards[i] }"
             :style="{ transitionDelay: `${i * 0.07}s` }"
           >
-            <span class="f-icon">{{ f.icon }}</span>
-            <h3>{{ f.title }}</h3>
-            <p>{{ f.desc }}</p>
+            <span class="feature-icon" v-html="feat.iconSvg" />
+            <h3>{{ feat.title }}</h3>
+            <p>{{ feat.desc }}</p>
           </div>
         </div>
       </div>
@@ -332,46 +332,49 @@ function scrollToPricing() {
 const demoAudience = ref('team')
 const demoMode = ref('ask')
 
+// Inline SVG icons
+const iconCapture = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`
+const iconBriefs = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`
+const iconEngine = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="10" height="7"/></svg>`
+
 const demoCopy = {
   team: {
     capture: {
-      input:
-        'Maya’s client deck is late. Alex on homepage mockups by Friday. Sam to chase the invoice tomorrow.',
+      input: 'Client deck is blocked on Maya. Alex to finish API integration by Friday. Sam handles onboarding follow-ups tomorrow.',
       tasks: [
-        'Client deck · today · Maya',
-        'Homepage mockups · Friday · Alex',
-        'Invoice follow-up · tomorrow · Sam',
+        'Client deck · High priority · Maya (Blocked)',
+        'API Integration · Due Friday · Alex',
+        'Onboarding follow-ups · Due tomorrow · Sam',
       ],
       briefing: [],
     },
     ask: {
-      input: 'What’s the team status this week?',
+      input: 'Where are our bottlenecks and who has bandwidth?',
       tasks: [],
       briefing: [
-        { label: 'Stuck', text: 'Maya — client deck overdue.' },
-        { label: 'Load', text: 'Alex is full. Sam has room.' },
-        { label: 'Next', text: 'Ping Maya. Assign pending tasks to Sam.' },
+        { label: 'Blocked', text: 'Client deck is stuck on Maya — high risk.' },
+        { label: 'Capacity', text: 'Alex is at max load. Sam has capacity.' },
+        { label: 'Action', text: 'Reassign onboarding tasks from Maya to Sam.' },
       ],
     },
   },
   solo: {
     capture: {
-      input:
-        'Proposal has to go Wednesday. Still need to chase last week’s invoice. Mum’s birthday Sunday — don’t forget.',
+      input: 'Finish thesis methodology draft by Wed. Chase unpaid invoice #104. Review literature notes before supervisor meeting.',
       tasks: [
-        'Client proposal · Wednesday',
-        'Invoice follow-up · this week',
-        'Mum’s birthday · Sunday',
+        'Thesis methodology draft · Priority · Wed',
+        'Follow up on Invoice #104 · Urgent',
+        'Review literature notes · Pre-meeting',
       ],
       briefing: [],
     },
     ask: {
-      input: 'I’m overloaded. What do I actually do first?',
+      input: 'I am overwhelmed today. What is the single highest-impact item right now?',
       tasks: [],
       briefing: [
-        { label: 'First', text: 'The proposal — Wednesday.' },
-        { label: 'Then', text: 'Chase the invoice.' },
-        { label: 'Later', text: 'Mum’s birthday — Sunday.' },
+        { label: 'Immediate Focus', text: 'Finish thesis methodology (due Wed).' },
+        { label: 'Quick Win', text: 'Send 1-line follow-up for Invoice #104.' },
+        { label: 'Defer', text: 'Literature review can wait until tomorrow morning.' },
       ],
     },
   },
@@ -510,19 +513,19 @@ watch(signedIn, async () => {
 
 const features = [
   {
-    icon: '⚡',
-    title: 'Plenvo AI',
-    desc: 'Paste notes or ask what’s next. Tasks, owners, and a live brief appear from context.',
+    iconSvg: iconCapture,
+    title: 'Zero-Friction AI Capture',
+    desc: 'Paste messy call notes, meeting transcripts, or rough ideas. Plenvo turns unstructured chatter into structured, actionable items instantly.',
   },
   {
-    icon: '📋',
-    title: 'Tasks & projects',
-    desc: 'Boards, calendar, and priorities in one workspace — yours or the team’s.',
+    iconSvg: iconBriefs,
+    title: 'Live AI Briefs & Insights',
+    desc: 'Ask your command center anything. Get real-time status, surface hidden bottlenecks, and identify team capacity without chasing anyone.',
   },
   {
-    icon: '👥',
-    title: 'Team & training',
-    desc: 'Assign work and courses without forcing everyone into another account. See who is done.',
+    iconSvg: iconEngine,
+    title: 'Workload & Execution Hub',
+    desc: 'Assign tasks, track completion, and maintain accountability across your team or solo work without operational friction.',
   },
 ]
 
@@ -1148,10 +1151,20 @@ onBeforeUnmount(() => {
 .feature-card:hover {
   border-color: rgba(196, 163, 90, 0.45);
 }
-.f-icon {
-  font-size: 1.2rem;
+.feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-bottom: 0.75rem;
+  color: var(--color-accent, #c4a35a);
+}
+
+.feature-icon :deep(svg) {
+  width: 1.35rem;
+  height: 1.35rem;
   display: block;
-  margin-bottom: 0.65rem;
 }
 .feature-card h3 {
   font-family: 'Instrument Serif', serif;
