@@ -220,8 +220,9 @@ def list_users(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_full_write_access),
+    current_user: User = Depends(get_current_admin_user),
 ) -> None:
+    """Remove an employee account. Allowed even when write access is restricted / over capacity."""
     if current_user.organisation_id is None:
         raise HTTPException(status_code=400, detail="No organisation on account.")
     remove_team_member(

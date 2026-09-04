@@ -151,8 +151,9 @@ def update_contact(
 def delete_contact(
     contact_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_full_write_access),
+    current_user: User = Depends(get_current_admin_user),
 ):
+    """Remove a team contact. Allowed even when write access is restricted / over capacity."""
     org_id = _require_org(current_user)
     remove_team_member(db, org_id=org_id, admin=current_user, contact_id=contact_id)
     return None

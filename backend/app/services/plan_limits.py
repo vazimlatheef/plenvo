@@ -47,6 +47,24 @@ def minimum_tier_label(tier: str) -> str:
     return labels.get(tier, tier)
 
 
+def count_team_members(db: Session, organisation_id: int) -> int:
+    """Users in org + contacts not yet linked to a user."""
+    users = (
+        db.query(User)
+        .filter(User.organisation_id == organisation_id)
+        .count()
+    )
+    unlinked = (
+        db.query(Contact)
+        .filter(
+            Contact.organisation_id == organisation_id,
+            Contact.user_id.is_(None),
+        )
+        .count()
+    )
+    return int(users) + int(unlinked)
+
+
 def trial_peak_member_count(org: Organisation, db: Session) -> int:
     current = count_team_members(db, org.id)
     stored = org.trial_peak_member_count or 1
@@ -75,20 +93,6 @@ def assert_trial_plan_upgrade_only(org: Organisation, target_tier: str) -> None:
         )
 
 
-def assert_checkout_meets_minimum_tier(db: Session, org: Organisation, target_tier: str) -> None:
-    peak = trial_peak_member_count(org, db)
-    min_tier = minimum_tier_for_member_count(peak)
-    target = (target_tier or _DEFAULT_TIER).strip().lower()
-    if tier_rank(target) < tier_rank(min_tier):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Your trial peaked at {peak} team member{'s' if peak != 1 else ''}. "
-                f"Minimum plan: {minimum_tier_label(min_tier)}."
-            ),
-        )
-
-
 def is_on_trial(org: Organisation, *, now: datetime | None = None) -> bool:
     if org.trial_ends_at is None:
         return False
@@ -99,30 +103,61 @@ def is_on_trial(org: Organisation, *, now: datetime | None = None) -> bool:
     return ends > now
 
 
+def member_limit_for_tier(tier: str | None) -> int | None:
+    key = (tier or _DEFAULT_TIER).strip().lower()
+    if key not in _PLAN_MEMBER_LIMITS:
+        key = _DEFAULT_TIER
+    return _PLAN_MEMBER_LIMITS[key]
+
+
 def member_limit_for_org(org: Organisation, *, now: datetime | None = None) -> int | None:
     """Return max headcount, or None for unlimited (enterprise)."""
-    tier = (org.plan_tier or _DEFAULT_TIER).strip().lower()
-    if tier not in _PLAN_MEMBER_LIMITS:
-        tier = _DEFAULT_TIER
-    return _PLAN_MEMBER_LIMITS[tier]
+    return member_limit_for_tier(org.plan_tier)
 
 
-def count_team_members(db: Session, organisation_id: int) -> int:
-    """Users in org + contacts not yet linked to a user."""
-    users = (
-        db.query(User)
-        .filter(User.organisation_id == organisation_id)
-        .count()
+def is_over_member_limit(db: Session, org: Organisation) -> bool:
+    limit = member_limit_for_org(org)
+    if limit is None:
+        return False
+    return count_team_members(db, org.id) > limit
+
+
+def assert_target_plan_fits_members(db: Session, org: Organisation, target_tier: str) -> None:
+    """Block plan change when current headcount exceeds the target plan's seat limit."""
+    target = (target_tier or _DEFAULT_TIER).strip().lower()
+    limit = member_limit_for_tier(target)
+    if limit is None:
+        return
+    current = count_team_members(db, org.id)
+    if current <= limit:
+        return
+    label = minimum_tier_label(target)
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=(
+            f"You have {current} team members, but the {label} plan allows "
+            f"{limit}. Remove {current - limit} member{'s' if current - limit != 1 else ''} "
+            "in Team before switching to this plan."
+        ),
     )
-    unlinked = (
-        db.query(Contact)
-        .filter(
-            Contact.organisation_id == organisation_id,
-            Contact.user_id.is_(None),
+
+
+def assert_checkout_meets_minimum_tier(db: Session, org: Organisation, target_tier: str) -> None:
+    # Hard seat check on current roster (covers paid downgrades).
+    assert_target_plan_fits_members(db, org, target_tier)
+
+    peak = trial_peak_member_count(org, db)
+    min_tier = minimum_tier_for_member_count(peak)
+    target = (target_tier or _DEFAULT_TIER).strip().lower()
+    if tier_rank(target) < tier_rank(min_tier):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Your workspace needs at least the {minimum_tier_label(min_tier)} plan "
+                f"for {peak} team member{'s' if peak != 1 else ''}. "
+                "Remove members in Team first, or choose a higher plan."
+            ),
         )
-        .count()
-    )
-    return int(users) + int(unlinked)
 
 
 def plan_limit_message(org: Organisation, limit: int, *, now: datetime | None = None) -> str:
@@ -138,6 +173,19 @@ def plan_limit_message(org: Organisation, limit: int, *, now: datetime | None = 
             "Upgrade in Account to add more."
         )
     return f"Your {label} plan includes up to {limit} members. Upgrade in Account to add more."
+
+
+def over_member_limit_message(db: Session, org: Organisation) -> str:
+    current = count_team_members(db, org.id)
+    limit = member_limit_for_org(org)
+    if limit is None:
+        return "Team member limit reached."
+    excess = max(0, current - limit)
+    return (
+        f"Your plan allows {limit} team member{'s' if limit != 1 else ''}, "
+        f"but this workspace has {current}. "
+        f"Remove {excess} member{'s' if excess != 1 else ''} in Team to restore full access."
+    )
 
 
 def can_add_team_members(
@@ -185,6 +233,7 @@ def team_limit_snapshot(db: Session, org: Organisation) -> dict:
     limit = member_limit_for_org(org)
     on_trial = is_on_trial(org)
     can_add = limit is None or current < limit
+    over_limit = limit is not None and current > limit
     return {
         "plan_tier": tier,
         "currency": (org.currency or "USD").strip().upper(),
@@ -195,6 +244,7 @@ def team_limit_snapshot(db: Session, org: Organisation) -> dict:
         "member_count": current,
         "member_limit": limit,
         "can_add_members": can_add,
+        "over_member_limit": over_limit,
         "limit_message": None
         if can_add or limit is None
         else plan_limit_message(org, limit),

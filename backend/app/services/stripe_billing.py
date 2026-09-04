@@ -545,6 +545,34 @@ def handle_subscription_deleted(db: Session, sub: Any) -> None:
     db.commit()
 
 
+def handle_invoice_payment_failed(db: Session, invoice: Any) -> None:
+    """Mark the org past_due when Stripe reports a failed invoice payment.
+
+    Does not wipe plan_tier or subscription id — recovery via payment update
+    should restore ``active`` through ``customer.subscription.updated``.
+    Missing customer/subscription refs are ignored (no-op).
+    """
+    sub_id = _get(invoice, "subscription")
+    org = None
+    if sub_id:
+        org = (
+            db.query(Organisation)
+            .filter(Organisation.stripe_subscription_id == sub_id)
+            .first()
+        )
+    if org is None:
+        org = _org_by_stripe_customer(db, _get(invoice, "customer"))
+    if org is None:
+        return
+
+    current = (org.subscription_status or "").strip().lower()
+    if current in ("canceled", "unpaid", "incomplete_expired"):
+        return
+    org.subscription_status = "past_due"
+    db.add(org)
+    db.commit()
+
+
 def account_snapshot(db: Session, org: Organisation) -> dict:
     limits = team_limit_snapshot(db, org)
     access = plan_access_snapshot(db, org)

@@ -17,6 +17,7 @@ from app.services.stripe_billing import (
     cancel_subscription_at_period_end,
     create_checkout_session,
     handle_checkout_completed,
+    handle_invoice_payment_failed,
     handle_subscription_deleted,
     handle_subscription_updated,
 )
@@ -108,5 +109,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         handle_subscription_updated(db, data_object)
     elif etype == "customer.subscription.deleted":
         handle_subscription_deleted(db, data_object)
+    elif etype == "invoice.payment_failed":
+        handle_invoice_payment_failed(db, data_object)
 
     return {"received": True}

@@ -82,7 +82,7 @@ def require_full_write_access(
     db: Session = Depends(get_db),
 ) -> User:
     org = get_user_organisation(db, current_user)
-    assert_full_write_access(org)
+    assert_full_write_access(org, db=db)
     return current_user
 
 
@@ -91,5 +91,5 @@ def require_admin_full_write_access(
     db: Session = Depends(get_db),
 ) -> User:
     org = get_user_organisation(db, current_user)
-    assert_full_write_access(org)
+    assert_full_write_access(org, db=db)
     return current_user
