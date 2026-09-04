@@ -572,6 +572,11 @@ button.dense-row__title:hover {
   font-size: 0.9rem;
 }
 
+.notice-line--urgent {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
 .notice-line a,
 .error-line a {
   color: var(--color-accent);

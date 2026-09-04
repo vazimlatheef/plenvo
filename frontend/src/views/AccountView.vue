@@ -37,6 +37,7 @@
         </p>
         <p v-else-if="account.restricted" class="warn-line trial-line--prominent">
           {{ account.restriction_message }}
+          <RouterLink v-if="account.over_member_limit" to="/app/team"> Open Team →</RouterLink>
         </p>
       </section>
 

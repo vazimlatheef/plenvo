@@ -2,7 +2,20 @@
   <div v-if="writeRestricted" class="plan-restriction-banner" role="status">
     <p class="plan-restriction-banner__text">
       {{ restrictionMessage }}
-      <RouterLink to="/app/account" class="plan-restriction-banner__link">Upgrade in Account →</RouterLink>
+      <RouterLink
+        v-if="overMemberLimit"
+        to="/app/team"
+        class="plan-restriction-banner__link"
+      >
+        Open Team →
+      </RouterLink>
+      <RouterLink
+        v-else
+        to="/app/account"
+        class="plan-restriction-banner__link"
+      >
+        Upgrade in Account →
+      </RouterLink>
     </p>
   </div>
 </template>
@@ -10,7 +23,7 @@
 <script setup>
 import { useWriteAccess } from '@/composables/useWriteAccess'
 
-const { writeRestricted, restrictionMessage } = useWriteAccess()
+const { writeRestricted, overMemberLimit, restrictionMessage } = useWriteAccess()
 </script>
 
 <style scoped>

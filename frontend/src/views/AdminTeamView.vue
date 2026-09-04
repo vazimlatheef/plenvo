@@ -18,7 +18,10 @@
       </button>
     </div>
 
-    <p v-if="!isPersonalPlan && teamLimits.limit_message && !canAddMembers" class="notice-line">
+    <p v-if="overMemberLimit" class="notice-line notice-line--urgent">
+      This workspace is over its plan seat limit. Remove extra members below to restore full access.
+    </p>
+    <p v-else-if="!isPersonalPlan && teamLimits.limit_message && !canAddMembers" class="notice-line">
       {{ teamLimits.limit_message }}
       <RouterLink to="/app/account">Upgrade →</RouterLink>
     </p>
@@ -114,8 +117,8 @@
               type="button"
               class="row-icon-btn row-icon-btn--danger"
               aria-label="Remove member"
-              :disabled="writeRestricted || deletingId === row.key"
-              :title="writeRestricted ? writeDisabledTitle : 'Remove from team'"
+              :disabled="deletingId === row.key"
+              title="Remove from team"
               @click="confirmDeleteMember(row)"
             >
               <Trash2 :size="14" :stroke-width="1.75" />
@@ -459,7 +462,7 @@ const teamSizeOptions = [
   { value: '20+', label: '20+' },
 ]
 
-const { writeRestricted, writeDisabledTitle } = useWriteAccess()
+const { writeRestricted, writeDisabledTitle, overMemberLimit, loadPlanAccess } = useWriteAccess()
 
 const contacts = ref([])
 const employees = ref([])
@@ -711,7 +714,8 @@ function canDeleteRow(row) {
 }
 
 async function confirmDeleteMember(row) {
-  if (writeRestricted.value || !canDeleteRow(row)) return
+  // Removals stay allowed while restricted / over capacity so admins can recover seats.
+  if (!canDeleteRow(row)) return
   const ok = window.confirm(
     `Remove ${row.name} from the team? Assigned tasks stay in the workspace, unassigned from this person.`,
   )
@@ -724,7 +728,7 @@ async function confirmDeleteMember(row) {
     } else if (row.userId) {
       await apiJson(`/api/v1/users/${row.userId}`, { method: 'DELETE' })
     }
-    await Promise.all([loadTeam(), loadTeamLimits()])
+    await Promise.all([loadTeam(), loadTeamLimits(), loadPlanAccess({ force: true })])
     actionSuccess.value = `Removed ${row.name}`
     setTimeout(() => {
       actionSuccess.value = ''

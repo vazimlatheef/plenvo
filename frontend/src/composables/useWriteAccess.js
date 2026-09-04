@@ -41,6 +41,7 @@ export function clearPlanAccess() {
 
 export function useWriteAccess() {
   const writeRestricted = computed(() => Boolean(accessState.value?.restricted))
+  const overMemberLimit = computed(() => Boolean(accessState.value?.over_member_limit))
   const restrictionMessage = computed(
     () => accessState.value?.restriction_message || DEFAULT_RESTRICTION_HINT,
   )
@@ -54,6 +55,7 @@ export function useWriteAccess() {
     accessState,
     loadingAccess,
     writeRestricted,
+    overMemberLimit,
     restrictionMessage,
     writeDisabledTitle,
     projectCount,
